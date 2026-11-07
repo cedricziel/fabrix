@@ -27,6 +27,13 @@ enum ProjectsState: Equatable {
     case unsupported
 }
 
+enum ProjectFilter: Hashable {
+    case all
+    case project(Project.ID)
+    /// Tasks that belong to no project.
+    case none
+}
+
 @MainActor
 @Observable
 public final class AppModel {
@@ -42,7 +49,16 @@ public final class AppModel {
 
     public private(set) var loadState: LoadState = .loading
     public private(set) var lastError: String?
-    private(set) var projectsState = ProjectsState.loading
+    private(set) var projectsState = ProjectsState.loading {
+        didSet {
+            if projectsState != oldValue {
+                projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            }
+        }
+    }
+
+    var taskProjectFilter = ProjectFilter.all
+    private var projectsByID: [Project.ID: Project] = [:]
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -449,6 +465,7 @@ public final class AppModel {
         snapshot = nil
         projectsState = .loading
         projectsUnsupported = false
+        taskProjectFilter = .all
         loadState = .loading
         lastError = nil
     }
@@ -485,6 +502,7 @@ public final class AppModel {
         snapshot = nil
         projectsState = .loading
         projectsUnsupported = false
+        taskProjectFilter = .all
         lastError = nil
         loadState = .loading
     }
@@ -567,6 +585,7 @@ public final class AppModel {
         guard let service, company.id != selectedCompanyID else { return }
         selectedCompanyID = company.id
         projectsState = .loading
+        taskProjectFilter = .all
         let request = beginRequest()
         do {
             let fresh = try await service.snapshot(companyID: company.id)
@@ -599,6 +618,12 @@ public final class AppModel {
 
     var supportsProjects: Bool {
         projectsState != .unsupported
+    }
+
+    /// The project a task card names, only while the board spans every project.
+    func chipProject(for task: WorkItem) -> Project? {
+        guard taskProjectFilter == .all else { return nil }
+        return task.projectID.flatMap { projectsByID[$0] }
     }
 
     func retryProjects() async {
@@ -816,7 +841,13 @@ public final class AppModel {
     }
 
     var visibleTasks: [WorkItem] {
-        let tasks = snapshot?.tasks ?? []
+        let tasks = (snapshot?.tasks ?? []).filter { task in
+            switch taskProjectFilter {
+            case .all: true
+            case let .project(id): task.projectID == id
+            case .none: task.projectID == nil
+            }
+        }
         guard let query = trimmedQuery else { return tasks }
         return tasks.filter { task in
             task.identifier.localizedStandardContains(query)

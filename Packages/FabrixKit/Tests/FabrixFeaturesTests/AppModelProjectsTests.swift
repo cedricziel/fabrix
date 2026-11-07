@@ -143,3 +143,52 @@ struct AppModelProjectsTests {
         #expect(model.projects.map(\.id) == ["orbit-site"])
     }
 }
+
+@MainActor
+struct TaskProjectFilterTests {
+    private func model() async -> AppModel {
+        let name = "TaskProjectFilterTests.\(UUID().uuidString)"
+        let connection = FactoryConnection(factory: FactoryConnection.demo().factory, service: ProjectsFactory())
+        let model = AppModel(connection: connection, defaults: UserDefaults(suiteName: name)!)
+        await model.refresh()
+        return model
+    }
+
+    @Test func filterByProject() async {
+        let model = await model()
+        model.taskProjectFilter = .project("mobile")
+        #expect(!model.visibleTasks.isEmpty)
+        #expect(model.visibleTasks.allSatisfy { $0.projectID == "mobile" })
+    }
+
+    @Test func filterNoProject() async {
+        let model = await model()
+        model.taskProjectFilter = .none
+        #expect(!model.visibleTasks.isEmpty)
+        #expect(model.visibleTasks.allSatisfy { $0.projectID == nil })
+    }
+
+    @Test func filterCombinesWithSearch() async {
+        let model = await model()
+        model.taskProjectFilter = .project("mobile")
+        model.searchText = "offline"
+        #expect(model.visibleTasks.map(\.identifier) == ["ATL-151"])
+    }
+
+    @Test func filterResetsOnCompanySwitch() async throws {
+        let model = await model()
+        model.taskProjectFilter = .project("mobile")
+        try await model.select(#require(model.companies.first { $0.id == "orbit" }))
+        #expect(model.taskProjectFilter == .all)
+    }
+
+    @Test func chipOnlyWhenUnfiltered() async throws {
+        let model = await model()
+        let task = try #require(model.snapshot?.tasks.first { $0.projectID == "mobile" })
+        let loose = try #require(model.snapshot?.tasks.first { $0.projectID == nil })
+        #expect(model.chipProject(for: task)?.name == "Mobile app")
+        #expect(model.chipProject(for: loose) == nil)
+        model.taskProjectFilter = .project("mobile")
+        #expect(model.chipProject(for: task) == nil)
+    }
+}

@@ -22,6 +22,82 @@ struct TasksView: View {
                     }
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) { ProjectFilterToken() }
+        .toolbar {
+            if model.supportsProjects, !model.projects.isEmpty {
+                ToolbarItem { ProjectFilterMenu() }
+            }
+        }
+    }
+}
+
+private struct ProjectFilterMenu: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Menu {
+            Picker("Project", selection: $model.taskProjectFilter) {
+                Text("All projects").tag(ProjectFilter.all)
+                ForEach(model.projects) { project in
+                    Text(project.name).tag(ProjectFilter.project(project.id))
+                }
+                Text("No project").tag(ProjectFilter.none)
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label("Project", systemImage: model.taskProjectFilter == .all
+                ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+        }
+        .help("Filter by project")
+    }
+}
+
+/// The active project filter, with a way to clear it and to open the project.
+private struct ProjectFilterToken: View {
+    @Environment(AppModel.self) private var model
+    @Environment(Navigator.self) private var navigator
+
+    var body: some View {
+        if model.taskProjectFilter != .all {
+            let project: Project? = if case let .project(id) = model.taskProjectFilter {
+                model.projects.first { $0.id == id }
+            } else {
+                nil
+            }
+            HStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    if let project {
+                        ProjectSwatch(colorHex: project.colorHex)
+                        Text(project.name)
+                    } else {
+                        Text("No project")
+                    }
+                    Button("Show all projects", systemImage: "xmark.circle.fill") {
+                        model.taskProjectFilter = .all
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Palette.steel)
+                    .frame(minWidth: 28, minHeight: 28)
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.leading, 12)
+                .padding(.trailing, 4)
+                .background(Palette.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(Palette.hairline))
+                Text("^[\(model.visibleTasks.count) task](inflect: true)").font(.caption).foregroundStyle(Palette.steel)
+                Spacer()
+                if let project {
+                    Button("Project details") { navigator.open(project: project.id) }
+                        .buttonStyle(.borderless)
+                        .font(.caption.weight(.medium))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(Palette.paper)
+        }
     }
 }
 
@@ -86,6 +162,7 @@ private struct TaskCard: View {
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+            TaskProjectChip(task: task)
             AssigneeLine(task: task)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,6 +205,7 @@ private struct TaskList: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(task.identifier).font(.caption.monospaced()).foregroundStyle(Palette.steel)
                                 Text(task.title).fontWeight(.semibold)
+                                TaskProjectChip(task: task)
                                 AssigneeLine(task: task)
                             }
                             .padding(.vertical, 4)
@@ -217,5 +295,16 @@ private struct TaskDetailContent: View {
 extension AppModel {
     func task(_ id: WorkItem.ID) -> WorkItem? {
         snapshot?.tasks.first { $0.id == id }
+    }
+}
+
+private struct TaskProjectChip: View {
+    @Environment(AppModel.self) private var model
+    let task: WorkItem
+
+    var body: some View {
+        if let project = model.chipProject(for: task) {
+            ProjectChip(name: project.name, colorHex: project.colorHex)
+        }
     }
 }
