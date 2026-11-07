@@ -7,6 +7,9 @@ import Observation
 @Observable
 public final class FactoryStore {
     public private(set) var factories: [Factory]
+    /// Changes whenever a factory is saved, reconnected or removed, even when its record looks
+    /// the same, so open windows can pick up new credentials.
+    public private(set) var revision = 0
 
     @ObservationIgnored private var authConfigurations: [Factory.ID: FactoryAuthConfiguration]
     @ObservationIgnored private var headerNames: [Factory.ID: [String]]
@@ -262,6 +265,7 @@ public final class FactoryStore {
     }
 
     private func save() {
+        revision += 1
         let stored = factories.map { StoredFactory(factory: $0, auth: auth(for: $0), headerNames: headerNames[$0.id]) }
         defaults.set(try? JSONEncoder().encode(stored), forKey: Self.defaultsKey)
     }
