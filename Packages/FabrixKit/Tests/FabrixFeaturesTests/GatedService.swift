@@ -9,6 +9,7 @@ actor GatedService: FactoryService {
     private var held: CheckedContinuation<Void, Never>?
     private var heldWaiters: [CheckedContinuation<Void, Never>] = []
     private let failingDecisions: Set<Approval.ID>
+    private var failingSnapshots = false
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
         self.inner = inner
@@ -16,6 +17,7 @@ actor GatedService: FactoryService {
     }
 
     func holdNextSnapshot() { holdNext = true }
+    func failSnapshots(_ failing: Bool) { failingSnapshots = failing }
 
     /// Returns once a snapshot response is being held.
     func waitUntilHolding() async {
@@ -31,6 +33,7 @@ actor GatedService: FactoryService {
     func companies() async throws -> [Company] { try await inner.companies() }
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
+        if failingSnapshots { throw URLError(.notConnectedToInternet) }
         let snapshot = try await inner.snapshot(companyID: companyID)
         if holdNext {
             holdNext = false

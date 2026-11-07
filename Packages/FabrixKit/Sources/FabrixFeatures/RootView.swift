@@ -22,11 +22,14 @@ public struct RootView: View {
                 case .loading:
                     ProgressView()
                 case .loaded:
-                    if isCompact {
-                        CompactShell()
-                    } else {
-                        SplitShell()
+                    Group {
+                        if isCompact {
+                            CompactShell()
+                        } else {
+                            SplitShell()
+                        }
                     }
+                    .safeAreaInset(edge: .top) { ErrorBanner() }
                 case .empty:
                     ContentUnavailableView {
                         Label("No companies yet", systemImage: "building.2")

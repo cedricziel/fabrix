@@ -120,6 +120,25 @@ struct AppModelTests {
         #expect(model.agent("cto")?.status == .paused)
     }
 
+    @Test func failedRefreshKeepsDataAndShowsADismissibleError() async {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+
+        await service.failSnapshots(true)
+        await model.refresh()
+        #expect(model.loadState == .loaded)
+        #expect(model.snapshot?.company.name == "Atlas")
+        #expect(model.lastError != nil)
+
+        model.dismissError()
+        #expect(model.lastError == nil)
+
+        await service.failSnapshots(false)
+        await model.refresh()
+        #expect(model.lastError == nil)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)

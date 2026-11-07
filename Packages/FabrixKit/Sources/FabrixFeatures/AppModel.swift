@@ -91,6 +91,10 @@ public final class AppModel {
         }
     }
 
+    public func dismissError() {
+        lastError = nil
+    }
+
     public func disconnect() {
         defaults.removeObject(forKey: Self.demoKey)
         generation += 1
