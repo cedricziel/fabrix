@@ -64,6 +64,11 @@ Telemetry SHALL NOT contain a Paperclip factory's name or host, any URL's query,
 - **WHEN** a factory name or host known to the app appears in a log body, span name, status message or attribute, for example in a TLS error
 - **THEN** it is replaced by its token before export
 
+#### Scenario: Custom header value in telemetry
+
+- **WHEN** the value of a custom header saved with a factory, such as a proxy token, appears in an attribute, log body or status message
+- **THEN** it is replaced by its token before export
+
 #### Scenario: Factories added at runtime
 
 - **WHEN** the user adds a factory after launch
