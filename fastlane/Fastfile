@@ -151,6 +151,33 @@ lane :sync_beta_info do |options|
   UI.success("Updated the TestFlight test information")
 end
 
+desc "Set What to Test on an uploaded build without rebuilding"
+desc "  platform:ios|mac  version:<x.y.z> (default: project.yml)  build_number:<n> (default: the latest build)"
+desc "  FABRIX_CHANGELOG overrides the text"
+lane :set_whats_new do |options|
+  t = TARGETS.fetch(options[:platform].to_s == "mac" ? :mac : :ios)
+  load_app_store_connect_api_key
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
+  version = marketing_version(options)
+  build_number = options[:build_number].to_s.strip
+  build = Spaceship::ConnectAPI::Build.all(
+    app_id: app.id,
+    version: version,
+    build_number: build_number.empty? ? nil : build_number,
+    platform: t[:review_platform]
+  ).first || UI.user_error!("No #{t[:review_platform]} build #{version} (#{build_number.empty? ? "latest" : build_number}) found")
+
+  text = testflight_changelog(version)
+  UI.user_error!("No changelog text for #{version}") if text.empty?
+  localization = build.get_beta_build_localizations.find { |l| l.locale == "en-US" }
+  if localization
+    Spaceship::ConnectAPI.patch_beta_build_localizations(localization_id: localization.id, attributes: { whatsNew: text })
+  else
+    Spaceship::ConnectAPI.post_beta_build_localizations(build_id: build.id, attributes: { locale: "en-US", whatsNew: text })
+  end
+  UI.success("Set What to Test on #{t[:review_platform]} #{version} (build #{build.version})")
+end
+
 desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
 lane :bootstrap_signing do |options|
   api_key = load_app_store_connect_api_key
