@@ -21,8 +21,54 @@ struct NavigatorTests {
     }
 
     @Test func factoryTabOffersTheSectionsWithoutATab() {
-        #expect(CompactTab.factory.nestedSections == [.orgChart, .activity])
+        #expect(CompactTab.factory.nestedSections == [.projects, .orgChart, .activity])
         #expect(CompactTab.tasks.nestedSections.isEmpty)
+    }
+
+    @Test func regularLayoutShowsAPickedProjectInPlaceOfTheSection() {
+        let navigator = Navigator()
+        navigator.path.append("fe")
+        navigator.open(project: "mobile")
+        #expect(navigator.section == .projects)
+        #expect(navigator.project == "mobile")
+        #expect(navigator.path.isEmpty)
+
+        navigator.open(.tasks)
+        #expect(navigator.project == nil)
+    }
+
+    @Test func companySwitchLeavesTheProject() {
+        let navigator = Navigator()
+        navigator.open(project: "mobile")
+        navigator.resetPaths()
+        #expect(navigator.project == nil)
+        #expect(navigator.section == .projects)
+    }
+
+    @Test func factoryWithoutProjectsLeavesThem() {
+        let navigator = Navigator()
+        navigator.open(.projects)
+        navigator.leaveProjects()
+        #expect(navigator.section == .overview)
+
+        navigator.open(project: "mobile")
+        navigator.leaveProjects()
+        #expect(navigator.project == nil)
+        #expect(navigator.section == .overview)
+
+        navigator.open(.approvals)
+        navigator.leaveProjects()
+        #expect(navigator.section == .approvals)
+    }
+
+    @Test func compactProjectsOpenInFactoryTab() {
+        let navigator = Navigator()
+        navigator.isCompact = true
+        navigator.tab = .tasks
+        navigator.open(.projects)
+        navigator.open(project: "mobile")
+        #expect(navigator.tab == .factory)
+        #expect(navigator.tabPaths[.factory]?.count == 2)
     }
 
     @Test func compactLayoutPushesSectionsWithoutATabOntoFactory() {

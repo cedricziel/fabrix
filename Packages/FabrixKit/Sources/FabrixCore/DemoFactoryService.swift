@@ -9,6 +9,7 @@ public actor DemoFactoryService: FactoryService {
     private var approvals: [Approval]
     private var runs: [Run]
     private var activity: [ActivityEvent]
+    private var projects: [Project]
 
     public init(now: Date = .now) {
         let minute: TimeInterval = 60
@@ -23,14 +24,14 @@ public actor DemoFactoryService: FactoryService {
             Agent(id: "writer", name: "Content Writer", role: "Content", status: .paused, reportsToID: "cmo", adapter: "claude-code", budgetMonthlyCents: 4000, spentMonthlyCents: 0),
         ]
         tasks = [
-            WorkItem(id: "t142", identifier: "ATL-142", title: "Split sync worker into queue consumers", status: .inProgress, assigneeID: "cto"),
-            WorkItem(id: "t151", identifier: "ATL-151", title: "Offline cache for task list", status: .inProgress, assigneeID: "fe"),
-            WorkItem(id: "t139", identifier: "ATL-139", title: "Regression pass on onboarding", status: .inProgress, assigneeID: "qa"),
-            WorkItem(id: "t120", identifier: "ATL-120", title: "Draft launch announcement", status: .inProgress, assigneeID: "cmo"),
-            WorkItem(id: "t147", identifier: "ATL-147", title: "Connect crash reporting", status: .blocked, assigneeID: "fe"),
-            WorkItem(id: "t152", identifier: "ATL-152", title: "Rate-limit public API", status: .todo, assigneeID: "fe"),
-            WorkItem(id: "t148", identifier: "ATL-148", title: "Pricing page copy", status: .inReview, assigneeID: "cmo"),
-            WorkItem(id: "t133", identifier: "ATL-133", title: "Fix flaky login test", status: .done, assigneeID: "qa"),
+            WorkItem(id: "t142", identifier: "ATL-142", title: "Split sync worker into queue consumers", status: .inProgress, assigneeID: "cto", projectID: "platform"),
+            WorkItem(id: "t151", identifier: "ATL-151", title: "Offline cache for task list", status: .inProgress, assigneeID: "fe", projectID: "mobile"),
+            WorkItem(id: "t139", identifier: "ATL-139", title: "Regression pass on onboarding", status: .inProgress, assigneeID: "qa", projectID: "mobile"),
+            WorkItem(id: "t120", identifier: "ATL-120", title: "Draft launch announcement", status: .inProgress, assigneeID: "cmo", projectID: "launch"),
+            WorkItem(id: "t147", identifier: "ATL-147", title: "Connect crash reporting", status: .blocked, assigneeID: "fe", projectID: "mobile"),
+            WorkItem(id: "t152", identifier: "ATL-152", title: "Rate-limit public API", status: .todo, assigneeID: "fe", projectID: "platform"),
+            WorkItem(id: "t148", identifier: "ATL-148", title: "Pricing page copy", status: .inReview, assigneeID: "cmo", projectID: "launch"),
+            WorkItem(id: "t133", identifier: "ATL-133", title: "Fix flaky login test", status: .done, assigneeID: "qa", projectID: "mobile"),
             WorkItem(id: "t160", identifier: "ATL-160", title: "Evaluate push provider", status: .backlog),
         ]
         approvals = [
@@ -47,10 +48,36 @@ public actor DemoFactoryService: FactoryService {
             Run(id: "r6", agentID: "fe", taskIdentifier: "ATL-147", title: "Connect crash reporting", adapter: "claude-code", startedAt: now - 50 * minute, finishedAt: now - 47 * minute, costCents: 110, summary: "blocked, needs key"),
         ]
         activity = [
-            ActivityEvent(id: "e1", at: now - 2 * minute, actor: "QA Engineer", summary: "moved ATL-133 to Done"),
-            ActivityEvent(id: "e2", at: now - 14 * minute, actor: "CTO", summary: "opened ATL-152 and assigned it to Founding Engineer"),
+            ActivityEvent(id: "e1", at: now - 2 * minute, actor: "QA Engineer", summary: "moved ATL-133 to Done", taskID: "t133"),
+            ActivityEvent(id: "e2", at: now - 14 * minute, actor: "CTO", summary: "opened ATL-152 and assigned it to Founding Engineer", taskID: "t152"),
             ActivityEvent(id: "e3", at: now - 29 * minute, actor: "CEO", summary: "requested approval to hire a Designer"),
-            ActivityEvent(id: "e4", at: now - 46 * minute, actor: "Founding Engineer", summary: "blocked ATL-147: needs API key from board"),
+            ActivityEvent(id: "e4", at: now - 46 * minute, actor: "Founding Engineer", summary: "blocked ATL-147: needs API key from board", taskID: "t147"),
+            ActivityEvent(id: "e5", at: now - 3 * 60 * minute, actor: "CTO", summary: "linked atlas/design-tokens to Mobile app", projectID: "mobile"),
+        ]
+        projects = [
+            Project(
+                id: "mobile", name: "Mobile app", summary: "iOS and Android client for the Atlas board: approvals, task triage and offline reading.",
+                status: .inProgress, leadAgentID: "cto", targetDate: DateComponents(year: 2026, month: 12, day: 15), colorHex: "#0F766E",
+                goals: ["Ship v1 of the Atlas mobile app"],
+                repositories: [
+                    ProjectRepository(id: "mobile-repo", kind: .git, name: "atlas/mobile", url: URL(string: "https://github.com/atlas/mobile"), ref: "main", isPrimary: true),
+                    ProjectRepository(id: "tokens-repo", kind: .git, name: "atlas/design-tokens", url: URL(string: "https://github.com/atlas/design-tokens"), ref: "main"),
+                ]
+            ),
+            Project(
+                id: "platform", name: "Platform", summary: "Sync and heartbeat reliability.", status: .inProgress, leadAgentID: "fe",
+                colorHex: "#7C3AED", goals: ["Sync and heartbeat reliability"],
+                repositories: [ProjectRepository(id: "api-repo", kind: .git, name: "atlas/api", url: URL(string: "https://github.com/atlas/api"), ref: "main", isPrimary: true)]
+            ),
+            Project(
+                id: "launch", name: "Launch", summary: "Public launch in January.", status: .planned, leadAgentID: "cmo",
+                targetDate: DateComponents(year: 2027, month: 1, day: 20), colorHex: "#BE185D", goals: ["Public launch in January"]
+            ),
+            Project(id: "billing", name: "Billing", status: .backlog),
+            Project(
+                id: "onboarding", name: "Onboarding v0", summary: "First-run experience.", status: .completed, leadAgentID: "qa",
+                colorHex: "#4D7C0F", goals: ["First-run experience"]
+            ),
         ]
     }
 
@@ -63,6 +90,10 @@ public actor DemoFactoryService: FactoryService {
             company: company, agents: agents, tasks: tasks, approvals: approvals, runs: runs, activity: activity,
             spentMonthlyCents: agents.reduce(0) { $0 + $1.spentMonthlyCents }, budgetMonthlyCents: 100_000
         )
+    }
+
+    public func projects(companyID _: Company.ID) async throws -> [Project] {
+        projects
     }
 
     public func decide(approvalID: Approval.ID, approve: Bool) async throws {

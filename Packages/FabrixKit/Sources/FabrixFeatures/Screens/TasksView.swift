@@ -22,6 +22,69 @@ struct TasksView: View {
                     }
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) { ProjectFilterToken() }
+        .toolbar {
+            if model.supportsProjects, !model.projects.isEmpty {
+                ToolbarItem { ProjectFilterMenu() }
+            }
+        }
+    }
+}
+
+private struct ProjectFilterMenu: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        Menu {
+            Picker(.features("Project"), selection: $model.taskProjectFilter) {
+                Text("All projects", bundle: .module).tag(ProjectFilter.all)
+                ForEach(model.projects) { project in
+                    Text(project.name).tag(ProjectFilter.project(project.id))
+                }
+                Text("No project", bundle: .module).tag(ProjectFilter.none)
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label(.features("Project"), systemImage: model.taskProjectFilter == .all
+                ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+        }
+        .help(.features("Filter by project"))
+    }
+}
+
+/// The active project filter, with a way to clear it and to open the project.
+private struct ProjectFilterToken: View {
+    @Environment(AppModel.self) private var model
+    @Environment(Navigator.self) private var navigator
+
+    var body: some View {
+        if model.taskProjectFilter != .all {
+            let project: Project? = if case let .project(id) = model.taskProjectFilter {
+                model.projects.first { $0.id == id }
+            } else {
+                nil
+            }
+            HStack(spacing: 10) {
+                FilterChip(
+                    project?.name ?? String(localized: "No project", bundle: .module),
+                    clearLabel: String(localized: "Show all projects", bundle: .module),
+                    onClear: { model.taskProjectFilter = .all }
+                ) {
+                    if let project { ProjectSwatch(colorHex: project.colorHex) }
+                }
+                Text("^[\(model.visibleTasks.count) task](inflect: true)", bundle: .module).font(.caption).foregroundStyle(Palette.steel)
+                Spacer()
+                if let project {
+                    Button(.features("Project details")) { navigator.open(project: project.id) }
+                        .buttonStyle(.borderless)
+                        .font(.caption.weight(.medium))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(Palette.paper)
+        }
     }
 }
 
@@ -86,6 +149,7 @@ private struct TaskCard: View {
                 .font(.subheadline.weight(.semibold))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
+            TaskProjectChip(task: task)
             AssigneeLine(task: task)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,6 +192,7 @@ private struct TaskList: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(task.identifier).font(.caption.monospaced()).foregroundStyle(Palette.steel)
                                 Text(task.title).fontWeight(.semibold)
+                                TaskProjectChip(task: task)
                                 AssigneeLine(task: task)
                             }
                             .padding(.vertical, 4)
@@ -217,5 +282,16 @@ private struct TaskDetailContent: View {
 extension AppModel {
     func task(_ id: WorkItem.ID) -> WorkItem? {
         snapshot?.tasks.first { $0.id == id }
+    }
+}
+
+private struct TaskProjectChip: View {
+    @Environment(AppModel.self) private var model
+    let task: WorkItem
+
+    var body: some View {
+        if let project = model.chipProject(for: task) {
+            ProjectChip(name: project.name, colorHex: project.colorHex)
+        }
     }
 }

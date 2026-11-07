@@ -1,6 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    " · %lld done" : {
+
+    },
+    "%lld blocked" : {
+
+    },
+    "%lld open · " : {
+
+    },
+    "Backlog" : {
+
+    },
     "Blocked" : {
 
     },
@@ -8,6 +20,12 @@
 
     },
     "Budget used" : {
+
+    },
+    "Cancelled" : {
+
+    },
+    "Completed" : {
 
     },
     "Done" : {
@@ -19,10 +37,22 @@
     "Idle" : {
 
     },
+    "In progress" : {
+
+    },
     "Needs you" : {
 
     },
+    "Other" : {
+
+    },
     "Paused" : {
+
+    },
+    "Planned" : {
+
+    },
+    "Project %@" : {
 
     },
     "Running" : {

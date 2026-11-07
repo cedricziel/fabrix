@@ -25,7 +25,8 @@ public struct PaperclipFactoryService: FactoryService {
         async let activityDTOs: [ActivityDTO] = client.get("\(base)/activity", query: ["limit": "50"])
 
         let company = try await companyDTO
-        let agents = try await agentDTOs.filter { $0.status != "terminated" }.map(Agent.init(paperclip:))
+        let allAgents = try await agentDTOs
+        let agents = allAgents.filter { $0.status != "terminated" }.map(Agent.init(paperclip:))
         let tasks = try await issueDTOs.map(WorkItem.init(paperclip:))
         let agentsByID = Dictionary(agents.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let tasksByID = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -38,7 +39,8 @@ public struct PaperclipFactoryService: FactoryService {
             runs: runDTOs.map { Run(paperclip: $0, issues: tasksByID, agents: agentsByID) },
             activity: activityDTOs.map { ActivityEvent(paperclip: $0, issues: tasksByID, agents: agentsByID) },
             spentMonthlyCents: company.spentMonthlyCents ?? 0,
-            budgetMonthlyCents: positiveCents(company.budgetMonthlyCents)
+            budgetMonthlyCents: positiveCents(company.budgetMonthlyCents),
+            formerAgentIDs: Set(allAgents.filter { $0.status == "terminated" }.map(\.id))
         )
     }
 
@@ -53,6 +55,15 @@ public struct PaperclipFactoryService: FactoryService {
 
     public func credentialExpiry() async throws -> Date? {
         try await client.boardKeyExpiry()
+    }
+
+    public func projects(companyID: Company.ID) async throws -> [Project] {
+        do {
+            let rows: [Lenient<ProjectDTO>] = try await client.get("companies/\(companyID)/projects")
+            return rows.compactMap(\.value).map(Project.init(paperclip:)).filter { !$0.isArchived }
+        } catch PaperclipError.notFound {
+            throw FactoryServiceError.unsupported
+        }
     }
 
     public func decide(approvalID: Approval.ID, approve: Bool) async throws {

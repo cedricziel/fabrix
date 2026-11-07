@@ -87,4 +87,22 @@ struct SandboxContractTests {
         #expect(try store.customHeaders(for: factory) == headers)
         #expect(try await store.service(for: factory).companies().contains { $0.id == sandbox.companyID })
     }
+
+    @Test func projects() async throws {
+        let factory = try await store.connect(url: sandbox.url, credential: sandbox.key)
+        let service = try store.service(for: factory)
+
+        let projects = try await service.projects(companyID: sandbox.companyID)
+        #expect(projects.map(\.name) == ["Mobile app"])
+        let mobile = try #require(projects.first)
+        #expect(mobile.status == .inProgress)
+        #expect(mobile.targetDate == DateComponents(year: 2026, month: 12, day: 15))
+        #expect(mobile.colorHex == "#0F766E")
+        #expect(mobile.repositories.map(\.name) == ["atlas/mobile"])
+        #expect(mobile.repositories.first?.kind == .git)
+
+        let snapshot = try await service.snapshot(companyID: sandbox.companyID)
+        #expect(mobile.leadAgentID == snapshot.agents.first { $0.name == "CTO" }?.id)
+        #expect(snapshot.tasks.first { $0.title == "Offline cache for task list" }?.projectID == mobile.id)
+    }
 }

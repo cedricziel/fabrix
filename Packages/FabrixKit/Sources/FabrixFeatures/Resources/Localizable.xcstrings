@@ -23,6 +23,9 @@
     "%@ used" : {
 
     },
+    "%lld" : {
+
+    },
     "%lld blocked" : {
 
     },
@@ -32,10 +35,26 @@
     "%lld in review" : {
 
     },
+    "%lld open" : {
+
+    },
+    "%lld open · %lld blocked" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld open · %2$lld blocked"
+          }
+        }
+      }
+    },
     "%lld paused" : {
 
     },
     "A control room for your Paperclip factories. Agents report, you decide." : {
+
+    },
+    "Active · %lld" : {
 
     },
     "Activity" : {
@@ -77,6 +96,9 @@
     "All clear" : {
 
     },
+    "All projects" : {
+
+    },
     "Approvals" : {
 
     },
@@ -99,6 +121,9 @@
 
     },
     "Back" : {
+
+    },
+    "Back to projects" : {
 
     },
     "Backlog" : {
@@ -129,6 +154,9 @@
 
     },
     "Company spend · %@" : {
+
+    },
+    "Completed · %lld" : {
 
     },
     "Confirm approvals with %@" : {
@@ -168,6 +196,12 @@
 
     },
     "Decided · %lld" : {
+
+    },
+    "Didn't load · Retry" : {
+
+    },
+    "Didn't refresh · Retry" : {
 
     },
     "Dismiss" : {
@@ -215,6 +249,12 @@
     "Factory address" : {
 
     },
+    "Filter by project" : {
+
+    },
+    "Former agent" : {
+
+    },
     "Header name" : {
 
     },
@@ -230,7 +270,22 @@
     "In review" : {
 
     },
+    "It was deleted, archived or made private in Paperclip." : {
+
+    },
+    "Lead %@" : {
+
+    },
+    "Lead outside this company" : {
+
+    },
     "Live runs" : {
+
+    },
+    "Loading projects" : {
+
+    },
+    "Loading projects…" : {
 
     },
     "Lock" : {
@@ -260,6 +315,9 @@
     "New task" : {
 
     },
+    "No active projects." : {
+
+    },
     "No activity yet." : {
 
     },
@@ -272,6 +330,9 @@
     "No company cap" : {
 
     },
+    "No completed projects" : {
+
+    },
     "No decisions yet" : {
 
     },
@@ -281,7 +342,25 @@
     "No finished runs yet." : {
 
     },
+    "No lead" : {
+
+    },
     "No monthly cap" : {
+
+    },
+    "No project" : {
+
+    },
+    "No projects in %@" : {
+
+    },
+    "No projects yet. Create one in Paperclip." : {
+
+    },
+    "No repository linked. Link one in Paperclip." : {
+
+    },
+    "No tasks in this project yet." : {
 
     },
     "Not Now" : {
@@ -335,6 +414,30 @@
     "Pending hires" : {
 
     },
+    "Primary" : {
+
+    },
+    "Project" : {
+
+    },
+    "Project details" : {
+
+    },
+    "Projects" : {
+
+    },
+    "Projects didn't load" : {
+
+    },
+    "Projects didn't refresh" : {
+
+    },
+    "Projects didn't refresh: %@" : {
+
+    },
+    "Projects group tasks and repositories. Create one in Paperclip and it shows up here on the next refresh." : {
+
+    },
     "Recent runs" : {
 
     },
@@ -356,10 +459,16 @@
     "Remove header" : {
 
     },
+    "Repositories" : {
+
+    },
     "Resume company" : {
 
     },
     "Resume every agent in %@" : {
+
+    },
+    "Retry" : {
 
     },
     "Running for" : {
@@ -374,6 +483,9 @@
     "Security" : {
 
     },
+    "See all %lld" : {
+
+    },
     "Sent with every request to this factory, e.g. a proxy access token." : {
 
     },
@@ -384,6 +496,9 @@
 
     },
     "Show" : {
+
+    },
+    "Show all projects" : {
 
     },
     "Sign in again" : {
@@ -426,6 +541,9 @@
 
     },
     "This factory no longer accepts Fabrix's key." : {
+
+    },
+    "This project is gone" : {
 
     },
     "Title" : {
@@ -492,6 +610,15 @@
 
     },
     "Your decision wasn't sent: %@" : {
+
+    },
+    "^[%lld older task](inflect: true) not loaded, so not counted" : {
+
+    },
+    "^[%lld repository](inflect: true)" : {
+
+    },
+    "^[%lld task](inflect: true)" : {
 
     },
     "from %@" : {
