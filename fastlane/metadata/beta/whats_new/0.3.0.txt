@@ -1,0 +1,15 @@
+New in 0.3.0
+
+- Sign in with your browser: approve Fabrix on your Paperclip server, no API key to copy. When a key is about to expire, Fabrix asks you to sign in again.
+- Single sign-on reuses your browser's login, so an identity provider you're already signed in to takes one click.
+- Switch companies and factories from the title menu. On Mac, the Factory menu has Cmd-1 to Cmd-9.
+- Custom request headers under Advanced, for example a reverse proxy's access token.
+- Decisions still in their undo window are sent before you switch factories, quit or remove one. Sending can fail, so after switching, check that the approval arrived on the factory you left.
+- Anonymous diagnostics help us find crashes and slow requests. Server names, addresses and tokens are hashed on your device; see the privacy policy.
+
+Please test
+- Signing in with the browser, cancelling it, and letting it expire.
+- Switching between factories and companies with an approval still in its undo window.
+- A factory behind a proxy that needs a custom header.
+
+No account is needed: "Explore the demo" shows sample data.
