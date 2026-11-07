@@ -133,4 +133,14 @@ struct FactoryStoreTests {
         await #expect(throws: expected) { try await store.completeSignIn(challenge) }
         #expect(store.factories.isEmpty)
     }
+
+    @Test func refusesBoardKeyOverRemoteHTTP() async throws {
+        let store = FactoryStore(defaults: defaults, credentials: credentials, session: StubURLProtocol.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) {
+            try await store.connect(url: URL(string: "http://paperclip.example.com")!, credential: "pcp_board_secret")
+        }
+        #expect(store.factories.isEmpty)
+        #expect(credentials.isEmpty)
+    }
 }
