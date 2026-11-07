@@ -45,6 +45,22 @@ struct ApprovalDeskTests {
         #expect(desk.decided(approvals).first?.canUndo == false)
     }
 
+    @Test func sentDecisionsSettleOnceTheFactoryShowsThem() {
+        var desk = ApprovalDesk()
+        desk.stage("h1", approve: true)
+        desk.stage("s1", approve: false)
+        _ = desk.beginCommit("h1")
+
+        desk.settle(with: approvals)
+        #expect(desk.decided(approvals).map(\.id) == ["h1", "s1", "old"])
+
+        var decided = approvals
+        decided[0].state = .approved
+        desk.settle(with: decided)
+        #expect(desk.decided(decided).map(\.canUndo) == [false, true, false])
+        #expect(desk.stagedIDs == ["s1"])
+    }
+
     @Test func finishingACommitDefersToServerState() {
         var desk = ApprovalDesk()
         desk.stage("h1", approve: true)

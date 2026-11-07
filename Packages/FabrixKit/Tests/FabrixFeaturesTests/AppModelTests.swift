@@ -174,6 +174,48 @@ struct AppModelTests {
         #expect(model.loadState == .loaded)
     }
 
+    @Test func failedCompanySwitchCanBeRetried() async throws {
+        let service = GatedService(TwoCompanyFactory())
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let orbit = try #require(model.companies.first { $0.name == "Orbit" })
+
+        await service.failSnapshots(true)
+        await model.select(orbit)
+        #expect(model.snapshot?.company.name == "Atlas")
+        #expect(model.lastError != nil)
+
+        await service.failSnapshots(false)
+        await model.select(orbit)
+        #expect(model.snapshot?.company.name == "Orbit")
+    }
+
+    @Test func keepFreshReloadsRightAwayWhenDataIsStale() async {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let before = await service.snapshotCalls
+
+        let polling = Task { await model.keepFresh(every: .seconds(60), staleAfter: .zero) }
+        defer { polling.cancel() }
+        for _ in 0 ..< 1000 where await service.snapshotCalls == before {
+            await Task.yield()
+        }
+        #expect(await service.snapshotCalls > before)
+    }
+
+    @Test func keepFreshWaitsWhenDataIsRecent() async {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let before = await service.snapshotCalls
+
+        let polling = Task { await model.keepFresh(every: .seconds(60)) }
+        for _ in 0 ..< 200 { await Task.yield() }
+        polling.cancel()
+        #expect(await service.snapshotCalls == before)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)
