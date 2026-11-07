@@ -30,8 +30,12 @@ public enum FactoryAuth: Hashable, Sendable {
 /// Without one the form stays visible but disabled.
 @MainActor
 public protocol FactoryConnector: AnyObject {
-    /// - Parameter webAuthenticator: Shows the identity provider's login page for OIDC.
-    func connect(baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?) async throws -> FactoryConnection
+    /// - Parameters:
+    ///   - headers: Extra headers for every request to the factory, such as a proxy access token.
+    ///   - webAuthenticator: Shows the identity provider's login page for OIDC.
+    func connect(
+        baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
+    ) async throws -> FactoryConnection
 
     /// A saved factory from an earlier launch, or nil if it is gone.
     func restore(factoryID: Factory.ID) -> FactoryConnection?
@@ -49,6 +53,16 @@ struct ConnectForm: Equatable {
         var usesOIDC: Bool { self != .paperclip }
     }
 
+    struct HeaderRow: Identifiable, Equatable {
+        let id = UUID()
+        var name = ""
+        var value = ""
+
+        var isBlank: Bool {
+            name.trimmingCharacters(in: .whitespaces).isEmpty && value.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+    }
+
     enum Problem: Error, Equatable {
         case address, apiKey, issuer, clientID
     }
@@ -58,18 +72,21 @@ struct ConnectForm: Equatable {
     var apiKey = ""
     var issuer = ""
     var clientID = ""
+    /// Checked by FabrixCore when connecting; the form only drops empty rows.
+    var headers: [HeaderRow] = []
 
-    func validated() throws(Problem) -> (baseURL: URL, auth: FactoryAuth) {
+    func validated() throws(Problem) -> (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader]) {
         guard let baseURL = Self.url(from: address) else { throw .address }
+        let headers = headers.filter { !$0.isBlank }.map { CustomHeader(name: $0.name, value: $0.value) }
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         if method.usesAPIKey, key.isEmpty { throw .apiKey }
-        guard method.usesOIDC else { return (baseURL, .paperclip(apiKey: key)) }
+        guard method.usesOIDC else { return (baseURL, .paperclip(apiKey: key), headers) }
         guard let issuerURL = Self.url(from: issuer) else { throw .issuer }
         let client = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !client.isEmpty else { throw .clientID }
         return method == .oidc
-            ? (baseURL, .oidc(issuer: issuerURL, clientID: client))
-            : (baseURL, .oidcWithPaperclip(issuer: issuerURL, clientID: client, apiKey: key))
+            ? (baseURL, .oidc(issuer: issuerURL, clientID: client), headers)
+            : (baseURL, .oidcWithPaperclip(issuer: issuerURL, clientID: client, apiKey: key), headers)
     }
 
     static func url(from input: String) -> URL? {

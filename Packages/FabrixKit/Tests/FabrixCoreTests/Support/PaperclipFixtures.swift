@@ -1,6 +1,9 @@
+@testable import FabrixCore
 /// Response bodies shaped after Paperclip's shared types
 /// (packages/shared/src/types/{company,agent,issue,approval,heartbeat,activity}.ts).
 enum PaperclipFixtures {
+    static let proxyHeader = [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]
+
     static let companyID = "5f1c3c52-8d7b-4b8e-9a51-0b8f0f6f1a01"
 
     static let company = """

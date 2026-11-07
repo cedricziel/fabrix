@@ -1,0 +1,12 @@
+## 1. FabrixCore: custom headers (PR: headers/core)
+
+- [x] 1.1 `CustomHeader` and `CustomHeader.validated(_:for:)` (`Connections/CustomHeader.swift`); tests `CustomHeaderTests` (reserved, clashing, duplicate, invalid and multi-line names)
+- [x] 1.2 `CustomHeadersAuth` provider layer (`Auth/AuthProvider.swift`); tests `customHeadersAreAddedToRequests`, `customHeadersAreRefusedOverRemoteHTTP`, `customHeadersDoNotFollowRedirectsToAnotherOrigin` in `PaperclipClientTests`
+- [x] 1.3 Store names in the factory record, values in the Keychain, send them on connect, sign-in and restored services (`Connections/FactoryStore.swift`, `Paperclip/PaperclipClient.swift`); tests in `FactoryStoreTests`: `customHeadersAreSentAndStoredInTheKeychain`, `customHeadersSurviveRelaunch`, `removeDeletesCustomHeaderValues`, `customHeadersAreNotSentToTheIdentityProvider`, `browserSignInSendsCustomHeaders`, `oldRecordsDecodeWithoutHeaderNames`, `invalidCustomHeadersAreRefusedBeforeAnyRequest`, `customHeadersAreRefusedOverRemoteHTTP`
+
+## 2. FabrixFeatures: connect form (PR: headers/ui)
+
+- [x] 2.1 Header rows in `ConnectForm` and the `headers` parameter on `FactoryConnector` and `StoreConnector` (`Logic/Connecting.swift`, `Logic/StoreConnector.swift`, `AppModel.swift`); tests `ConnectFormTests.blankHeaderRowsAreDropped`, `AppModelTests.connectingPassesCustomHeaders`
+- [x] 2.2 Advanced section with the Custom headers list (`Screens/OnboardingView.swift`); no test, layout only, checked in both app builds
+- [x] 2.3 Check a board-key connect with a custom header against the `/validate` sandbox; test `SandboxContractTests.connectsWithACustomHeader`, run through a local proxy that logged the header name on every request
+- [x] 2.4 Archive the change

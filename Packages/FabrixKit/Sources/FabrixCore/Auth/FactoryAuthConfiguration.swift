@@ -20,10 +20,17 @@ public struct FactoryAuthConfiguration: Codable, Hashable, Sendable {
     public static let none = FactoryAuthConfiguration()
     public static let boardKey = FactoryAuthConfiguration(usesBoardKey: true)
 
+    /// What this configuration sends in `header`, for messages; nil when the header is free.
+    func credential(carriedIn header: String) -> String? {
+        if usesBoardKey, header.caseInsensitiveCompare("Authorization") == .orderedSame { return "the board key" }
+        if let oidc, header.caseInsensitiveCompare(oidc.tokenHeader) == .orderedSame { return "the OIDC token" }
+        return nil
+    }
+
     /// Throws `PaperclipError.invalidAuthConfiguration` when the OIDC token and the board key
     /// would both need the `Authorization` header.
     public func validate() throws {
-        if usesBoardKey, let oidc, oidc.tokenHeader.caseInsensitiveCompare("Authorization") == .orderedSame {
+        if let oidc, FactoryAuthConfiguration(usesBoardKey: usesBoardKey).credential(carriedIn: oidc.tokenHeader) != nil {
             throw PaperclipError.invalidAuthConfiguration(
                 "The board key needs the Authorization header. Send the OIDC token in another header, such as X-Forwarded-Access-Token."
             )

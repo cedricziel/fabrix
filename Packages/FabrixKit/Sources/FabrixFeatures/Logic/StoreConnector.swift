@@ -18,11 +18,11 @@ public final class StoreConnector: FactoryConnector {
     }
 
     public func connect(
-        baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?
+        baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
     ) async throws -> FactoryConnection {
         let (configuration, boardKey) = Self.configuration(for: auth)
         let factory = try await store.connect(
-            url: baseURL, auth: configuration, boardKey: boardKey, webAuthenticator: webAuthenticator
+            url: baseURL, auth: configuration, boardKey: boardKey, headers: headers, webAuthenticator: webAuthenticator
         )
         return try FactoryConnection(factory: factory, service: store.service(for: factory))
     }

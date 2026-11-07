@@ -79,4 +79,12 @@ struct SandboxContractTests {
         try await service.setCompanyPaused(false, companyID: sandbox.companyID)
         #expect(try await service.snapshot(companyID: sandbox.companyID).company.isPaused == false)
     }
+
+    @Test func connectsWithACustomHeader() async throws {
+        let headers = [CustomHeader(name: "X-Fabrix-Sandbox", value: "proxy-token")]
+        let factory = try await store.connect(url: sandbox.url, credential: sandbox.key, headers: headers)
+
+        #expect(try store.customHeaders(for: factory) == headers)
+        #expect(try await store.service(for: factory).companies().contains { $0.id == sandbox.companyID })
+    }
 }

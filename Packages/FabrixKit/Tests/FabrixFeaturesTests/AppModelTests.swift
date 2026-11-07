@@ -59,6 +59,17 @@ struct AppModelTests {
         #expect(model.connectError == nil)
     }
 
+    @Test func connectingPassesCustomHeaders() async {
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+        var form = ConnectForm(address: "f.example", apiKey: "secret")
+        form.headers = [ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "proxy-secret")]
+
+        await model.connect(form)
+
+        #expect(connector.calls.first?.headers == [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")])
+    }
+
     @Test func invalidAddressShowsAnErrorWithoutCallingTheConnector() async {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: freshDefaults())
@@ -331,6 +342,7 @@ struct AppModelTests {
 struct ConnectCall: Equatable {
     var url: String
     var auth: FactoryAuth
+    var headers: [CustomHeader] = []
 }
 
 @MainActor
@@ -348,8 +360,10 @@ final class RecordingConnector: FactoryConnector {
         self.error = error
     }
 
-    func connect(baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?) async throws -> FactoryConnection {
-        calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth))
+    func connect(
+        baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
+    ) async throws -> FactoryConnection {
+        calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth, headers: headers))
         if webAuthenticator != nil { authenticators += 1 }
         if let error { throw error }
         let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
