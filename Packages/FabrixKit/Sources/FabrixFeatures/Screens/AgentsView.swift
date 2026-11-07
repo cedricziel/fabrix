@@ -47,17 +47,22 @@ struct AgentDetailView: View {
                     RecentRuns(runs: runs.filter { !$0.isLive })
                     HStack(spacing: 10) {
                         Button { Task { await model.pause(agent) } } label: {
-                            Text("Pause", bundle: .module).frame(maxWidth: .infinity)
+                            ActionLabel(.features("Pause"), isBusy: model.isPending(.pause(agent.id)))
                         }
                         .buttonStyle(.fabrixSecondary)
-                            .disabled(model.status(of: agent) == .paused)
+                        .disabled(model.status(of: agent) == .paused || model.isPending(.pause(agent.id)))
                         Button { Task { await model.wake(agent) } } label: {
-                            Text("Wake now", bundle: .module).frame(maxWidth: .infinity)
+                            ActionLabel(.features("Wake now"), isBusy: model.isPending(.wake(agent.id)))
                         }
                         .buttonStyle(.fabrixSignal)
-                            .disabled(model.status(of: agent) == .running)
+                        .disabled(!model.canWake(agent))
                     }
                     .controlSize(.large)
+                    if model.snapshot?.company.isPaused == true {
+                        Text("Resume the company to wake agents.", bundle: .module)
+                            .font(.caption)
+                            .foregroundStyle(Palette.muted)
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: 640, alignment: .leading)

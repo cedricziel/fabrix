@@ -141,11 +141,17 @@ struct CompanyToolbar: ToolbarContent {
     @ViewBuilder private var pauseButton: some View {
         if let company = model.snapshot?.company {
             Button {
-                Task { await model.setCompanyPaused(!company.isPaused) }
+                // Pausing stops every agent, so it asks first; resuming doesn't need to.
+                if company.isPaused {
+                    Task { await model.setCompanyPaused(false) }
+                } else {
+                    navigator.confirmingPauseCompany = true
+                }
             } label: {
                 Label(company.isPaused ? .features("Resume company") : .features("Pause company"),
                       systemImage: company.isPaused ? "play.fill" : "pause.fill")
             }
+            .disabled(model.isPending(.companyPause))
             .help(company.isPaused
                 ? .features("Resume every agent in \(company.name)")
                 : .features("Pause every agent in \(company.name)"))

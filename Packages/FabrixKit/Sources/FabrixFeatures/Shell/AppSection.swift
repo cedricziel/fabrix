@@ -80,6 +80,7 @@ final class Navigator {
     var isPresentingSheet: Bool {
         showingNewTask || showingAddFactory || showingSettings
     }
+    var confirmingPauseCompany = false
     var isCompact = false
     /// The project picked in the regular-width sidebar; its detail replaces the section.
     var project: Project.ID? {

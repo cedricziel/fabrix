@@ -260,9 +260,11 @@ private struct TaskDetailContent: View {
                 }
                 if let assignee {
                     HStack(spacing: 8) {
-                        Button(.features("Wake agent")) { Task { await model.wake(assignee) } }
-                            .buttonStyle(.fabrixPrimary)
-                            .disabled(model.status(of: assignee) == .running)
+                        Button { Task { await model.wake(assignee) } } label: {
+                            ActionLabel(.features("Wake agent"), isBusy: model.isPending(.wake(assignee.id)))
+                        }
+                        .buttonStyle(.fabrixPrimary)
+                        .disabled(!model.canWake(assignee))
                         NavigationLink(value: assignee.id) { Text("Open agent", bundle: .module) }
                             .buttonStyle(.fabrixSecondary)
                     }

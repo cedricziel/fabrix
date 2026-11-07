@@ -4,6 +4,8 @@ struct DecidedApproval: Identifiable, Hashable {
     var approval: Approval
     var approved: Bool
     var canUndo: Bool
+    /// Decided here and on its way to the factory, after the undo window.
+    var isSending = false
     var id: Approval.ID { approval.id }
 }
 
@@ -27,7 +29,10 @@ struct ApprovalDesk {
     func decided(_ approvals: [Approval]) -> [DecidedApproval] {
         approvals.compactMap { approval in
             if let entry = entries[approval.id] {
-                return DecidedApproval(approval: approval, approved: entry.approve, canUndo: !entry.committing)
+                return DecidedApproval(
+                    approval: approval, approved: entry.approve, canUndo: !entry.committing,
+                    isSending: entry.committing && approval.state == .pending
+                )
             }
             guard approval.state != .pending else { return nil }
             return DecidedApproval(approval: approval, approved: approval.state == .approved, canUndo: false)

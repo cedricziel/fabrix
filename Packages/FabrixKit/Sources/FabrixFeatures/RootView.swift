@@ -131,6 +131,14 @@ private struct AppRoot: View {
             }
         }
         .confirmationDialog(
+            Text("Pause \(model.snapshot?.company.name ?? String(localized: "the company", bundle: .module))?", bundle: .module),
+            isPresented: $navigator.confirmingPauseCompany, titleVisibility: .visible
+        ) {
+            Button(.features("Pause Company")) { Task { await model.setCompanyPaused(true) } }
+        } message: {
+            Text("Every agent stops after its current step. Resume the company to start them again.", bundle: .module)
+        }
+        .confirmationDialog(
             Text("Remove \(model.factory?.name ?? String(localized: "this factory", bundle: .module))?", bundle: .module),
             isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {

@@ -76,6 +76,7 @@ public final class AppModel {
     private(set) var isRefreshing = false
     /// A refresh the user asked for; background polls don't set it, so buttons only spin when tapped.
     private(set) var isRetrying = false
+    private(set) var pendingActions: Set<PendingAction> = []
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -964,21 +965,40 @@ public final class AppModel {
 
     // MARK: Agents and company
 
+    /// An agent or company action that is on its way to the factory.
+    enum PendingAction: Hashable {
+        case wake(Agent.ID)
+        case pause(Agent.ID)
+        case companyPause
+    }
+
+    func isPending(_ action: PendingAction) -> Bool {
+        pendingActions.contains(action)
+    }
+
+    /// Waking does nothing in a paused company (the server answers 409), so it isn't offered.
+    func canWake(_ agent: Agent) -> Bool {
+        snapshot?.company.isPaused != true && status(of: agent) != .running && !isPending(.wake(agent.id))
+    }
+
     func wake(_ agent: Agent) async {
-        await perform { try await $0.wake(agentID: agent.id) }
+        await perform(.wake(agent.id)) { try await $0.wake(agentID: agent.id) }
     }
 
     func pause(_ agent: Agent) async {
-        await perform { try await $0.pause(agentID: agent.id) }
+        await perform(.pause(agent.id)) { try await $0.pause(agentID: agent.id) }
     }
 
     func setCompanyPaused(_ paused: Bool) async {
         guard let id = snapshot?.company.id else { return }
-        await perform { try await $0.setCompanyPaused(paused, companyID: id) }
+        await perform(.companyPause) { try await $0.setCompanyPaused(paused, companyID: id) }
     }
 
-    private func perform(_ action: (any FactoryService) async throws -> Void) async {
-        guard let service else { return }
+    /// Runs an action once at a time: a second tap while it's in flight does nothing.
+    private func perform(_ key: PendingAction, _ action: (any FactoryService) async throws -> Void) async {
+        guard let service, !pendingActions.contains(key) else { return }
+        pendingActions.insert(key)
+        defer { pendingActions.remove(key) }
         actionError = nil
         do {
             try await action(service)

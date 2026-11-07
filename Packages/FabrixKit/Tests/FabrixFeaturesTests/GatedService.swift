@@ -16,6 +16,7 @@ actor GatedService: FactoryService {
     private var removedCompanies: Set<Company.ID> = []
     private(set) var snapshotCalls = 0
     private(set) var companiesCalls = 0
+    private(set) var pauseCalls = 0
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
         self.inner = inner
@@ -79,6 +80,7 @@ actor GatedService: FactoryService {
 
     func pause(agentID: Agent.ID) async throws {
         try Task.checkCancellation()
+        pauseCalls += 1
         if failingPauses { throw PaperclipError.conflict("Agent is not invokable in its current state") }
         try await inner.pause(agentID: agentID)
     }
