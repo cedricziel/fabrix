@@ -81,11 +81,14 @@ extension WorkItem {
 }
 
 extension Approval {
-    /// Newest first, each approval once: one can change status between the per-status requests and show up in both.
+    /// Newest first, each approval once: one can change status between the per-status requests and show up
+    /// in both, so the most recently updated copy wins.
     static func list(paperclip dtos: [ApprovalDTO], agents: [Agent.ID: Agent]) -> [Approval] {
-        var seen = Set<String>()
-        return dtos.sorted { $0.createdAt > $1.createdAt }
-            .filter { seen.insert($0.id).inserted }
+        let latest = Dictionary(dtos.map { ($0.id, $0) }) { first, second in
+            (second.updatedAt ?? second.createdAt) > (first.updatedAt ?? first.createdAt) ? second : first
+        }
+        return latest.values
+            .sorted { ($0.createdAt, $1.id) > ($1.createdAt, $0.id) }
             .map { Approval(paperclip: $0, agents: agents) }
     }
 

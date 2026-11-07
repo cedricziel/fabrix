@@ -141,6 +141,22 @@ struct PaperclipFactoryServiceTests {
         #expect(approvals.map(\.id) == ["ap-hire", "ap-plan", "ap-budget", "ap-other"])
     }
 
+    @Test(arguments: [false, true])
+    func approvalListKeepsTheNewerCopy(newerFirst: Bool) {
+        func copy(status: String, title: String, updatedAt: String) -> ApprovalDTO {
+            ApprovalDTO(
+                id: "ap-plan", type: "approve_ceo_strategy", status: status, payload: ["title": .string(title)],
+                createdAt: date("2026-11-07T09:00:00Z"), updatedAt: date(updatedAt)
+            )
+        }
+        let stale = copy(status: "pending", title: "Q4 plan", updatedAt: "2026-11-07T09:00:00Z")
+        let fresh = copy(status: "revision_requested", title: "Q4 plan, revised", updatedAt: "2026-11-07T09:30:00Z")
+
+        let approvals = Approval.list(paperclip: newerFirst ? [fresh, stale] : [stale, fresh], agents: [:])
+
+        #expect(approvals.map(\.title) == ["Q4 plan, revised"])
+    }
+
     @Test func snapshotMapsHeartbeatRuns() async throws {
         let runs = try await snapshot().runs
 

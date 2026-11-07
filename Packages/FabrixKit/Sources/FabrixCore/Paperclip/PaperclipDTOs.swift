@@ -40,6 +40,7 @@ struct ApprovalDTO: Decodable {
     var requestedByAgentId: String?
     var payload: [String: JSONValue]?
     var createdAt: Date
+    var updatedAt: Date?
 }
 
 struct HeartbeatRunDTO: Decodable {
