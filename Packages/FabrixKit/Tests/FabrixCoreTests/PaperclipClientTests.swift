@@ -196,6 +196,22 @@ struct PaperclipClientTests {
         #expect(attacker.requests.isEmpty)
     }
 
+    @Test func signInPollingDoesNotFollowRedirectsToAnotherOrigin() async throws {
+        let attacker = RequestRecorder()
+        let evil = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#)], recorder: attacker)
+        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let server = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .redirect(to: downgraded.appending(path: "api/cli-auth/challenges/ch-1"))])
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+        let challenge = SignInChallenge(serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero)
+
+        await #expect {
+            try await client.signInStatus(challenge)
+        } throws: { error in
+            if case .server(302, _) = error as? PaperclipError { true } else { false }
+        }
+        #expect(attacker.requests.isEmpty)
+    }
+
     @Test func followsRedirectsWithinTheSameOrigin() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder, dynamicRoutes: [
