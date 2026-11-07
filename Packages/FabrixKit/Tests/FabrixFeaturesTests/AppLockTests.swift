@@ -333,4 +333,30 @@ struct AppLockTests {
         lock.confirmsApprovals = true
         #expect(await !lock.confirmDecision())
     }
+
+    @Test(arguments: [AuthenticationResult.cancelled, .failed])
+    func approvalGateBlocksDecisionWhenAuthenticationFails(result: AuthenticationResult) async throws {
+        let lock = AppLock(defaults: freshDefaults(), authenticator: StubAuthenticator(results: [result]))
+        lock.confirmsApprovals = true
+        let model = AppModel(defaults: freshDefaults(), undoWindow: .seconds(60))
+        await model.exploreDemo()
+        let approval = try #require(model.waitingApprovals.first)
+
+        await model.decide(approval, approve: true, confirmingWith: lock)
+
+        #expect(model.waitingApprovals.contains { $0.id == approval.id })
+    }
+
+    @Test func approvalGateStagesTheDecisionWhenConfirmed() async throws {
+        let lock = AppLock(defaults: freshDefaults(), authenticator: StubAuthenticator())
+        lock.confirmsApprovals = true
+        let model = AppModel(defaults: freshDefaults(), undoWindow: .seconds(60))
+        await model.exploreDemo()
+        let approval = try #require(model.waitingApprovals.first)
+
+        await model.decide(approval, approve: true, confirmingWith: lock)
+
+        #expect(!model.waitingApprovals.contains { $0.id == approval.id })
+        #expect(model.decidedApprovals.contains { $0.id == approval.id && $0.canUndo })
+    }
 }
