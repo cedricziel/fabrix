@@ -18,7 +18,7 @@ struct AgentsView: View {
                     if agent.budget.capCents != nil {
                         Text(Money.usage(agent.budget))
                             .font(.caption.monospaced())
-                            .foregroundStyle(agent.budget.isNearCap ? Palette.signal : Palette.steel)
+                            .foregroundStyle(agent.budget.isNearCap ? Palette.signalInk : Palette.steel)
                     }
                 }
                 .padding(.vertical, 4)
@@ -133,7 +133,7 @@ private struct BudgetSection: View {
                 if agent.budget.isNearCap {
                     Text("Near cap: agent pauses automatically at 100%")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Palette.signal)
+                        .foregroundStyle(Palette.signalInk)
                 } else {
                     Text("\(fraction, format: .percent.precision(.fractionLength(0))) used")
                         .font(.caption)
