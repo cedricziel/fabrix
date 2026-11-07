@@ -174,6 +174,11 @@ public final class AppLock {
         case .success where !wasAway:
             // On a Mac the prompt deactivates the app; that isn't time away.
             backgroundedAt = nil
+        case .unavailable:
+            // The passcode was removed: nothing to check against, so the lock can't work.
+            settings.isEnabled = false
+            settings.confirmsApprovals = false
+            isLocked = false
         default:
             break
         }

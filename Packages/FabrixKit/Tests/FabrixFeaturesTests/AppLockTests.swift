@@ -180,6 +180,21 @@ struct AppLockTests {
         #expect(lock.isLocked)
     }
 
+    @Test func removedPasscodeTurnsTheLockOff() async {
+        let authenticator = StubAuthenticator()
+        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator)
+        lock.confirmsApprovals = true
+        lock.sceneDidEnterBackground(at: start)
+        lock.sceneDidBecomeActive(at: start)
+        authenticator.canAuthenticate = false
+        authenticator.results = [.unavailable]
+
+        #expect(await lock.unlock())
+        #expect(!lock.isLocked)
+        #expect(!lock.settings.isEnabled)
+        #expect(!lock.confirmsApprovals)
+    }
+
     @Test(arguments: [AuthenticationResult.cancelled, .failed])
     func failedOrCancelledUnlockStaysLocked(result: AuthenticationResult) async {
         let authenticator = StubAuthenticator()
