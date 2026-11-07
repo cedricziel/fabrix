@@ -17,10 +17,20 @@ The app SHALL show onboarding until the user connects a factory or explores the 
 - **WHEN** the user explored the demo and relaunches the app
 - **THEN** the demo factory opens without onboarding
 
+#### Scenario: Connected factory remembered
+
+- **WHEN** the user connected a factory and relaunches the app
+- **THEN** that factory opens without onboarding, using its saved credentials
+
+#### Scenario: Saved factory is gone
+
+- **WHEN** the remembered factory is no longer saved on the device
+- **THEN** onboarding is shown
+
 #### Scenario: Leaving a factory
 
 - **WHEN** the user chooses Switch factory or Choose another factory
-- **THEN** onboarding is shown again and the demo is no longer remembered
+- **THEN** onboarding is shown again, neither the demo nor the factory reopens on the next launch, and the factory's saved credentials are kept
 
 ### Requirement: Connecting a factory
 
