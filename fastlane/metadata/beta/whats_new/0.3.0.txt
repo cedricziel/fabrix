@@ -4,7 +4,7 @@ New in 0.3.0
 - Single sign-on reuses your browser's login, so an identity provider you're already signed in to takes one click.
 - Switch companies and factories from the title menu. On Mac, the Factory menu has Cmd-1 to Cmd-9.
 - Custom request headers under Advanced, for example a reverse proxy's access token.
-- Decisions still in their undo window are sent to the right factory when you switch, quit or remove one.
+- Decisions still in their undo window are sent before you switch factories, quit or remove one. If sending fails, the approval shows it, so check it after switching.
 - Anonymous diagnostics help us find crashes and slow requests. Server names, addresses and tokens are hashed on your device; see the privacy policy.
 
 Please test
