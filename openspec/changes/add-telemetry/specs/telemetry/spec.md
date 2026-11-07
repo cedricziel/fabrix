@@ -2,37 +2,68 @@
 
 ### Requirement: Telemetry export
 
-The app SHALL export traces, logs and metrics over OTLP/HTTP to SignalDB when the build carries an ingest key, and SHALL export nothing when it does not.
+The app SHALL export traces, logs and metrics over OTLP/HTTP to SignalDB (tenant `apps`, dataset `fabrix`) when the build carries an ingest key, and SHALL export nothing when it does not.
 
 #### Scenario: Release build with a key
 
 - **WHEN** a build made by CI with the OTLP secrets launches
-- **THEN** it sends an `app.launch` span, a log record and the `fabrix.app.launches` metric to tenant `apps`, dataset `fabrix`
+- **THEN** it sends an `app.launch` span, a "Telemetry started" log record and the `fabrix.app.launches` counter
 
 #### Scenario: Local build without a key
 
 - **WHEN** a build without an endpoint or key launches
 - **THEN** telemetry stays off and no OTLP request is made
 
+### Requirement: Collected data
+
+Telemetry SHALL contain only the following, named after the OpenTelemetry semantic conventions where they cover the data:
+
+- Resource: `service.name` (`fabrix`), `service.version`, `service.instance.id` (random per install), `app.build`, `deployment.environment.name`, `os.type`, `os.name`, `os.version`, `os.description`, `device.model.identifier`, and the SDK's `telemetry.sdk.*`.
+- HTTP client spans: `http.request.method`, `http.response.status_code`, `url.scheme`, `url.path` (templated), `url.full` (hashed host, templated path, no query), `server.address` (hashed), `server.port`, `error.type`, and `exception.*` events.
+- Paperclip attributes, all under `paperclip.*`: `paperclip.factory.id`, `paperclip.auth.method`, `paperclip.approval.kind`, `paperclip.agent.status`, `paperclip.run.adapter`, `paperclip.api.route`.
+- Metrics: `fabrix.app.launches`, with no point attributes.
+
+The `paperclip.*` names SHALL be defined once in code (`PaperclipAttribute`).
+
+#### Scenario: Metric attributes
+
+- **WHEN** any metric is recorded with attributes
+- **THEN** it is exported without them
+
+#### Scenario: Attribute constants
+
+- **WHEN** code sets a Paperclip-specific attribute
+- **THEN** it uses a `PaperclipAttribute` case, and every case is named `paperclip.*` and described
+
 ### Requirement: Paperclip servers stay anonymous
 
-Telemetry SHALL NOT contain a Paperclip factory's name or host, or the query string of any request URL.
+Telemetry SHALL NOT contain a Paperclip factory's name or host, any URL's query, fragment, user info or port, or concrete IDs in URL paths. Hosts and factory names are replaced by a 16-hex-character salted SHA-256 token; the 32-byte salt is random per install and never leaves the device.
 
 #### Scenario: Traced request to a factory
 
-- **WHEN** the app requests `https://factory.example:3100/api/agents?key=x`
-- **THEN** the exported span shows `https://<token>/api/agents`, where `<token>` is a salted SHA-256 of the host, unique to this install
+- **WHEN** the app requests `https://factory.example:3100/api/companies/<uuid>/agents?key=x`
+- **THEN** the exported span has `url.full` `https://<token>/api/companies/{id}/agents`, `server.address` `<token>` and `paperclip.api.route` `/api/companies/{id}/agents`
 
-#### Scenario: Factory name in a log message
+#### Scenario: URL inside free text
 
-- **WHEN** a registered factory name appears in a log body, span name or attribute
+- **WHEN** a log body or error message contains a URL with any scheme, in any letter case (for example `HTTPS://…` or `wss://…?token=…`)
+- **THEN** the URL is exported with a hashed host and no query
+
+#### Scenario: Factory name or host outside a URL
+
+- **WHEN** a factory name or host known to the app appears in a log body, span name, status message or attribute, for example in a TLS error
 - **THEN** it is replaced by its token before export
+
+#### Scenario: Factories added at runtime
+
+- **WHEN** the user adds a factory after launch
+- **THEN** the exporter reads names and hosts from the app-supplied `SensitiveValueSource` for every batch, so the new factory is scrubbed from the next export
 
 ### Requirement: No machine identifiers
 
-The exported resource SHALL NOT include the device's host name or vendor identifier.
+The exported resource SHALL NOT include the device's host name or a vendor or advertising identifier. `service.instance.id` is a random UUID created on first launch, kept in `UserDefaults`, and not linked to the user.
 
 #### Scenario: Resource attributes
 
 - **WHEN** telemetry starts
-- **THEN** the resource carries only the service name and version, build number, a random per-install instance ID, OS name and version, hardware model and environment
+- **THEN** the resource carries only the attributes listed under Collected data
