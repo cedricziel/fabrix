@@ -10,8 +10,8 @@
 
 ## 3. Components (PR 3)
 
-- [ ] 3.1 Add `StatusStyle`, `StatusDot`, `StatusPill` (`StatusStyleTests`: labels, hollow dots, tone mapping)
-- [ ] 3.2 Add `BudgetMeter` and `BudgetBar` (`BudgetMeterTests`: ratio, clamping, no cap, warning threshold, percent)
-- [ ] 3.3 Add `AvatarBadge`, `DecisionKind`, `KindTag` (`BadgeTests`: initials, kind titles)
-- [ ] 3.4 Add `PrimaryButtonStyle`, `SignalButtonStyle`, `SecondaryButtonStyle` (no test: visual only, checked in previews)
-- [ ] 3.5 Add `Card`, `SectionHeader`, `MetricCard` (no test: visual only, checked in previews)
+- [x] 3.1 Add `StatusStyle`, `StatusDot`, `StatusPill` (`StatusStyleTests`: labels, hollow dots, tone mapping)
+- [x] 3.2 Add `BudgetMeter` and `BudgetBar` (`BudgetMeterTests`: ratio, clamping, no cap, warning threshold, percent)
+- [x] 3.3 Add `AvatarBadge`, `DecisionKind`, `KindTag` (`BadgeTests`: initials, kind titles)
+- [x] 3.4 Add `PrimaryButtonStyle`, `SignalButtonStyle`, `SecondaryButtonStyle` (no test: visual only, checked in previews)
+- [x] 3.5 Add `Card`, `SectionHeader`, `MetricCard` (no test: visual only, checked in previews)
