@@ -27,9 +27,13 @@
   - rotated tokens are cached before saving;
   - browser sign-in works behind a front door;
   - discovery network errors map to `.transport`;
-  - connect rolls back a partial secret write.
+  - connect rolls back a partial secret write;
+  - every waiter gets the `invalid_grant` mapping;
+  - stale providers don't overwrite a newer sign-in (compare-and-swap);
+  - a proxy 401 is recognized by `WWW-Authenticate`;
+  - a failed save after a refresh still returns the fresh tokens.
 
-  Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`.
+  Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`, `OIDCAuthProviderTests.concurrentRequestsAllSeeRejectedRefreshAsUnauthorized`, `refreshAfterRemovalDoesNotRecreateTokens`, `refreshAfterReconnectKeepsTheNewSignIn`, `jsonProxy401StillRefreshes`.
 
 ## 5. Sandbox validation and archive (stack layer 5)
 

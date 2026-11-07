@@ -80,13 +80,24 @@ The app SHALL refresh an OIDC access token that is expired or about to expire be
 #### Scenario: Rotated tokens survive a failed Keychain write
 
 - **WHEN** a refresh succeeds but storing the new tokens fails
-- **THEN** the request fails with the storage error
-- **AND** the next request uses the new tokens without another refresh
+- **THEN** the request is sent with the new tokens
+- **AND** the next request uses them without another refresh
+
+#### Scenario: Proxy rejects the token with a JSON error
+
+- **WHEN** the proxy answers `401` with `WWW-Authenticate` and the body `{"error":"invalid_token"}`
+- **THEN** the app refreshes the OIDC token and retries once
+
+#### Scenario: Factory removed or reconnected while a service is still in use
+
+- **WHEN** a service created before the factory was removed or reconnected needs a token refresh
+- **THEN** the request fails as unauthorized
+- **AND** the Keychain keeps the state left by the removal or the new sign-in
 
 #### Scenario: Refresh rejected
 
 - **WHEN** the provider rejects the refresh token
-- **THEN** the request fails with an unauthorized error so the user can sign in again
+- **THEN** every request waiting on that refresh fails with an unauthorized error, so the user can sign in again
 
 ### Requirement: Front-door proxy chaining
 

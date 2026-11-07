@@ -100,7 +100,9 @@ The feature layer adapts SwiftUI's `@Environment(\.webAuthenticationSession)` to
 
 ### Refresh only for the layer that failed
 
-The refresh hook receives the rejected request and the response body (`UnauthorizedResponse`). Paperclip's own `401`s are `{"error": "…"}` JSON, so the OIDC layer ignores them: a revoked board key never refreshes the proxy token. The OIDC layer also refreshes only when the rejected request carried its current access token. If another request has already refreshed it, a retry with the new token is enough. After a refresh, the rotated tokens stay in memory before they are written to the Keychain, so a failed write can't log the user out.
+The refresh hook receives the rejected request, the response, and its body (`UnauthorizedResponse`). Paperclip's own `401`s are `{"error": "…"}` JSON without a `WWW-Authenticate` header, so the OIDC layer ignores them: a revoked board key never refreshes the proxy token. A `401` that carries `WWW-Authenticate`, or that has a non-JSON body, belongs to the proxy, even when its body is JSON like `{"error":"invalid_token"}`. The OIDC layer also refreshes only when the rejected request carried its current access token. If another request has already refreshed it, a retry with the new token is enough. After a refresh, the rotated tokens stay in memory before they are written to the Keychain. A failed write is logged, and the request goes ahead with the fresh tokens. The refresh, the `invalid_grant` mapping and the save all run inside the shared refresh task, so every concurrent waiter gets the same result.
+
+A provider writes refreshed tokens only if the store still holds the refresh token it last read or wrote (compare-and-swap). After a `remove()` or a reconnect, a service created earlier finds a different token, or none. It then stops with `.unauthorized` instead of recreating the deleted item or overwriting the new sign-in. This keeps `remove()` synchronous for the UI.
 
 ### Writing two secrets safely
 
