@@ -95,10 +95,9 @@ private struct OrgNodeCard: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
-            .frame(width: 180, height: 68)
-            .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.hairline))
-            .selectionOutline(isSelected)
+            .frame(height: 68)
+            .fabrixCard(selected: isSelected)
+            .frame(width: 180)
             .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
@@ -113,12 +112,12 @@ private struct OrgSummary: View {
         if let snapshot = model.snapshot {
             let metrics = OverviewMetrics(snapshot: snapshot, waiting: model.waitingApprovals)
             HStack(spacing: 28) {
-                stat("Agents", "\(metrics.agentsTotal)")
-                stat("Working now", "\(metrics.agentsWorking)")
-                stat("Pending hires", "\(metrics.waitingByKind[.hire] ?? 0)", color: Palette.signal)
+                stat(.features("Agents"), "\(metrics.agentsTotal)")
+                stat(.features("Working now"), "\(metrics.agentsWorking)")
+                stat(.features("Pending hires"), "\(metrics.waitingByKind[.hire] ?? 0)", color: Palette.signal)
                 if metrics.spend.fraction != nil {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Company spend · \(Money.usage(metrics.spend))")
+                        Text("Company spend · \(Money.usage(metrics.spend))", bundle: .module)
                             .font(.caption)
                             .foregroundStyle(Palette.muted)
                         BudgetBar(metrics.spend)
@@ -127,11 +126,11 @@ private struct OrgSummary: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .cardSurface()
+            .fabrixCard()
         }
     }
 
-    private func stat(_ title: LocalizedStringKey, _ value: String, color: Color = Palette.graphite) -> some View {
+    private func stat(_ title: LocalizedStringResource, _ value: String, color: Color = Palette.graphite) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(.caption).foregroundStyle(Palette.muted)
             Text(value).font(.title3.weight(.semibold)).foregroundStyle(color)

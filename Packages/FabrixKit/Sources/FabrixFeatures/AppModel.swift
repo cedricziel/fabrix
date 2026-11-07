@@ -417,7 +417,7 @@ public final class AppModel {
             restored = nil
         }
         guard let connection = restored else {
-            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.")
+            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.", bundle: .module)
             return
         }
         use(connection)
@@ -810,10 +810,10 @@ private struct SnapshotIndex {
 extension ConnectForm.Problem {
     var message: String {
         switch self {
-        case .address: String(localized: "Enter the factory address, like https://factory.example.com.")
-        case .apiKey: String(localized: "Paste the Paperclip API key for this factory.")
-        case .issuer: String(localized: "Enter the OIDC issuer URL.")
-        case .clientID: String(localized: "Enter the OIDC client ID.")
+        case .address: String(localized: "Enter the factory address, like https://factory.example.com.", bundle: .module)
+        case .apiKey: String(localized: "Paste the Paperclip API key for this factory.", bundle: .module)
+        case .issuer: String(localized: "Enter the OIDC issuer URL.", bundle: .module)
+        case .clientID: String(localized: "Enter the OIDC client ID.", bundle: .module)
         }
     }
 }

@@ -102,21 +102,21 @@ public extension ButtonStyle where Self == SecondaryButtonStyle {
 #Preview("Buttons") {
     VStack(alignment: .leading, spacing: Spacing.l) {
         HStack {
-            Button("Wake now") {}.buttonStyle(.fabrixSignal)
-            Button("Approve") {}.buttonStyle(.fabrixPrimary)
-            Button("Pause") {}.buttonStyle(.fabrixSecondary)
+            Button(.preview("Wake now")) {}.buttonStyle(.fabrixSignal)
+            Button(.preview("Approve")) {}.buttonStyle(.fabrixPrimary)
+            Button(.preview("Pause")) {}.buttonStyle(.fabrixSecondary)
         }
         HStack {
-            Button("Approve") {}.buttonStyle(.fabrixPrimary)
-            Button("Open") {}.buttonStyle(.fabrixSecondary)
+            Button(.preview("Approve")) {}.buttonStyle(.fabrixPrimary)
+            Button(.preview("Open")) {}.buttonStyle(.fabrixSecondary)
         }
         .controlSize(.small)
         HStack {
-            Button("Pause") {}.buttonStyle(.fabrixSecondary)
-            Button("Wake now") {}.buttonStyle(.fabrixSignal)
+            Button(.preview("Pause")) {}.buttonStyle(.fabrixSecondary)
+            Button(.preview("Wake now")) {}.buttonStyle(.fabrixSignal)
         }
         .controlSize(.large)
-        Button("Disabled") {}.buttonStyle(.fabrixPrimary).disabled(true)
+        Button(.preview("Disabled")) {}.buttonStyle(.fabrixPrimary).disabled(true)
     }
     .padding()
     .background(Palette.paper)

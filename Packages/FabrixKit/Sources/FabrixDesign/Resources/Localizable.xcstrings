@@ -1,0 +1,36 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Blocked" : {
+
+    },
+    "Budget" : {
+
+    },
+    "Budget used" : {
+
+    },
+    "Done" : {
+
+    },
+    "Hire" : {
+
+    },
+    "Idle" : {
+
+    },
+    "Needs you" : {
+
+    },
+    "Paused" : {
+
+    },
+    "Running" : {
+
+    },
+    "Strategy" : {
+
+    }
+  },
+  "version" : "1.0"
+}

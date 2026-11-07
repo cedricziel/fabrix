@@ -8,7 +8,7 @@ struct ActivityView: View {
     var body: some View {
         ScrollView {
             ActivityRows(events: model.snapshot?.activity ?? [])
-                .cardSurface()
+                .fabrixCard()
                 .padding(20)
                 .frame(maxWidth: 900, alignment: .leading)
         }
@@ -22,7 +22,7 @@ struct ActivityRows: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if events.isEmpty {
-                EmptyRow(text: "No activity yet.")
+                EmptyRow(.features("No activity yet."))
             }
             ForEach(events) { event in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -30,7 +30,7 @@ struct ActivityRows: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(Palette.muted)
                         .frame(minWidth: 44, alignment: .leading)
-                    Text("**\(event.actor)** \(event.summary)")
+                    Text(Self.line(for: event))
                         .foregroundStyle(Palette.steel)
                 }
                 .padding(.horizontal, 16)
@@ -38,5 +38,11 @@ struct ActivityRows: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func line(for event: ActivityEvent) -> AttributedString {
+        var actor = AttributedString(event.actor)
+        actor.inlinePresentationIntent = .stronglyEmphasized
+        return actor + AttributedString(" \(event.summary)")
     }
 }

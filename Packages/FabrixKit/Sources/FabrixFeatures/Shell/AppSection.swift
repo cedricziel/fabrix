@@ -6,14 +6,14 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var title: LocalizedStringKey {
+    var title: LocalizedStringResource {
         switch self {
-        case .overview: "Overview"
-        case .tasks: "Tasks"
-        case .agents: "Agents"
-        case .orgChart: "Org chart"
-        case .approvals: "Approvals"
-        case .activity: "Activity"
+        case .overview: .features("Overview")
+        case .tasks: .features("Tasks")
+        case .agents: .features("Agents")
+        case .orgChart: .features("Org chart")
+        case .approvals: .features("Approvals")
+        case .activity: .features("Activity")
         }
     }
 
@@ -51,7 +51,7 @@ enum CompactTab: Hashable, CaseIterable {
         }
     }
 
-    var title: LocalizedStringKey { self == .factory ? "Factory" : root.title }
+    var title: LocalizedStringResource { self == .factory ? .features("Factory") : root.title }
 
     /// Sections reached from inside this tab rather than from a tab of their own.
     var nestedSections: [AppSection] {

@@ -31,35 +31,47 @@ public struct AvatarBadge: View {
 public enum DecisionKind: CaseIterable, Sendable {
     case hire, strategy, budget
 
-    public var title: String {
+    public var title: LocalizedStringResource {
         switch self {
-        case .hire: String(localized: "Hire", bundle: .module)
-        case .strategy: String(localized: "Strategy", bundle: .module)
-        case .budget: String(localized: "Budget", bundle: .module)
+        case .hire: LocalizedStringResource("Hire", bundle: .module)
+        case .strategy: LocalizedStringResource("Strategy", bundle: .module)
+        case .budget: LocalizedStringResource("Budget", bundle: .module)
         }
     }
 }
 
 /// The small orange-tinted tag on a decision: HIRE, STRATEGY, BUDGET.
 public struct KindTag: View {
-    private let title: String
+    let title: Text
+    let tone: Tone
 
     public init(_ kind: DecisionKind) {
-        title = kind.title.uppercased()
+        title = Text(kind.title)
+        tone = .signal
     }
 
-    public init(title: String) {
-        self.title = title.uppercased()
+    /// - Parameter tone: `.signal` for things waiting on a human; `.neutral` for labels such as PRIMARY.
+    public init(title: LocalizedStringResource, tone: Tone = .signal) {
+        self.title = Text(title)
+        self.tone = tone
+    }
+
+    @_disfavoredOverload
+    public init(title: String, tone: Tone = .signal) {
+        self.title = Text(verbatim: title)
+        self.tone = tone
     }
 
     public var body: some View {
-        Text(title)
+        title
+            .textCase(.uppercase)
             .font(.fabrix(.tag))
             .tracking(0.5)
-            .foregroundStyle(Palette.signalInk)
+            .foregroundStyle(tone.ink)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(Palette.signalTint, in: RoundedRectangle(cornerRadius: Radius.tag, style: .continuous))
+            .background(tone.tint, in: RoundedRectangle(cornerRadius: Radius.tag, style: .continuous))
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
     }
 }
@@ -73,6 +85,7 @@ public struct KindTag: View {
         }
         HStack {
             ForEach(DecisionKind.allCases, id: \.self) { KindTag($0) }
+            KindTag(title: .preview("Primary"), tone: .neutral)
         }
     }
     .padding()

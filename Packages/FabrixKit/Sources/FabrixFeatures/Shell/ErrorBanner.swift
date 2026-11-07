@@ -16,7 +16,7 @@ struct ErrorBanner: View {
                         .contentShape(.rect)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel("Dismiss")
+                .accessibilityLabel(.features("Dismiss"))
             }
         }
     }
@@ -42,10 +42,10 @@ struct NoticeBanner<Action: View>: View {
         .padding(.leading, 14)
         .padding(.trailing, 4)
         .padding(.vertical, Self.verticalPadding)
-        .cardSurface()
+        .fabrixCard()
         .padding(.horizontal, 12)
         .padding(.top, 6)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .fabrixTransition(.slideIn(from: .top))
         .accessibilityElement(children: .contain)
     }
 

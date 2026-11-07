@@ -140,15 +140,15 @@ public extension Font {
 
 #Preview("Type scale") {
     VStack(alignment: .leading, spacing: Spacing.m) {
-        Text("Large title 34").font(.fabrix(.largeTitle))
-        Text("Title 22 · Metrics $412").font(.fabrix(.title))
-        Text("412").font(.fabrix(.metric))
-        Text("Headline semibold").font(.fabrix(.headline))
-        Text("Body regular. Agents report, you decide.").font(.fabrix(.body))
-        Text("Subheadline").font(.fabrix(.subheadline))
-        Text("Caption").font(.fabrix(.caption))
-        Text("EYEBROW").font(.fabrix(.eyebrow))
-        Text("ATL-142 · claude-code · 07:41 · $6.12").font(.fabrix(.mono))
+        Text(verbatim: "Large title 34").font(.fabrix(.largeTitle))
+        Text(verbatim: "Title 22 · Metrics $412").font(.fabrix(.title))
+        Text(verbatim: "412").font(.fabrix(.metric))
+        Text(verbatim: "Headline semibold").font(.fabrix(.headline))
+        Text(verbatim: "Body regular. Agents report, you decide.").font(.fabrix(.body))
+        Text(verbatim: "Subheadline").font(.fabrix(.subheadline))
+        Text(verbatim: "Caption").font(.fabrix(.caption))
+        Text(verbatim: "EYEBROW").font(.fabrix(.eyebrow))
+        Text(verbatim: "ATL-142 · claude-code · 07:41 · $6.12").font(.fabrix(.mono))
     }
     .foregroundStyle(Palette.graphite)
     .padding()

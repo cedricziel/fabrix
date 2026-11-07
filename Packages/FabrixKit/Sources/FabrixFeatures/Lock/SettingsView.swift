@@ -12,7 +12,7 @@ public struct SettingsView: View {
     public var body: some View {
         if lock.isLocked {
             // The Mac Settings window sits outside the locked main window.
-            BrandCover { Text("Unlock Fabrix to change settings.").foregroundStyle(Palette.steel) }
+            BrandCover { Text("Unlock Fabrix to change settings.", bundle: .module).foregroundStyle(Palette.steel) }
                 .frame(minWidth: 460, minHeight: 240)
         } else {
             form
@@ -22,27 +22,27 @@ public struct SettingsView: View {
     private var form: some View {
         Form {
             Section {
-                Toggle("Lock Fabrix", isOn: isEnabled)
+                Toggle(.features("Lock Fabrix"), isOn: isEnabled)
                     .disabled(!lock.canAuthenticate && !lock.settings.isEnabled)
                 if lock.settings.isEnabled {
-                    Picker("Unlock with", selection: $lock.method) {
+                    Picker(.features("Unlock with"), selection: $lock.method) {
                         ForEach(lock.unlockOptions) { Text(lock.label(for: $0)).tag($0) }
                     }
-                    Picker("Lock", selection: $lock.timeout) {
+                    Picker(.features("Lock"), selection: $lock.timeout) {
                         ForEach(LockTimeout.allCases) { Text($0.title).tag($0) }
                     }
                 }
-                Toggle("Confirm approvals with \(lock.factorName)", isOn: confirmsApprovals)
+                Toggle(.features("Confirm approvals with \(lock.factorName)"), isOn: confirmsApprovals)
                     .disabled(!lock.canAuthenticate)
             } header: {
-                Text("Security")
+                Text("Security", bundle: .module)
             } footer: {
                 Text(footer)
             }
         }
         .formStyle(.grouped)
         .disabled(lock.isAuthenticating)
-        .navigationTitle("Settings")
+        .navigationTitle(.features("Settings"))
         #if os(macOS)
             .frame(width: 460)
             .fixedSize(horizontal: false, vertical: true)
@@ -51,9 +51,9 @@ public struct SettingsView: View {
 
     private var footer: String {
         guard lock.canAuthenticate else {
-            return String(localized: "Set a \(AppLock.secretName) on this device to use the lock.")
+            return String(localized: "Set a \(AppLock.secretName) on this device to use the lock.", bundle: .module)
         }
-        return String(localized: "Fabrix also hides its content in the app switcher while the lock is on. Background refreshes and decisions you already made keep going while it's locked.")
+        return String(localized: "Fabrix also hides its content in the app switcher while the lock is on. Background refreshes and decisions you already made keep going while it's locked.", bundle: .module)
     }
 
     /// Turning the lock on or off asks for authentication; the toggle follows the result.
@@ -80,7 +80,7 @@ struct SettingsSheet: View {
             SettingsView(lock: lock)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
+                        Button(.features("Done")) { dismiss() }
                     }
                 }
         }
@@ -95,7 +95,7 @@ struct SettingsButton: View {
         Button {
             navigator.showingSettings = true
         } label: {
-            Label("Settings", systemImage: "gearshape")
+            Label(.features("Settings"), systemImage: "gearshape")
         }
     }
 }

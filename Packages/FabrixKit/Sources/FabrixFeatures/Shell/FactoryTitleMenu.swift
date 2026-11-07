@@ -4,7 +4,7 @@ import SwiftUI
 extension View {
     /// The company as the navigation title, its factory as subtitle, and the factory menu
     /// as the title menu. `title` replaces the company name, e.g. "Tasks" on an iPhone tab.
-    func factoryTitle(_ title: LocalizedStringKey? = nil) -> some View {
+    func factoryTitle(_ title: LocalizedStringResource? = nil) -> some View {
         modifier(FactoryTitle(title: title))
     }
 }
@@ -12,7 +12,7 @@ extension View {
 private struct FactoryTitle: ViewModifier {
     @Environment(AppModel.self) private var model
     @Environment(Navigator.self) private var navigator
-    let title: LocalizedStringKey?
+    let title: LocalizedStringResource?
 
     func body(content: Content) -> some View {
         #if os(macOS)
@@ -34,7 +34,7 @@ private struct FactoryTitle: ViewModifier {
                     }
                     .menuIndicator(.visible)
                     .fixedSize()
-                    .help("Switch factory or company")
+                    .help(.features("Switch factory or company"))
                 }
             }
         #else
@@ -70,7 +70,7 @@ struct FactoryMenuContent: View {
                 }
             }
         }
-        Section("Factories") {
+        Section(.features("Factories")) {
             ForEach(menu.factories) { item in
                 Toggle(item.factory.name, isOn: binding(selected: item.isOpen) {
                     Task { await model.open(item.factory) }
@@ -78,9 +78,9 @@ struct FactoryMenuContent: View {
             }
         }
         Section {
-            Button("Add Factory…", systemImage: "plus") { navigator.showingAddFactory = true }
+            Button(.features("Add Factory…"), systemImage: "plus") { navigator.showingAddFactory = true }
             if menu.canRemove {
-                Button("Remove Factory…", systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
+                Button(.features("Remove Factory…"), systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
             }
         }
     }
@@ -112,11 +112,11 @@ public struct FactoryCommands: Commands {
     public init() {}
 
     public var body: some Commands {
-        CommandMenu("Factory") {
+        CommandMenu(Text("Factory", bundle: .module)) {
             if let model, let navigator, !model.isOnboarding {
                 FactoryMenuContent(model: model, navigator: navigator, showsShortcuts: true)
             } else {
-                Button("Add Factory…") {}.disabled(true)
+                Button(.features("Add Factory…")) {}.disabled(true)
             }
         }
     }

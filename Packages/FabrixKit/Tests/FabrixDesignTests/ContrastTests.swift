@@ -14,11 +14,6 @@
             ("muted/paper", Palette.muted, Palette.paper),
             ("link/card", SectionHeader.linkColor, Palette.card),
             ("link/paper", SectionHeader.linkColor, Palette.paper),
-            ("signalInk/signalTint", Palette.signalInk, Palette.signalTint),
-            ("runInk/runTint", Palette.runInk, Palette.runTint),
-            ("doneInk/doneTint", Palette.doneInk, Palette.doneTint),
-            ("haltInk/haltTint", Palette.haltInk, Palette.haltTint),
-            ("neutralInk/neutralTint", Palette.neutralInk, Palette.neutralTint),
             ("onGraphite/graphite", Palette.onGraphite, Palette.graphite),
             ("onInverse/inverseSurface", Palette.onInverse, Palette.inverseSurface),
         ]
@@ -28,6 +23,12 @@
             let (_, text, background) = try #require(Self.textPairs.first { $0.0 == pair })
             let ratio = contrast(text, background, in: appearance)
             #expect(ratio >= 4.5, "\(pair) in \(appearance.rawValue): \(ratio)")
+        }
+
+        @Test(arguments: Tone.allCases, [NSAppearance.Name.aqua, .darkAqua])
+        func pillInkReadsOnItsTint(tone: Tone, appearance: NSAppearance.Name) {
+            let ratio = contrast(tone.ink, tone.tint, in: appearance)
+            #expect(ratio >= 4.5, "\(tone) in \(appearance.rawValue): \(ratio)")
         }
 
         private func contrast(_ a: Color, _ b: Color, in name: NSAppearance.Name) -> Double {

@@ -7,6 +7,7 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
 ## Commands
 
 - Package tests: `xcrun swift test --package-path Packages/FabrixKit` (always `xcrun swift`, never bare `swift`)
+- String catalogs: `scripts/sync-string-catalogs.sh` after changing UI copy; `scripts/check-feature-strings.sh` (also in CI) rejects Features literals that don't name their bundle. In FabrixFeatures write `Text("…", bundle: .module)`, `String(localized: "…", bundle: .module)` or `.features("…")`.
 - Generate project: `xcodegen generate` (the `.xcodeproj` is gitignored; edit `project.yml`)
 - Build: `xcodebuild build -project Fabrix.xcodeproj -scheme FabrixiOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO` (and `-scheme FabrixMac -destination 'generic/platform=macOS'`)
 - fastlane locally: `scripts/fastlane-local.sh <lane>` reads credentials from 1Password. Lanes: `ios build|release`, `mac build|release`, `register_bundle_id`, `bootstrap_signing`.
