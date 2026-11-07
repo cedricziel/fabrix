@@ -22,6 +22,7 @@ let package = Package(
         .target(
             name: "FabrixTelemetry",
             dependencies: [
+                "FabrixCore",
                 .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),
                 .product(name: "OpenTelemetryProtocolExporterHTTP", package: "opentelemetry-swift"),
@@ -35,6 +36,7 @@ let package = Package(
         .testTarget(
             name: "FabrixTelemetryTests",
             dependencies: [
+                "FabrixCore",
                 "FabrixTelemetry",
                 .product(name: "OpenTelemetryApi", package: "opentelemetry-swift-core"),
                 .product(name: "OpenTelemetrySdk", package: "opentelemetry-swift-core"),

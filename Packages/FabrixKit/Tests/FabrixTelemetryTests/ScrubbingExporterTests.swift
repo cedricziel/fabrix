@@ -5,7 +5,7 @@ import OpenTelemetrySdk
 import Synchronization
 import Testing
 
-private final class CapturingSpanExporter: SpanExporter {
+final class CapturingSpanExporter: SpanExporter {
     let spans = Mutex<[SpanData]>([])
     func export(spans: [SpanData], explicitTimeout _: TimeInterval?) -> SpanExporterResultCode {
         self.spans.withLock { $0 += spans }
