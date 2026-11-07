@@ -30,6 +30,7 @@ public struct RootView: View {
                         }
                     }
                     .safeAreaInset(edge: .top) { ErrorBanner() }
+                    .modifier(ErrorAnnouncer())
                 case .empty:
                     ContentUnavailableView {
                         Label("No companies yet", systemImage: "building.2")
@@ -59,12 +60,12 @@ public struct RootView: View {
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
-        .task(id: Polling(factoryID: model.factory?.id, isActive: scenePhase == .active)) {
-            guard model.factory != nil, scenePhase == .active else { return }
+        .task(id: Polling(factoryID: model.factory?.id, isActive: ScenePolicy.keepsPolling(scenePhase))) {
+            guard model.factory != nil, ScenePolicy.keepsPolling(scenePhase) else { return }
             await model.keepFresh()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
+            if ScenePolicy.commitsDecisions(phase) {
                 Task { await model.commitStagedDecisions() }
             }
         }
@@ -76,6 +77,18 @@ public struct RootView: View {
         #else
             false
         #endif
+    }
+}
+
+/// Inactive is brief (Control Center, an incoming call, the app switcher), so polling and
+/// undo windows keep running until the app actually reaches the background.
+enum ScenePolicy {
+    static func keepsPolling(_ phase: ScenePhase) -> Bool {
+        phase != .background
+    }
+
+    static func commitsDecisions(_ phase: ScenePhase) -> Bool {
+        phase == .background
     }
 }
 
