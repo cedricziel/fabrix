@@ -132,7 +132,10 @@ public struct PaperclipClient: Sendable {
         // Behind a proxy the server may report its internal address; the user's browser needs the factory's own.
         let reported = created.approvalUrl.flatMap(URL.init(string:))
             .flatMap { SameOriginRedirects.Origin($0) == SameOriginRedirects.Origin(baseURL) ? $0 : nil }
-        guard let approvalURL = reported ?? URL(string: baseURL.absoluteString + created.approvalPath) else {
+        // The path is appended as text, so something like "@other.host/x" would change the host.
+        guard let approvalURL = reported ?? URL(string: baseURL.absoluteString + created.approvalPath),
+              SameOriginRedirects.Origin(approvalURL) == SameOriginRedirects.Origin(baseURL)
+        else {
             throw PaperclipError.decoding("The server sent an unusable approval link.")
         }
         return SignInChallenge(
@@ -146,6 +149,12 @@ public struct PaperclipClient: Sendable {
         guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         let status: SignInChallengeStatusDTO = try await get("cli-auth/challenges/\(challenge.id)", query: ["token": challenge.token])
         return SignInChallenge.Status(rawValue: status.status) ?? .pending
+    }
+
+    /// Cancels a pending sign-in request, so its key can no longer be activated by a later approval.
+    public func cancelSignIn(_ challenge: SignInChallenge) async throws {
+        guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
+        try await send("POST", "cli-auth/challenges/\(challenge.id)/cancel", body: ["token": challenge.token])
     }
 
     /// When the board key in use expires, or nil when the request used no key or the server doesn't say.
