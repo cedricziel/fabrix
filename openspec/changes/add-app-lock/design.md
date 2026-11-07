@@ -13,7 +13,6 @@ Fabrix keeps factory credentials in the Keychain through `FactoryStore` and can 
 **Non-Goals:**
 
 - Protecting the Keychain items with `SecAccessControl` user presence (see Open Questions).
-- Covering sheets with the privacy cover. The cover sits under any open sheet. The only sheets are New task and Settings, and neither shows approvals or budgets.
 - Per-scene locks. All windows share one lock.
 
 ## Decisions
@@ -32,11 +31,11 @@ Alternative considered: putting the state in `AppModel`. Rejected. `AppModel` is
 
 **One shared lock.** `AppLock.shared` uses `UserDefaults.standard` and `DeviceAuthenticator`. `RootView(factoryStore:)` and the Mac `Settings` scene both use it, so windows lock together and Settings edits apply at once, without threading an object through `FabrixApp.swift`. `RootView(model:lock:)` takes an injected lock for previews.
 
-**Scene mapping.** iOS and iPadOS: `scenePhase` `.inactive` → `sceneWillResignActive`, `.background` → `sceneDidEnterBackground`, `.active` → `sceneDidBecomeActive`. macOS: `NSApplication.willResignActiveNotification` → resign and background, `didBecomeActiveNotification` → active. On macOS, `scenePhase` doesn't follow app activation.
+**Activation mapping.** The lock is app-wide, so it follows app activation, not each scene's phase; otherwise closing one iPad window would cover another. iOS and iPadOS: `UIApplication.willResignActiveNotification` → `sceneWillResignActive`, `didEnterBackgroundNotification` → `sceneDidEnterBackground`, `didBecomeActiveNotification` → `sceneDidBecomeActive`. macOS: `NSApplication.willResignActiveNotification` → resign and background, `didBecomeActiveNotification` → active.
 
-**Applying the lock.** A `.appLock(_:)` modifier in `RootView` swaps the content for `LockScreen` while locked and overlays `PrivacyCover` while covered. It sits inside the `.task` (polling) and `.onChange` (commit) modifiers, so those keep running while locked. The New task and Settings sheets attach inside it, so they close when the content goes away.
+**Applying the lock.** A `.appLock(_:)` modifier in `RootView` swaps the content for `LockScreen` while locked and hides the content from accessibility while covered. It sits inside the `.task` (polling) and `.onChange` (commit) modifiers, so those keep running while locked. The New task and Settings sheets attach inside it, so they close when the content goes away.
 
-On macOS the window toolbar (company name, search) sits outside the view tree, so the modifier also hides it while covered.
+Sheets, dialogs and the Mac Settings window render outside that view, so the cover lives above them. iOS: each scene gets an overlay `UIWindow` at `.alert + 1` showing `BrandCover`; it also shows on `UIScene.willDeactivateNotification`, before SwiftUI's next update, so the snapshot never misses it. macOS: `WindowShield` adds a `BrandCover` view to every app window's frame view (SwiftUI owns the content view's subviews), and the modifier hides the window toolbar, which shows the company name. While locked, the Mac Settings window shows "Unlock Fabrix to change settings" instead of the form.
 
 **Brand visuals (FabrixDesign).** `FabrixMark` draws the app icon's mark in SwiftUI from the same path as `scripts/render-app-icons.swift`, because the package can't load the app's `AppIcon` asset. `BrandCover` puts the mark and name on `Palette.paper` and takes optional content below. The lock screen and the privacy cover both use it. FabrixDesign still has no FabrixCore dependency.
 
@@ -48,7 +47,6 @@ On macOS the window toolbar (company name, search) sits outside the view tree, s
 
 ## Risks / Trade-offs
 
-- [Cover under sheets] → no sheet shows sensitive data today; revisit if one does.
 - [macOS covers on every app switch] → this is the chosen default for screen sharing. It only applies while the lock is on.
 - [No passcode set unlocks] → documented above; the toggle can't be turned on in that state.
 - [Shared singleton] → limited to the app entry points; tests construct their own `AppLock`.

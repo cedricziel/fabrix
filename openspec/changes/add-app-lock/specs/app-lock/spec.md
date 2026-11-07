@@ -133,6 +133,16 @@ While the lock is on, the app SHALL cover its content with the app mark and name
 - **WHEN** the lock is on and the user switches to another app on a Mac
 - **THEN** the Fabrix window shows the cover until it is active again
 
+#### Scenario: Sheet open
+
+- **WHEN** the lock is on and a sheet or dialog is open as the app becomes inactive
+- **THEN** the cover hides the sheet too
+
+#### Scenario: Several iPad windows
+
+- **WHEN** the lock is on and the user closes one of several Fabrix windows on iPad
+- **THEN** the other windows stay uncovered while the app is active
+
 #### Scenario: Lock off
 
 - **WHEN** the lock is off
