@@ -60,7 +60,7 @@ public struct ProjectChip: View {
     }
 }
 
-/// How a project status looks: a `StatusPill` style with the project's own label.
+/// How a project status looks: a status dot and tone with the project's own label.
 public enum ProjectStatusStyle: CaseIterable, Sendable {
     case backlog, planned, inProgress, completed, cancelled, other
 
@@ -84,9 +84,9 @@ public enum ProjectStatusStyle: CaseIterable, Sendable {
     }
 }
 
-extension StatusPill {
-    public init(_ project: ProjectStatusStyle) {
-        self.init(project.statusStyle, title: project.label)
+public extension Pill where Leading == StatusDot {
+    init(_ project: ProjectStatusStyle) {
+        self.init(verbatim: project.label, tone: project.statusStyle.tone) { StatusDot(project.statusStyle) }
     }
 }
 
@@ -146,7 +146,7 @@ public struct TaskCountsBar: View {
             ProjectChip(name: "Platform", colorHex: "#7C3AED")
             ProjectChip(name: "Billing", colorHex: nil)
         }
-        HStack { ForEach(ProjectStatusStyle.allCases, id: \.self) { StatusPill($0) } }
+        HStack { ForEach(ProjectStatusStyle.allCases, id: \.self) { Pill($0) } }
         TaskCountsBar(open: 7, blocked: 1, done: 4).frame(width: 260)
     }
     .padding()
