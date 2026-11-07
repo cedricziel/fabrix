@@ -11,7 +11,9 @@
 ## Decisions
 
 - **Approval URL** (FabrixCore `PaperclipClient`): use `approvalUrl` only when its origin equals the factory's, and otherwise build `baseURL + approvalPath`. A proxy whose upstream reports an internal host still sends the user to the address they typed. `startSignIn` already refuses plain HTTP to a public host.
-- **Expiry of the request** (FabrixCore `FactoryStore.completeSignIn`): stop with `signInExpired` once `expiresAt` has passed, even if the server never answers "expired". This covers resuming after a long time in the background.
+- **Expiry of the request** (FabrixCore `FactoryStore.completeSignIn`): stop with `signInExpired` once `expiresAt` has passed, even if the server never answers "expired". Transport errors don't end the poll, because returning from the background often drops the first requests; it retries until `expiresAt`.
+- **Cancel is server-side too.** Cancel, closing the sheet, or opening another factory calls `POST /api/cli-auth/challenges/{id}/cancel`, so a later approval can't activate an unused key. A run token makes a second start a no-op while one runs, and ignores an approval that lands after Cancel.
+- **Decisions while signed out** stay staged instead of failing, and go out once signing in again swaps the new key into the open factory.
 - **Re-sign-in** (FabrixCore `FactoryStore.startReauthentication(of:clientName:)`): builds the challenge with the factory's saved headers and OIDC tokens, so there is no second IdP login. `completeSignIn` saves it under the same address, so the ID is kept and only the key changes. Only factories that use a board key can re-sign-in.
 - **Key expiry** (FabrixCore): `PaperclipClient.boardKeyExpiry()` reads `keyId` from `/cli-auth/me`, then matches it in `/board-api-keys`. `FactoryService.credentialExpiry()` is a new protocol requirement with a default of nil, so the demo service and tests need no change.
 - **Flow state** (FabrixFeatures `AppModel`):
