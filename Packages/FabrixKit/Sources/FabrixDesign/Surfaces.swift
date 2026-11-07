@@ -28,9 +28,9 @@ public struct SectionCard<Content: View>: View {
             VStack(alignment: .leading, spacing: 0) {
                 Group {
                     if let action {
-                        SectionHeader(String(localized: title), actionTitle: String(localized: action.title), action: action.perform)
+                        SectionHeader(title, actionTitle: action.title, action: action.perform)
                     } else {
-                        SectionHeader(String(localized: title))
+                        SectionHeader(title)
                     }
                 }
                 .padding(.horizontal, Spacing.l)
