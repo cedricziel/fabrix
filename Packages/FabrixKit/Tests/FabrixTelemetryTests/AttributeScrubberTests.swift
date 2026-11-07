@@ -14,6 +14,11 @@ struct AttributeScrubberTests {
         #expect(scrubbed == "https://\(anonymizer.hash("paperclip.acme.lan"))/api/companies/c1")
     }
 
+    @Test(arguments: ["pcp_board_4f1c9a0e7b2d", "pcp_cli_auth_Zx8-_q2"])
+    func paperclipTokensInTextAreHashed(token: String) {
+        #expect(scrubber.scrub("Rejected \(token).") == "Rejected \(anonymizer.hash(token)).")
+    }
+
     @Test func urlWithoutHostLosesItsQuery() {
         #expect(scrubber.scrub(url: "/api/issues?q=secret") == "/api/issues")
     }

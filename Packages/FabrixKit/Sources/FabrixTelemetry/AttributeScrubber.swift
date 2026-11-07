@@ -61,11 +61,14 @@ struct AttributeScrubber: Sendable {
     }
 
     func scrub(_ text: String) -> String {
-        replaceSensitiveValues(in: text.replacing(#/(?i)\b[a-z][a-z0-9+.\-]*://[^\s"'<>]+/#) { match in
+        let withoutURLs = text.replacing(#/(?i)\b[a-z][a-z0-9+.\-]*://[^\s"'<>]+/#) { match in
             let raw = String(match.output)
             let trailing = raw.reversed().prefix { ".,;:)]}".contains($0) }
             return scrub(url: String(raw.dropLast(trailing.count))) + String(trailing.reversed())
-        })
+        }
+        // Paperclip board keys and sign-in tokens, e.g. pcp_board_… and pcp_cli_auth_…, wherever they appear.
+        let withoutTokens = withoutURLs.replacing(#/\bpcp_[A-Za-z0-9_\-]+/#) { anonymizer.hash(String($0.output)) }
+        return replaceSensitiveValues(in: withoutTokens)
     }
 
     private func replaceSensitiveValues(in text: String) -> String {

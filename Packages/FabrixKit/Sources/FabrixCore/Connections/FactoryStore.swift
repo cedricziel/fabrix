@@ -99,6 +99,29 @@ public final class FactoryStore {
         if let frontDoor {
             oidcTokens = try await signInToIdentityProvider(frontDoor, webAuthenticator: webAuthenticator)
         }
+        return try await createChallenge(baseURL: baseURL, clientName: clientName, frontDoor: frontDoor, oidcTokens: oidcTokens, headers: headers)
+    }
+
+    /// Starts a browser sign-in that replaces the board key of a saved factory, for example after it expired.
+    /// The factory's custom headers and saved OIDC tokens are reused, so there is no second OIDC login.
+    /// `completeSignIn` then keeps the factory's ID, name and settings.
+    ///
+    /// - Throws: `PaperclipError.invalidAuthConfiguration` when the factory doesn't use a board key.
+    public func startReauthentication(of factory: Factory, clientName: String) async throws -> SignInChallenge {
+        let auth = auth(for: factory)
+        guard auth.usesBoardKey else {
+            throw PaperclipError.invalidAuthConfiguration("This factory doesn't use a Paperclip key, so there is nothing to sign in again for.")
+        }
+        guard PaperclipClient.allowsCredentials(to: factory.baseURL) else { throw PaperclipError.insecureConnection }
+        let tokens = auth.oidc == nil ? nil : try oidcTokenStore(factory.id).load()
+        return try await createChallenge(
+            baseURL: factory.baseURL, clientName: clientName, frontDoor: auth.oidc, oidcTokens: tokens, headers: customHeaders(for: factory)
+        )
+    }
+
+    private func createChallenge(
+        baseURL: URL, clientName: String, frontDoor: OIDCSettings?, oidcTokens: OIDCTokens?, headers: [CustomHeader]
+    ) async throws -> SignInChallenge {
         let staged = try stage(frontDoor, oidcTokens)
         var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: headers), session: session)
             .startSignIn(clientName: clientName)
@@ -115,11 +138,19 @@ public final class FactoryStore {
     @discardableResult
     public func completeSignIn(_ challenge: SignInChallenge, name: String? = nil) async throws -> Factory {
         let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
-        let client = PaperclipClient(
-            baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: challenge.customHeaders), session: session
-        )
+        let client = challengeClient(challenge, oidc: staged?.provider)
         while true {
-            switch try await client.signInStatus(challenge) {
+            // The app may have been in the background for longer than the request lives.
+            if let expiresAt = challenge.expiresAt, expiresAt <= .now { throw PaperclipError.signInExpired }
+            let status: SignInChallenge.Status
+            do {
+                status = try await client.signInStatus(challenge)
+            } catch let PaperclipError.transport(code) where code != .cancelled {
+                // A dropped connection, e.g. right after returning from the background, isn't an answer.
+                try await Task.sleep(for: challenge.pollInterval)
+                continue
+            }
+            switch status {
             case .approved:
                 return try await validateAndSave(
                     baseURL: challenge.serverURL, auth: FactoryAuthConfiguration(oidc: challenge.frontDoor, usesBoardKey: true),
@@ -130,6 +161,16 @@ public final class FactoryStore {
             case .pending: try await Task.sleep(for: challenge.pollInterval)
             }
         }
+    }
+
+    /// Cancels a browser sign-in on the server, so a later approval can't activate its key.
+    public func cancelSignIn(_ challenge: SignInChallenge) async throws {
+        let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
+        try await challengeClient(challenge, oidc: staged?.provider).cancelSignIn(challenge)
+    }
+
+    private func challengeClient(_ challenge: SignInChallenge, oidc: OIDCAuthProvider?) -> PaperclipClient {
+        PaperclipClient(baseURL: challenge.serverURL, auth: Self.chain(oidc: oidc, boardKey: nil, headers: challenge.customHeaders), session: session)
     }
 
     private func signInToIdentityProvider(_ settings: OIDCSettings, webAuthenticator: (any WebAuthenticator)?) async throws -> OIDCTokens {
@@ -193,11 +234,17 @@ public final class FactoryStore {
     }
 
     /// The saved custom headers, with their values read from the credential store.
+    ///
+    /// - Throws: `PaperclipError.missingHeaderValues` when names are saved but their values are gone.
     public func customHeaders(for factory: Factory) throws -> [CustomHeader] {
         let names = headerNames[factory.id] ?? []
-        guard !names.isEmpty, let stored = try credentials.credential(for: Self.headersAccount(factory.id)) else { return [] }
-        let values = try JSONDecoder().decode([String: String].self, from: Data(stored.utf8))
-        return names.compactMap { name in values[name].map { CustomHeader(name: name, value: $0) } }
+        guard !names.isEmpty else { return [] }
+        // Sending without them would reach a proxy unauthenticated and fail in confusing ways.
+        let values = try credentials.credential(for: Self.headersAccount(factory.id))
+            .map { try JSONDecoder().decode([String: String].self, from: Data($0.utf8)) } ?? [:]
+        let missing = names.filter { values[$0] == nil }
+        guard missing.isEmpty else { throw PaperclipError.missingHeaderValues(missing) }
+        return names.map { CustomHeader(name: $0, value: values[$0]!) }
     }
 
     /// Forgets the factory and deletes its board key, custom header values and OIDC tokens.

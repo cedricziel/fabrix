@@ -24,6 +24,11 @@ public enum PaperclipError: Error, Equatable, Sendable {
     case signInCancelled
     /// The browser sign-in was not approved in time.
     case signInExpired
+    /// The identity provider in front of the factory needs a new login: its refresh token was
+    /// rejected, or the saved tokens are missing or unreadable. A Paperclip `401` stays `.unauthorized`.
+    case signInRequired(String?)
+    /// Custom header names are saved but their values are gone, e.g. after moving to a new device.
+    case missingHeaderValues([String])
 
     init(status: Int, message: String?) {
         switch status {
@@ -42,6 +47,7 @@ extension PaperclipError: LocalizedError {
         switch self {
         case let .invalidRequest(message): message ?? "The server rejected the request."
         case let .unauthorized(message): message ?? "Sign in again to continue."
+        case let .signInRequired(message): message ?? "Sign in to the identity provider again."
         case let .forbidden(message): message ?? "You don't have access to this."
         case let .notFound(message): message ?? "Not found."
         case let .conflict(message): message ?? "Someone else changed this first."
@@ -53,6 +59,8 @@ extension PaperclipError: LocalizedError {
         case let .invalidAuthConfiguration(message): message
         case .signInCancelled: "Sign-in was cancelled."
         case .signInExpired: "Sign-in timed out. Try again."
+        case let .missingHeaderValues(names):
+            "This device no longer has the values for \(names.formatted(.list(type: .and))). Enter them again to connect."
         }
     }
 }

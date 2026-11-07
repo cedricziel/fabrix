@@ -29,18 +29,23 @@ public struct SignInChallenge: Hashable, Sendable {
     public var boardAPIToken: String
     public var approvalURL: URL
     public var pollInterval: Duration
+    /// When the server stops accepting approval for this request.
+    public var expiresAt: Date?
     /// The OIDC front door the challenge was started behind, if any.
     public var frontDoor: OIDCSettings?
     var oidcTokens: OIDCTokens?
     var customHeaders: [CustomHeader] = []
 
-    public init(serverURL: URL, id: String, token: String, boardAPIToken: String, approvalURL: URL, pollInterval: Duration) {
+    public init(
+        serverURL: URL, id: String, token: String, boardAPIToken: String, approvalURL: URL, pollInterval: Duration, expiresAt: Date? = nil
+    ) {
         self.serverURL = serverURL
         self.id = id
         self.token = token
         self.boardAPIToken = boardAPIToken
         self.approvalURL = approvalURL
         self.pollInterval = pollInterval
+        self.expiresAt = expiresAt
     }
 }
 
@@ -124,12 +129,18 @@ public struct PaperclipClient: Sendable {
     public func startSignIn(clientName: String) async throws -> SignInChallenge {
         guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         let created: SignInChallengeCreatedDTO = try await send("POST", "cli-auth/challenges", body: ["command": "fabrix connect", "clientName": clientName])
-        let approvalURL = created.approvalUrl.flatMap(URL.init(string:))
-            ?? URL(string: baseURL.absoluteString + created.approvalPath)
-        guard let approvalURL else { throw PaperclipError.decoding("Invalid approval path \(created.approvalPath)") }
+        // Behind a proxy the server may report its internal address; the user's browser needs the factory's own.
+        let reported = created.approvalUrl.flatMap(URL.init(string:))
+            .flatMap { SameOriginRedirects.Origin($0) == SameOriginRedirects.Origin(baseURL) ? $0 : nil }
+        // The path is appended as text, so something like "@other.host/x" would change the host.
+        guard let approvalURL = reported ?? URL(string: baseURL.absoluteString + created.approvalPath),
+              SameOriginRedirects.Origin(approvalURL) == SameOriginRedirects.Origin(baseURL)
+        else {
+            throw PaperclipError.decoding("The server sent an unusable approval link.")
+        }
         return SignInChallenge(
             serverURL: baseURL, id: created.id, token: created.token, boardAPIToken: created.boardApiToken,
-            approvalURL: approvalURL, pollInterval: .milliseconds(created.suggestedPollIntervalMs ?? 1000)
+            approvalURL: approvalURL, pollInterval: .milliseconds(created.suggestedPollIntervalMs ?? 1000), expiresAt: created.expiresAt
         )
     }
 
@@ -138,6 +149,24 @@ public struct PaperclipClient: Sendable {
         guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         let status: SignInChallengeStatusDTO = try await get("cli-auth/challenges/\(challenge.id)", query: ["token": challenge.token])
         return SignInChallenge.Status(rawValue: status.status) ?? .pending
+    }
+
+    /// Cancels a pending sign-in request, so its key can no longer be activated by a later approval.
+    public func cancelSignIn(_ challenge: SignInChallenge) async throws {
+        guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
+        try await send("POST", "cli-auth/challenges/\(challenge.id)/cancel", body: ["token": challenge.token])
+    }
+
+    /// When the board key in use expires, or nil when the request used no key or the server doesn't say.
+    public func boardKeyExpiry() async throws -> Date? {
+        let me: BoardMeDTO = try await get("cli-auth/me")
+        guard let keyID = me.keyId else { return nil }
+        do {
+            let keys: [BoardAPIKeyDTO] = try await get("board-api-keys")
+            return keys.first { $0.id == keyID }?.expiresAt
+        } catch PaperclipError.forbidden, PaperclipError.notFound {
+            return nil
+        }
     }
 
     // MARK: - Requests
