@@ -885,10 +885,9 @@ public final class AppModel {
         let verdictByID = Dictionary(uniqueKeysWithValues: verdicts)
         var messages: [Approval.ID: String] = [:]
         for (id, error) in failures {
-            if isSignedOut(error), let approve = verdictByID[id] {
+            if let approve = verdictByID[id], markSignedOutIfRejected(error) {
                 // The key was rejected, not the decision: keep it for after signing in again.
                 desk.stage(id, approve: approve)
-                markSignedOut(by: error)
             } else {
                 desk.finish(id)
                 messages[id] = error.localizedDescription

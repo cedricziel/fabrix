@@ -427,6 +427,7 @@ struct BrowserSignInTests {
         await model.commitStagedDecisions()
 
         #expect(model.needsSignIn)
+        #expect(model.connectionProblem?.issue == .signedOut)
         #expect(model.decisionErrors.isEmpty)
         #expect(model.decidedApprovals.map(\.id) == [approval.id])
 
