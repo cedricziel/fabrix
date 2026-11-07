@@ -9,10 +9,39 @@ struct PaperclipProjectMappingTests {
 
     @Test(arguments: [
         ("backlog", ProjectStatus.backlog), ("planned", .planned), ("in_progress", .inProgress),
-        ("completed", .completed), ("cancelled", .cancelled), ("paused_forever", .backlog),
+        ("completed", .completed), ("cancelled", .cancelled), ("paused_forever", .other),
     ])
     func mapsStatus(raw: String, status: ProjectStatus) throws {
         #expect(try project(#"{"id":"p","name":"P","status":"\#(raw)"}"#).status == status)
+    }
+
+    @Test func unknownStatusIsNotActive() throws {
+        #expect(try !project(#"{"id":"p","name":"P","status":"on_hold"}"#).status.isActive)
+    }
+
+    @Test func badWorkspaceIsDropped() throws {
+        let repos = try project(#"""
+        {"id":"p","name":"P","status":"planned","workspaces":[
+          {"id":"w1","sourceType":"git_repo"},
+          {"id":"w2","name":"ok","sourceType":"local_path","cwd":"/srv/x"}
+        ]}
+        """#).repositories
+        #expect(repos.map(\.id) == ["w2"])
+    }
+
+    @Test(arguments: ["javascript:alert(1)", "file:///etc/passwd", "ssh://git@github.com/atlas/mobile.git"])
+    func onlyWebURLsAreKept(raw: String) throws {
+        let repo = try project(#"""
+        {"id":"p","name":"P","status":"planned","workspaces":[
+          {"id":"w","name":"Repo","sourceType":"git_repo","repoUrl":"\#(raw)"}
+        ]}
+        """#).repositories.first
+        #expect(repo?.url == nil)
+        #expect(repo?.name == "Repo")
+    }
+
+    @Test func keepsServerTaskCount() throws {
+        #expect(try project(#"{"id":"p","name":"P","status":"planned","taskCount":812}"#).taskCount == 812)
     }
 
     @Test func targetDateHasNoTimeZoneShift() throws {

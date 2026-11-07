@@ -50,7 +50,17 @@ struct ProjectDTO: Decodable {
     var goals: [Goal]?
     /// Kept as text: only its presence matters.
     var archivedAt: String?
-    var workspaces: [ProjectWorkspaceDTO]?
+    var workspaces: [Lenient<ProjectWorkspaceDTO>]?
+    var taskCount: Int?
+}
+
+/// Decodes to nil instead of failing, so one malformed row doesn't fail a whole list.
+struct Lenient<Value: Decodable>: Decodable {
+    var value: Value?
+
+    init(from decoder: any Decoder) throws {
+        value = try? Value(from: decoder)
+    }
 }
 
 struct ProjectWorkspaceDTO: Decodable {

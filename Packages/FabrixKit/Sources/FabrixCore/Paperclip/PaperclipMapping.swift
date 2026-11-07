@@ -185,7 +185,8 @@ extension ProjectStatus {
         case "in_progress": self = .inProgress
         case "completed": self = .completed
         case "cancelled": self = .cancelled
-        default: self = .backlog
+        case "backlog": self = .backlog
+        default: self = .other
         }
     }
 }
@@ -196,8 +197,8 @@ extension Project {
             id: dto.id, name: dto.name, summary: dto.description, status: ProjectStatus(paperclip: dto.status),
             leadAgentID: dto.leadAgentId, targetDate: dto.targetDate.flatMap(Self.calendarDate),
             colorHex: dto.color, goals: dto.goals?.map(\.title) ?? [],
-            repositories: dto.workspaces?.map(ProjectRepository.init(paperclip:)) ?? [],
-            isArchived: dto.archivedAt != nil
+            repositories: dto.workspaces?.compactMap(\.value).map(ProjectRepository.init(paperclip:)) ?? [],
+            isArchived: dto.archivedAt != nil, taskCount: dto.taskCount
         )
     }
 
@@ -215,7 +216,7 @@ extension ProjectRepository {
         case "local_path", "non_git_path": .folder
         default: .other
         }
-        let url = kind == .git ? dto.repoUrl.flatMap(URL.init(string:)) : nil
+        let url = kind == .git ? dto.repoUrl.flatMap(URL.init(string:)).flatMap(Self.webURL) : nil
         let name = switch kind {
         case .git: url.flatMap(Self.ownerAndName) ?? dto.name
         case .folder: dto.cwd ?? dto.name
@@ -224,9 +225,13 @@ extension ProjectRepository {
         self.init(id: dto.id, kind: kind, name: name, url: url, ref: dto.defaultRef ?? dto.repoRef, isPrimary: dto.isPrimary ?? false)
     }
 
+    /// Only web links open from the app; `ssh`, `file` or `javascript` URLs are dropped.
+    private static func webURL(_ url: URL) -> URL? {
+        url.scheme == "https" || url.scheme == "http" ? url : nil
+    }
+
     /// `https://github.com/atlas/mobile(.git)` → `atlas/mobile`.
     private static func ownerAndName(_ url: URL) -> String? {
-        guard url.scheme == "https" || url.scheme == "http" else { return nil }
         let parts = url.pathComponents.filter { $0 != "/" }
         guard parts.count >= 2 else { return nil }
         let repo = parts[1].hasSuffix(".git") ? String(parts[1].dropLast(4)) : parts[1]

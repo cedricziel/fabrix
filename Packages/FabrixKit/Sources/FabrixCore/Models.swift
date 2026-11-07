@@ -172,11 +172,13 @@ public struct ActivityEvent: Identifiable, Hashable, Sendable, Codable {
 
 public enum ProjectStatus: String, Sendable, Codable, CaseIterable {
     case backlog, planned, inProgress, completed, cancelled
+    /// A status this version of Fabrix doesn't know. Not counted as active, so it can't hide a finished project.
+    case other
 
     public var isActive: Bool {
         switch self {
         case .backlog, .planned, .inProgress: true
-        case .completed, .cancelled: false
+        case .completed, .cancelled, .other: false
         }
     }
 }
@@ -218,11 +220,13 @@ public struct Project: Identifiable, Hashable, Sendable, Codable {
     public var goals: [String]
     public var repositories: [ProjectRepository]
     public var isArchived: Bool
+    /// Every task in the project as the server counts it, when the server says.
+    public var taskCount: Int?
 
     public init(
         id: String, name: String, summary: String? = nil, status: ProjectStatus, leadAgentID: String? = nil,
         targetDate: DateComponents? = nil, colorHex: String? = nil, goals: [String] = [],
-        repositories: [ProjectRepository] = [], isArchived: Bool = false
+        repositories: [ProjectRepository] = [], isArchived: Bool = false, taskCount: Int? = nil
     ) {
         self.id = id
         self.name = name
@@ -234,6 +238,7 @@ public struct Project: Identifiable, Hashable, Sendable, Codable {
         self.goals = goals
         self.repositories = repositories
         self.isArchived = isArchived
+        self.taskCount = taskCount
     }
 }
 
@@ -246,10 +251,13 @@ public struct CompanySnapshot: Hashable, Sendable {
     public var activity: [ActivityEvent]
     public var spentMonthlyCents: Int
     public var budgetMonthlyCents: Int?
+    /// Agents of this company that were terminated; they aren't in `agents`.
+    public var formerAgentIDs: Set<Agent.ID>
 
     public init(
         company: Company, agents: [Agent], tasks: [WorkItem], approvals: [Approval],
-        runs: [Run], activity: [ActivityEvent], spentMonthlyCents: Int, budgetMonthlyCents: Int?
+        runs: [Run], activity: [ActivityEvent], spentMonthlyCents: Int, budgetMonthlyCents: Int?,
+        formerAgentIDs: Set<Agent.ID> = []
     ) {
         self.company = company
         self.agents = agents
@@ -259,6 +267,7 @@ public struct CompanySnapshot: Hashable, Sendable {
         self.activity = activity
         self.spentMonthlyCents = spentMonthlyCents
         self.budgetMonthlyCents = budgetMonthlyCents
+        self.formerAgentIDs = formerAgentIDs
     }
 
     public var pendingApprovals: [Approval] {

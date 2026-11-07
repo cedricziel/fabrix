@@ -236,10 +236,21 @@ struct PaperclipFactoryServiceTests {
                 repositories: [
                     ProjectRepository(id: "w-1", kind: .git, name: "atlas/mobile", url: URL(string: "https://github.com/atlas/mobile"), ref: "main", isPrimary: true),
                     ProjectRepository(id: "w-2", kind: .folder, name: "/srv/atlas/ops"),
-                ]
+                ],
+                taskCount: 4
             ),
-            Project(id: "p-platform", name: "Platform", status: .backlog),
+            Project(id: "p-platform", name: "Platform", status: .other, taskCount: 1),
         ])
+    }
+
+    @Test func malformedProjectRowIsSkipped() async throws {
+        let rows = #"[{"id":"broken"},{"id":"p-ok","name":"OK","status":"planned"}]"#
+        let projects = try await service(["GET /api/companies/\(companyID)/projects": .json(rows)]).projects(companyID: companyID)
+        #expect(projects.map(\.id) == ["p-ok"])
+    }
+
+    @Test func snapshotRemembersTerminatedAgents() async throws {
+        #expect(try await snapshot().formerAgentIDs == ["a-old"])
     }
 
     @Test func projectsNotFoundIsUnsupported() async {
