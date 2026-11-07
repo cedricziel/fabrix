@@ -87,7 +87,7 @@ private struct FactoryRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            StatusDot(color: factory.isOnline ? Palette.done : Palette.muted, hollow: !factory.isOnline)
+            StatusDot(factory.isOnline ? .done : .paused, size: 8)
             Text(factory.name).fontWeight(.semibold)
             Spacer()
             Text(factory.isOnline ? "online" : "offline")

@@ -23,13 +23,7 @@ struct OverviewView: View {
                         DecisionsCard(waiting: waiting)
                             .frame(maxWidth: isWide ? 380 : .infinity)
                     }
-                    SectionCard(title: "Activity") {
-                        Button("All activity") { navigator.open(.activity) }
-                            .buttonStyle(.borderless)
-                            .frame(minWidth: 44, minHeight: 44)
-                            .contentShape(.rect)
-                            .padding(.vertical, -12)
-                    } content: {
+                    SectionCard(title: "Activity", action: ("All activity", { navigator.open(.activity) })) {
                         ActivityRows(events: Array(snapshot.activity.prefix(5)))
                     }
                 }
@@ -74,21 +68,15 @@ private struct StatePill: View {
     let company: Company
 
     var body: some View {
-        HStack(spacing: 6) {
-            StatusDot(color: company.isPaused ? Palette.muted : Palette.done, hollow: company.isPaused, size: 7)
-            Text(label)
+        if company.isPaused {
+            StatusPill(.paused)
+        } else {
+            StatusPill(.running, detail: heartbeat)
         }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(company.isPaused ? Palette.graphite : Palette.doneInk)
-        .padding(.horizontal, 10)
-        .frame(height: 28)
-        .background(company.isPaused ? Palette.rail : Palette.doneTint, in: .capsule)
     }
 
-    private var label: String {
-        if company.isPaused { return String(localized: "Paused") }
-        guard let minutes = company.heartbeatMinutes else { return String(localized: "Running") }
-        return String(localized: "Running · heartbeat every \(minutes) min")
+    private var heartbeat: String? {
+        company.heartbeatMinutes.map { String(localized: "heartbeat every \($0) min") }
     }
 }
 
@@ -97,30 +85,29 @@ private struct MetricGrid: View {
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
-            MetricCard(title: "Agents working", value: "\(metrics.agentsWorking)", total: "\(metrics.agentsTotal)") {
+            MetricCard(String(localized: "Agents working"), value: "\(metrics.agentsWorking)", total: "/ \(metrics.agentsTotal)") {
                 Text(Self.join([
                     (metrics.agentsIdle, String(localized: "\(metrics.agentsIdle) idle")),
                     (metrics.agentsPaused, String(localized: "\(metrics.agentsPaused) paused")),
                 ]))
             }
-            MetricCard(title: "Open tasks", value: "\(metrics.openTasks)") {
+            MetricCard(String(localized: "Open tasks"), value: "\(metrics.openTasks)") {
                 Text(Self.join([
                     (metrics.tasksBlocked, String(localized: "\(metrics.tasksBlocked) blocked")),
                     (metrics.tasksInReview, String(localized: "\(metrics.tasksInReview) in review")),
                 ]))
             }
             MetricCard(
-                title: "Waiting on you", value: "\(metrics.waitingCount)",
-                valueColor: metrics.waitingCount > 0 ? Palette.signal : Palette.graphite
+                String(localized: "Waiting on you"), value: "\(metrics.waitingCount)", emphasis: metrics.waitingCount > 0
             ) {
                 Text(metrics.waitingCount > 0 ? waitingSummary : String(localized: "All clear"))
             }
             MetricCard(
-                title: "Spend this month", value: Money.dollars(metrics.spend.spentCents),
-                total: metrics.spend.capCents.map { Money.dollars($0) }
+                String(localized: "Spend this month"), value: Money.dollars(metrics.spend.spentCents),
+                total: metrics.spend.capCents.map { "/ \(Money.dollars($0))" }
             ) {
-                if let fraction = metrics.spend.fraction {
-                    BudgetBar(fraction: fraction).padding(.top, 4)
+                if metrics.spend.fraction != nil {
+                    BudgetBar(metrics.spend, height: 6).padding(.top, 4)
                 } else {
                     Text("No company cap")
                 }
@@ -150,7 +137,7 @@ private struct LiveRunsCard: View {
             }
             ForEach(runs) { run in
                 LiveRunRow(run: run)
-                if run.id != runs.last?.id { Divider().overlay(Palette.rail) }
+                if run.id != runs.last?.id { Divider().overlay(Palette.divider) }
             }
         }
     }
@@ -165,7 +152,7 @@ private struct LiveRunRow: View {
         NavigationLink(value: run.agentID) {
             let agent = model.agent(run.agentID)
             HStack(spacing: 12) {
-                AvatarBadge(initials: agent?.initials ?? "?")
+                AvatarBadge(agent?.initials ?? "?")
                 VStack(alignment: .leading, spacing: 2) {
                     Text(agent?.name ?? run.agentID).fontWeight(.semibold)
                     HStack(spacing: 4) {
@@ -208,7 +195,7 @@ private struct DecisionsCard: View {
             ForEach(waiting) { approval in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        KindTag(kind: approval.kind)
+                        KindTag(title: approval.kind.label)
                         Text("from \(approval.requestedBy)")
                             .font(.caption)
                             .foregroundStyle(Palette.muted)
@@ -223,7 +210,7 @@ private struct DecisionsCard: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                if approval.id != waiting.last?.id { Divider().overlay(Palette.rail) }
+                if approval.id != waiting.last?.id { Divider().overlay(Palette.divider) }
             }
         }
     }
