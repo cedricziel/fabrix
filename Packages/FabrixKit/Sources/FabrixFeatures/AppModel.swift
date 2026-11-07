@@ -146,14 +146,28 @@ public final class AppModel {
     /// or onboarding when none is left. The demo has nothing saved and can't be removed.
     func removeOpenFactory() async {
         guard factoryMenu.canRemove, let connector, let factory else { return }
+        // Decisions already shown under Decided go out before the credentials disappear.
+        await commitStagedDecisions()
         do {
             try connector.forget(factoryID: factory.id)
         } catch {
             lastError = error.localizedDescription
             return
         }
+        await leaveForNextFactory()
+    }
+
+    /// Leaves the open factory when it was removed elsewhere, e.g. from another window.
+    func leaveIfRemoved() async {
+        guard let connector, let factory, factory.id != FactoryConnection.demo().factory.id,
+              !connector.factories.contains(where: { $0.id == factory.id })
+        else { return }
+        await leaveForNextFactory()
+    }
+
+    private func leaveForNextFactory() async {
         disconnect()
-        if let next = connector.factories.first {
+        if let next = connector?.factories.first {
             await open(next)
         }
     }

@@ -116,4 +116,43 @@ struct FactorySwitchingTests {
         #expect(model.factory?.name == "Demo factory")
         #expect(connector.factories.count == 1)
     }
+
+    @Test func removingSendsDecisionsStillInTheirUndoWindow() async throws {
+        let connector = RecordingConnector()
+        let service = DemoFactoryService()
+        connector.service = service
+        let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .seconds(60))
+        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        await model.removeOpenFactory()
+
+        let sent = try await service.snapshot(companyID: "atlas").approvals.first { $0.id == approval.id }
+        #expect(sent?.state == .approved)
+    }
+
+    @Test func anotherWindowLeavesAFactoryRemovedElsewhere() async {
+        let connector = RecordingConnector()
+        let defaults = freshDefaults()
+        let windowA = AppModel(connector: connector, defaults: defaults)
+        await windowA.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        await windowA.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        let windowB = AppModel(connector: connector, defaults: defaults)
+        #expect(windowB.factory?.name == "two.example")
+
+        await windowA.removeOpenFactory()
+        await windowB.leaveIfRemoved()
+
+        #expect(windowB.factory?.name == "one.example")
+    }
+
+    @Test func windowsOnAFactoryThatStillExistsStayPut() async {
+        let (model, _) = await connected(["one.example"])
+        await model.leaveIfRemoved()
+        #expect(model.factory?.name == "one.example")
+        await model.exploreDemo()
+        await model.leaveIfRemoved()
+        #expect(model.factory?.name == "Demo factory")
+    }
 }

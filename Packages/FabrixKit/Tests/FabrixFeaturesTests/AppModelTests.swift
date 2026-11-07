@@ -320,6 +320,8 @@ final class RecordingConnector: FactoryConnector {
     private let error: (any Error)?
     var saved: [Factory.ID: FactoryConnection] = [:]
     private var order: [Factory.ID] = []
+    /// Shared by every connection, so tests can see what reached the factory.
+    var service: (any FactoryService)?
 
     var factories: [Factory] {
         order.compactMap { saved[$0]?.factory }
@@ -340,7 +342,7 @@ final class RecordingConnector: FactoryConnector {
         if webAuthenticator != nil { authenticators += 1 }
         if let error { throw error }
         let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
-        let connection = FactoryConnection(factory: factory, service: DemoFactoryService())
+        let connection = FactoryConnection(factory: factory, service: service ?? DemoFactoryService())
         saved[factory.id] = connection
         order.append(factory.id)
         return connection
