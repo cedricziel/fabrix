@@ -62,15 +62,10 @@ public struct RootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.paper)
-        .environment(model)
-        .environment(navigator)
-        .environment(\.isCompact, isCompact)
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
-        .sheet(isPresented: $navigator.showingAddFactory) {
-            AddFactorySheet().environment(model).environment(navigator)
-        }
+        .sheet(isPresented: $navigator.showingAddFactory) { AddFactorySheet() }
         .focusedSceneValue(\.appModel, model)
         .focusedSceneValue(\.navigator, navigator)
         .confirmationDialog(
@@ -95,6 +90,13 @@ public struct RootView: View {
         .onDisappear {
             shutdownTask.map(ShutdownTasks.unregister)
         }
+        .onChange(of: model.factoryMenu.factories.map(\.id)) {
+            Task { await model.leaveIfRemoved() }
+        }
+        // Last, so sheets, dialogs and popovers presented above inherit the same environment.
+        .environment(model)
+        .environment(navigator)
+        .environment(\.isCompact, isCompact)
     }
 
     private var isCompact: Bool {
