@@ -5,6 +5,7 @@ import SwiftUI
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var form = ConnectForm()
+    @State private var showsAdvanced = false
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
@@ -42,6 +43,7 @@ struct OnboardingView: View {
                                 .textContentType(.password)
                         }
                     }
+                    AdvancedSection(headers: $form.headers, isExpanded: $showsAdvanced)
                     if let error = model.connectError {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
                             .font(.callout)
@@ -105,6 +107,13 @@ private extension ConnectForm.Method {
 }
 
 private extension View {
+    func fieldChrome() -> some View {
+        textFieldStyle(.plain)
+            .padding(10)
+            .background(Palette.card, in: .rect(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.hairline))
+    }
+
     func urlEntry() -> some View {
         textContentType(.URL)
             .autocorrectionDisabled()
@@ -122,12 +131,53 @@ private struct LabeledField<Field: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.caption.weight(.medium)).foregroundStyle(Palette.steel)
-            field
-                .textFieldStyle(.plain)
-                .padding(10)
-                .background(Palette.card, in: .rect(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.hairline))
+            field.fieldChrome()
         }
+    }
+}
+
+/// Custom request headers, collapsed until the user opens it or headers exist.
+private struct AdvancedSection: View {
+    @Binding var headers: [ConnectForm.HeaderRow]
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup("Advanced", isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Custom headers").font(.caption.weight(.medium)).foregroundStyle(Palette.steel)
+                ForEach($headers) { $row in
+                    HStack(spacing: 8) {
+                        TextField("Header name", text: $row.name)
+                            .autocorrectionDisabled()
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                            .fieldChrome()
+                        SecureField("Value", text: $row.value)
+                            .fieldChrome()
+                        Button {
+                            headers.removeAll { $0.id == row.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(Palette.halt)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove header")
+                    }
+                }
+                Button {
+                    headers.append(ConnectForm.HeaderRow())
+                } label: {
+                    Label("Add header", systemImage: "plus.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Palette.signal)
+                Text("Sent with every request to this factory, e.g. a proxy access token.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.muted)
+            }
+            .padding(.top, 8)
+        }
+        .onAppear { isExpanded = isExpanded || !headers.isEmpty }
     }
 }
 
