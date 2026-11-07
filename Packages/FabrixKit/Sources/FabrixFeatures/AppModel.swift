@@ -42,6 +42,8 @@ public final class AppModel {
     public private(set) var needsSignIn = false
     /// When the board key expires, set only once that is close.
     public private(set) var keyExpiry: Date?
+    /// Successful connections to real factories this session; the demo and restores don't count.
+    public private(set) var connectCount = 0
     public var searchText = ""
 
     private var service: (any FactoryService)?
@@ -169,6 +171,7 @@ public final class AppModel {
 
     private func finishConnecting(_ connection: FactoryConnection) async {
         reconnect = nil
+        connectCount += 1
         if connection.factory.id == factory?.id {
             // Signed in again: same factory, new key. Decisions held while signed out go out now.
             renew(connection)

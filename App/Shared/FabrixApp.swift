@@ -31,6 +31,9 @@ struct FabrixApp: App {
                 Telemetry.flush()
             }
         }
+        #if os(macOS)
+        Settings { SettingsView() }
+        #endif
     }
 
     #if DEBUG

@@ -6,6 +6,7 @@ struct ApprovalsView: View {
     enum Filter: Hashable { case waiting, decided }
 
     @Environment(AppModel.self) private var model
+    @Environment(AppLock.self) private var lock
     @State private var filter = Filter.waiting
 
     var body: some View {
@@ -77,7 +78,7 @@ struct ApprovalsView: View {
     }
 
     private func decide(_ approval: Approval, _ approve: Bool) {
-        withAnimation { model.decide(approval, approve: approve) }
+        Task { await model.decide(approval, approve: approve, confirmingWith: lock) }
     }
 }
 

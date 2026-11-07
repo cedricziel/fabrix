@@ -7,19 +7,24 @@ public struct RootView: View {
     @State private var navigator = Navigator()
     @State private var shutdownTask: UUID?
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var offeringLock = false
+    @State private var lockOfferIsDue = false
+    private let lock: AppLock
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
     #endif
 
-    public init(model: AppModel = AppModel()) {
+    public init(model: AppModel = AppModel(), lock: AppLock = .shared) {
         _model = State(initialValue: model)
+        self.lock = lock
     }
 
     /// Connects and reopens factories through `factoryStore`. Pass the app's single store so
     /// other parts of the app (telemetry scrubbing) see factories as soon as they are added.
     public init(factoryStore: FactoryStore) {
         _model = State(initialValue: AppModel(connector: StoreConnector(store: factoryStore)))
+        lock = .shared
     }
 
     public var body: some View {
@@ -86,11 +91,14 @@ public struct RootView: View {
         .background(Palette.paper)
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
-        .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
-        .sheet(isPresented: $navigator.showingAddFactory) { AddFactorySheet() }
+        // Inside the lock, so sheets close when it locks.
+        .sheet(isPresented: $navigator.showingNewTask, onDismiss: presentDueLockOffer) { NewTaskSheet() }
+        .sheet(isPresented: $navigator.showingAddFactory, onDismiss: presentDueLockOffer) { AddFactorySheet() }
+        .sheet(isPresented: $navigator.showingSettings, onDismiss: presentDueLockOffer) { SettingsSheet() }
+        .sheet(isPresented: $offeringLock) { LockOfferSheet() }
         .focusedSceneValue(\.appModel, model)
         .focusedSceneValue(\.navigator, navigator)
-        .sheet(isPresented: signingInAgain) {
+        .sheet(isPresented: signingInAgain, onDismiss: presentDueLockOffer) {
             if let signIn = model.browserSignIn {
                 BrowserSignInView(state: signIn)
                     .padding(Spacing.xl)
@@ -104,6 +112,11 @@ public struct RootView: View {
             Button("Remove Factory", role: .destructive) { Task { await model.removeOpenFactory() } }
         } message: {
             Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.")
+        }
+        .appLock(lock)
+        .onChange(of: model.connectCount) {
+            lockOfferIsDue = lock.shouldOfferLock
+            if !navigator.isPresentingSheet, !signingInAgain.wrappedValue { presentDueLockOffer() }
         }
         .task(id: Polling(factoryID: model.factory?.id, isActive: ScenePolicy.keepsPolling(scenePhase))) {
             guard model.factory != nil, ScenePolicy.keepsPolling(scenePhase) else { return }
@@ -140,6 +153,12 @@ public struct RootView: View {
         } set: { shown in
             if !shown { model.cancelBrowserSignIn() }
         }
+    }
+
+    private func presentDueLockOffer() {
+        guard lockOfferIsDue else { return }
+        lockOfferIsDue = false
+        offeringLock = lock.shouldOfferLock
     }
 
     private var isCompact: Bool {
@@ -188,6 +207,7 @@ struct PreviewHost<Content: View>: View {
         content
             .environment(model)
             .environment(navigator)
+            .environment(AppLock(defaults: UserDefaults(suiteName: "fabrix.preview") ?? .standard))
             .task { await model.refresh() }
     }
 }

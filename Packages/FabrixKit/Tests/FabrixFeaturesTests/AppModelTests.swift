@@ -273,6 +273,19 @@ struct AppModelTests {
         #expect(AppModel(connector: connector, defaults: defaults).factory?.name == "f.example")
     }
 
+    @Test func connectingCountsOnlyRealFactories() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: defaults)
+        await model.exploreDemo()
+        #expect(model.connectCount == 0)
+
+        model.disconnect()
+        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        #expect(model.connectCount == 1)
+        #expect(AppModel(connector: connector, defaults: defaults).connectCount == 0)
+    }
+
     @Test func leavingAConnectedFactoryShowsOnboardingNextLaunch() async {
         let defaults = freshDefaults()
         let connector = RecordingConnector()

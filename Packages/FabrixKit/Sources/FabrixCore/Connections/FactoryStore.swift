@@ -228,7 +228,7 @@ public final class FactoryStore {
         let existing = factories.firstIndex { $0.baseURL == baseURL }
         let factory = Factory(
             id: existing.map { factories[$0].id } ?? UUID().uuidString,
-            name: name ?? existing.map { factories[$0].name } ?? baseURL.host() ?? baseURL.absoluteString,
+            name: name ?? existing.map { factories[$0].name } ?? Self.defaultName(for: baseURL),
             baseURL: baseURL,
             isOnline: true
         )
@@ -320,6 +320,14 @@ public final class FactoryStore {
 
     private func oidcTokenStore(_ factoryID: Factory.ID) -> OIDCTokenStore {
         OIDCTokenStore(credentials: credentials, account: "\(factoryID).oidc")
+    }
+
+    /// The host, plus the port when it isn't the scheme's default, so two local factories don't share a name.
+    static func defaultName(for url: URL) -> String {
+        guard let host = url.host(), !host.isEmpty else { return url.absoluteString }
+        let defaultPort = url.scheme?.lowercased() == "https" ? 443 : 80
+        guard let port = url.port, port != defaultPort else { return host }
+        return host.contains(":") ? "[\(host)]:\(port)" : "\(host):\(port)"
     }
 
     private static func headersAccount(_ factoryID: Factory.ID) -> String {

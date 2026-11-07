@@ -91,7 +91,7 @@ The app SHALL keep saved factories, their display names and their auth configura
 #### Scenario: Default display name
 
 - **WHEN** the user connects without entering a name
-- **THEN** the factory is named after the server's host
+- **THEN** the factory is named after the server's host, followed by the port when it is not the scheme's default (for example `127.0.0.1:65248`)
 
 ### Requirement: Reconnecting updates in place
 

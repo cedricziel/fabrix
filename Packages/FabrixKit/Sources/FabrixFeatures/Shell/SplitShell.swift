@@ -13,6 +13,13 @@ struct SplitShell: View {
         NavigationSplitView {
             Sidebar()
                 .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 300)
+                #if os(iOS)
+                    .safeAreaInset(edge: .bottom) {
+                        SettingsButton()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                    }
+                #endif
         } detail: {
             NavigationStack(path: $navigator.path) {
                 SectionScreen(section: navigator.section)

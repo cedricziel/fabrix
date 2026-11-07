@@ -45,6 +45,18 @@ struct FactoryStoreTests {
         #expect(try credentials.credential(for: factory.id) == nil)
     }
 
+    @Test(arguments: [
+        ("http://127.0.0.1:65248", "127.0.0.1:65248"),
+        ("https://factory.example.com", "factory.example.com"),
+        ("https://factory.example.com:443", "factory.example.com"),
+        ("http://factory.local:80", "factory.local"),
+        ("https://factory.example.com:8443", "factory.example.com:8443"),
+        ("http://[::1]:3100", "[::1]:3100"),
+    ])
+    func defaultNameShowsANonDefaultPort(address: String, name: String) {
+        #expect(FactoryStore.defaultName(for: URL(string: address)!) == name)
+    }
+
     @Test func rejectedCredentialPersistsNothing() async throws {
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"Board authentication required"}"#, status: 401)])
         let store = store(server)
