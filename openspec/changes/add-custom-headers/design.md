@@ -12,7 +12,7 @@
 
 - **Headers are one more `AuthProvider` layer** (`CustomHeadersAuth`, FabrixCore `Auth/`), first in the chain. Every rule that guards credentials then applies to them unchanged: the plain-HTTP refusal in `PaperclipClient.perform`, the same-origin redirect rule, and the absence from `OIDCFlow`. A separate header path in the client would duplicate those checks.
 - **`CustomHeader`** (FabrixCore `Connections/`) is a public name/value struct. `CustomHeader.validated(_:for:)` trims, rejects bad or reserved names and duplicates, and checks clashes against a `FactoryAuthConfiguration`. It throws `PaperclipError.invalidAuthConfiguration` with a message for the form.
-- **Storage:** the names go into `FactoryAuthConfiguration.customHeaderNames`, which is stored in UserDefaults and decoded as empty for older records. The values go into one Keychain item per factory, account `<id>.headers`, as a JSON object from name to value. `remove(_:)` deletes it. Writes join the existing rollback in `validateAndSave`.
+- **Storage:** the names go into the saved factory record (`StoredFactory.headerNames` in UserDefaults, optional so older records still decode). `FactoryAuthConfiguration` stays the description of sign-in only. The values go into one Keychain item per factory, account `<id>.headers`, as a JSON object from name to value. `remove(_:)` deletes it. Writes join the existing rollback in `validateAndSave`.
 - **The form** keeps rows (id, name, value) in `ConnectForm`. It passes non-blank rows on, and FabrixCore validates them. The Advanced section starts collapsed and opens only when rows exist.
 
 FabrixDesign still has no FabrixCore dependency.

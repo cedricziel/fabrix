@@ -1,8 +1,8 @@
 ## 1. FabrixCore: custom headers (PR: headers/core)
 
-- [ ] 1.1 `CustomHeader` and `CustomHeader.validated(_:for:)` (`Connections/CustomHeader.swift`); tests `CustomHeaderTests` (reserved, clashing, duplicate, invalid and multi-line names)
-- [ ] 1.2 `CustomHeadersAuth` provider layer (`Auth/AuthProvider.swift`); tests `customHeadersAreAddedToRequests`, `customHeadersAreRefusedOverRemoteHTTP`, `customHeadersDoNotFollowRedirectsToAnotherOrigin` in `PaperclipClientTests`
-- [ ] 1.3 Store names in `FactoryAuthConfiguration`, values in the Keychain, send them on connect, sign-in and restored services (`Auth/FactoryAuthConfiguration.swift`, `Connections/FactoryStore.swift`); tests in `FactoryStoreTests`: `customHeadersAreSentAndStoredInTheKeychain`, `customHeadersSurviveRelaunch`, `removeDeletesCustomHeaderValues`, `customHeadersAreNotSentToTheIdentityProvider`, `browserSignInSendsCustomHeaders`, `oldRecordsDecodeWithoutHeaderNames`
+- [x] 1.1 `CustomHeader` and `CustomHeader.validated(_:for:)` (`Connections/CustomHeader.swift`); tests `CustomHeaderTests` (reserved, clashing, duplicate, invalid and multi-line names)
+- [x] 1.2 `CustomHeadersAuth` provider layer (`Auth/AuthProvider.swift`); tests `customHeadersAreAddedToRequests`, `customHeadersAreRefusedOverRemoteHTTP`, `customHeadersDoNotFollowRedirectsToAnotherOrigin` in `PaperclipClientTests`
+- [x] 1.3 Store names in the factory record, values in the Keychain, send them on connect, sign-in and restored services (`Connections/FactoryStore.swift`, `Paperclip/PaperclipClient.swift`); tests in `FactoryStoreTests`: `customHeadersAreSentAndStoredInTheKeychain`, `customHeadersSurviveRelaunch`, `removeDeletesCustomHeaderValues`, `customHeadersAreNotSentToTheIdentityProvider`, `browserSignInSendsCustomHeaders`, `oldRecordsDecodeWithoutHeaderNames`, `invalidCustomHeadersAreRefusedBeforeAnyRequest`, `customHeadersAreRefusedOverRemoteHTTP`
 
 ## 2. FabrixFeatures: connect form (PR: headers/ui)
 

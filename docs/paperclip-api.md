@@ -15,6 +15,8 @@ Fabrix acts as a **board user** (a human operator), not as an agent.
 
 Fabrix sends credentials only over HTTPS, or over plain HTTP to this machine or a private network (loopback, `.local`, RFC 1918, Tailscale's `100.64.0.0/10`, link-local, IPv6 unique-local). Otherwise `PaperclipError.insecureConnection` is thrown before any request. Browser sign-in follows the same rule, because the approval response carries the new key. So do OIDC discovery and token requests, and the server check runs before the OIDC login page opens.
 
+A factory can also carry custom headers, such as a reverse proxy's access token. They are sent with every request to the factory's origin under the same transport rule, and never to the OIDC issuer.
+
 Redirects are followed only within the same scheme, host and port. Any other redirect fails, and the error names only the new origin, since the full URL can carry a token.
 
 There are two ways to get a board API key:

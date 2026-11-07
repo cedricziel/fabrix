@@ -25,6 +25,6 @@ None.
 
 ## Impact
 
-- `FabrixCore`: new `CustomHeader`; `FactoryStore.connect`, `startSignIn` and `completeSignIn` take headers; `FactoryStore.customHeaders(for:)`.
+- `FabrixCore`: new `CustomHeader`; `FactoryStore.connect`, `startSignIn` and `completeSignIn` take headers; `FactoryStore.customHeaders(for:)`; `CustomHeadersAuth` provider layer.
 - `FabrixFeatures`: `FactoryConnector.connect` gains a `headers` parameter; `ConnectForm` gains header rows; `OnboardingView` gets the Advanced section.
 - Telemetry: header values are never logged. Fabrix adds no logging of request headers, and the telemetry scrubber can add a guard later.
