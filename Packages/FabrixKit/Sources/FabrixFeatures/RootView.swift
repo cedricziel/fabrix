@@ -3,31 +3,47 @@ import FabrixDesign
 import SwiftUI
 
 public struct RootView: View {
-    @State private var model: AppModel
-    @State private var navigator = Navigator()
-    @State private var shutdownTask: UUID?
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
-    @State private var offeringLock = false
-    @State private var lockOfferIsDue = false
+    @State private var model: AppModel?
+    private let makeModel: @MainActor () -> AppModel
     private let lock: AppLock
-    @Environment(\.scenePhase) private var scenePhase
-    #if os(iOS)
-        @Environment(\.horizontalSizeClass) private var sizeClass
-    #endif
 
-    public init(model: AppModel = AppModel(), lock: AppLock = .shared) {
-        _model = State(initialValue: model)
+    /// The model is built on first appearance, once per view identity. SwiftUI may create
+    /// `RootView` many times; building the model reads saved factories and the Keychain.
+    public init(model: @escaping @autoclosure @MainActor () -> AppModel = AppModel(), lock: AppLock = .shared) {
+        makeModel = model
         self.lock = lock
     }
 
     /// Connects and reopens factories through `factoryStore`. Pass the app's single store so
     /// other parts of the app (telemetry scrubbing) see factories as soon as they are added.
     public init(factoryStore: FactoryStore) {
-        _model = State(initialValue: AppModel(connector: StoreConnector(store: factoryStore)))
+        makeModel = { AppModel(connector: StoreConnector(store: factoryStore)) }
         lock = .shared
     }
 
     public var body: some View {
+        if let model {
+            AppRoot(model: model, lock: lock)
+        } else {
+            Color.clear.onAppear { model = makeModel() }
+        }
+    }
+}
+
+private struct AppRoot: View {
+    let model: AppModel
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var navigator = Navigator()
+    @State private var shutdownTask: UUID?
+    @State private var offeringLock = false
+    @State private var lockOfferIsDue = false
+    let lock: AppLock
+    @Environment(\.scenePhase) private var scenePhase
+    #if os(iOS)
+        @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
+
+    var body: some View {
         Group {
             if model.isOnboarding {
                 OnboardingView()
