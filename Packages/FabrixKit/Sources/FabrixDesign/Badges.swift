@@ -85,7 +85,7 @@ public struct KindTag: View {
         }
         HStack {
             ForEach(DecisionKind.allCases, id: \.self) { KindTag($0) }
-            KindTag(title: "Primary", tone: .neutral)
+            KindTag(title: .preview("Primary"), tone: .neutral)
         }
     }
     .padding()

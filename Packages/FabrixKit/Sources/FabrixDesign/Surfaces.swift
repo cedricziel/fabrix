@@ -76,14 +76,14 @@ public extension View {
     @Previewable @State var selected = true
     ScrollView {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            SectionCard("Live runs", actionTitle: "All runs", action: {}) {
-                Text("CTO · ATL-142").padding(Spacing.l)
+            SectionCard(.preview("Live runs"), actionTitle: .preview("All runs"), action: {}) {
+                Text(verbatim: "CTO · ATL-142").padding(Spacing.l)
             }
-            SectionCard("Needs your decision") {
-                EmptyRow("Nothing is waiting on you.")
+            SectionCard(.preview("Needs your decision")) {
+                EmptyRow(.preview("Nothing is waiting on you."))
             }
-            Text("Unselected card").padding(Spacing.m).fabrixCard()
-            Text("Selected card · tap to toggle")
+            Text(verbatim: "Unselected card").padding(Spacing.m).fabrixCard()
+            Text(verbatim: "Selected card · tap to toggle")
                 .padding(Spacing.m)
                 .fabrixCard(selected: selected)
                 .onTapGesture { selected.toggle() }
@@ -95,8 +95,8 @@ public extension View {
 
 #Preview("Surfaces · dark") {
     VStack(alignment: .leading, spacing: Spacing.m) {
-        SectionCard("Activity") { EmptyRow("No activity yet.") }
-        Text("Selected card").padding(Spacing.m).fabrixCard(selected: true)
+        SectionCard(.preview("Activity")) { EmptyRow(.preview("No activity yet.")) }
+        Text(verbatim: "Selected card").padding(Spacing.m).fabrixCard(selected: true)
     }
     .padding()
     .background(Palette.paper)

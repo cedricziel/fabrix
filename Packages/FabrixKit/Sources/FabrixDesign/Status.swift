@@ -97,7 +97,7 @@ public struct StatusPill: View {
 #Preview("Status") {
     VStack(alignment: .leading, spacing: Spacing.s) {
         ForEach(StatusStyle.allCases, id: \.self) { StatusPill($0) }
-        StatusPill(.done, detail: "heartbeat every 5 min")
+        StatusPill(.done, detail: .preview("heartbeat every 5 min"))
         HStack { ForEach(StatusStyle.allCases, id: \.self) { StatusDot($0, size: 8) } }
     }
     .padding()

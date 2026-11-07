@@ -157,14 +157,14 @@ public struct MetricCard<Footer: View>: View {
     }
 
     private var valueText: Text {
-        let number = Text(value)
-            .font(.fabrix(.metric))
-            .foregroundStyle(emphasis ? Palette.signal : Palette.graphite)
-        guard let total else { return number }
-        let suffix = Text(" \(total)")
-            .font(.fabrix(.title))
-            .foregroundStyle(Palette.muted)
-        return Text("\(number)\(suffix)")
+        var number = AttributedString(value)
+        number.font = .fabrix(.metric)
+        number.foregroundColor = emphasis ? Palette.signal : Palette.graphite
+        guard let total else { return Text(number) }
+        var suffix = AttributedString(" \(total)")
+        suffix.font = .fabrix(.title)
+        suffix.foregroundColor = Palette.muted
+        return Text(number + suffix)
     }
 }
 
@@ -185,22 +185,22 @@ public extension MetricCard where Footer == Text {
 #Preview("Containers") {
     ScrollView {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            SectionHeader("Factories", style: .eyebrow)
-            MetricCard("Agents working", value: "4", total: "/ 7", detail: "2 idle · 1 paused")
-            MetricCard("Waiting on you", value: "3", detail: "1 hire · 1 strategy · 1 budget", emphasis: true)
-            MetricCard("Spend this month", value: "$412", total: "/ $1,000") {
+            SectionHeader(.preview("Factories"), style: .eyebrow)
+            MetricCard(.preview("Agents working"), value: "4", total: "/ 7", detail: .preview("2 idle · 1 paused"))
+            MetricCard(.preview("Waiting on you"), value: "3", detail: .preview("1 hire · 1 strategy · 1 budget"), emphasis: true)
+            MetricCard(.preview("Spend this month"), value: "$412", total: "/ $1,000") {
                 BudgetBar(spent: 412, limit: 1000, height: 6)
             }
             Card {
                 VStack(alignment: .leading, spacing: 0) {
-                    SectionHeader("Live runs", actionTitle: "All runs") {}
-                    Text("CTO · ATL-142").font(.fabrix(.body))
+                    SectionHeader(.preview("Live runs"), actionTitle: .preview("All runs")) {}
+                    Text(verbatim: "CTO · ATL-142").font(.fabrix(.body))
                 }
             }
             Card(style: .inverse) {
                 VStack(alignment: .leading, spacing: Spacing.s) {
-                    Text("ATL-151").font(.fabrix(.monoCaption)).foregroundStyle(Palette.onInverseMuted)
-                    Text("Offline cache for task list").font(.fabrix(.headline))
+                    Text(verbatim: "ATL-151").font(.fabrix(.monoCaption)).foregroundStyle(Palette.onInverseMuted)
+                    Text(verbatim: "Offline cache for task list").font(.fabrix(.headline))
                 }
             }
         }

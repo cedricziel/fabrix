@@ -57,14 +57,14 @@ private struct FieldsPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            LabeledField("Factory address") {
-                TextField("https://factory.example.com", text: $address)
+            LabeledField(.preview("Factory address")) {
+                TextField(.preview("https://factory.example.com"), text: $address)
             }
-            LabeledField("Paperclip API key") {
-                SecureField("Paste the key from your Paperclip board", text: $key)
+            LabeledField(.preview("Paperclip API key")) {
+                SecureField(.preview("Paste the key from your Paperclip board"), text: $key)
             }
-            LabeledField("Disabled") {
-                TextField("Not editable", text: .constant("fabrix"))
+            LabeledField(.preview("Disabled")) {
+                TextField(.preview("Not editable"), text: .constant("fabrix"))
             }
             .disabled(true)
         }

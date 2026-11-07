@@ -83,12 +83,12 @@ public extension Pill where Leading == EmptyView {
 private struct PillsPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            Pill("Run", tone: .run)
-            Pill("Neutral", tone: .neutral)
-            Pill("Signal", tone: .signal)
-            Pill("Halt", tone: .halt)
-            Pill("Done", tone: .done)
-            Pill("With a mark", tone: .run) { Image(systemName: "bolt.fill") }
+            Pill(verbatim: "Run", tone: .run)
+            Pill(verbatim: "Neutral", tone: .neutral)
+            Pill(verbatim: "Signal", tone: .signal)
+            Pill(verbatim: "Halt", tone: .halt)
+            Pill(verbatim: "Done", tone: .done)
+            Pill(verbatim: "With a mark", tone: .run) { Image(systemName: "bolt.fill") }
         }
         .padding()
         .background(Palette.paper)

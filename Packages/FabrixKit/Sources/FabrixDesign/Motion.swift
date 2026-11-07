@@ -46,10 +46,10 @@ private struct MotionPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            Button(shown ? "Hide" : "Show") { withAnimation { shown.toggle() } }
+            Button(shown ? .preview("Hide") : .preview("Show")) { withAnimation { shown.toggle() } }
                 .buttonStyle(.fabrixSecondary)
             if shown {
-                Text("Slides in from the top, or fades with Reduce Motion")
+                Text(verbatim: "Slides in from the top, or fades with Reduce Motion")
                     .padding(Spacing.m)
                     .fabrixCard()
                     .fabrixTransition(.slideIn(from: .top))
