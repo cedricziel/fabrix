@@ -119,6 +119,21 @@ class ChangelogTest < Minitest::Test
     assert_equal "  Hand-written\n\n- notes ", text
   end
 
+  def test_curated_text_beats_the_changelog_section
+    text = Changelog.for_release(markdown: FIXTURE, version: "0.2.0", subjects: [], curated: "\nNew in 0.2.0\n\n- Hand-written\n", env: {})
+    assert_equal "New in 0.2.0\n\n- Hand-written", text
+  end
+
+  def test_env_override_beats_curated_text
+    text = Changelog.for_release(markdown: FIXTURE, version: "0.2.0", subjects: [], curated: "curated", env: { "FABRIX_CHANGELOG" => "env" })
+    assert_equal "env", text
+  end
+
+  def test_blank_curated_text_falls_through_to_the_changelog
+    text = Changelog.for_release(markdown: FIXTURE, version: "0.2.0", subjects: [], curated: " \n", env: {})
+    assert_equal EXPECTED, text
+  end
+
   def test_blank_env_override_is_ignored
     text = Changelog.for_release(markdown: FIXTURE, version: "0.2.0", subjects: [], env: { "FABRIX_CHANGELOG" => "  " })
     assert_equal EXPECTED, text

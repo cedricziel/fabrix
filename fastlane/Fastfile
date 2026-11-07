@@ -42,13 +42,16 @@ def marketing_version(options)
   File.read(File.join(REPO_ROOT, "project.yml"))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
 end
 
-# What to Test text: FABRIX_CHANGELOG, else the version's CHANGELOG.md section,
-# else the feat/fix commits since the last tag (a manual build between releases).
+# What to Test text: FABRIX_CHANGELOG, else metadata/beta/whats_new/<version>.txt,
+# else the version's CHANGELOG.md section, else the feat/fix commits since the
+# last tag (a manual build between releases).
 def testflight_changelog(version = marketing_version({}))
   last_tag = sh("git describe --tags --abbrev=0 2>/dev/null || true", log: false).strip
   range = last_tag.empty? ? "HEAD" : "#{last_tag}..HEAD"
   subjects = sh("git log --no-merges --pretty=%s #{range}", log: false).lines
+  curated_file = File.join(__dir__, "metadata", "beta", "whats_new", "#{version}.txt")
   Changelog.for_release(
+    curated: (File.read(curated_file) if File.exist?(curated_file)),
     markdown: File.read(File.join(REPO_ROOT, "CHANGELOG.md")),
     version: version,
     subjects: subjects,

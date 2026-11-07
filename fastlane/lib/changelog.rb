@@ -84,9 +84,12 @@ module Changelog
         .join("\n\n")
   end
 
-  def for_release(markdown:, version:, subjects:, since: nil, env: ENV)
+  # `curated` is the hand-written metadata/beta/whats_new/<version>.txt, when it exists.
+  def for_release(markdown:, version:, subjects:, since: nil, curated: nil, env: ENV)
     override = env["FABRIX_CHANGELOG"].to_s
     return override unless override.strip.empty?
+
+    return curated.strip unless curated.to_s.strip.empty?
 
     body = section(markdown, version)
     text = body ? format_groups(groups_from_section(body)) : ""
