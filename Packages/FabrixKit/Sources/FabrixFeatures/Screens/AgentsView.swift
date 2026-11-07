@@ -12,7 +12,7 @@ struct AgentsView: View {
                     AvatarBadge(agent.initials, size: 36)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(agent.name).fontWeight(.semibold)
-                        StatusPill(agent.status.style)
+                        StatusPill(model.status(of: agent).style)
                     }
                     Spacer()
                     if agent.budget.capCents != nil {
@@ -51,12 +51,12 @@ struct AgentDetailView: View {
                             Text("Pause").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.fabrixSecondary)
-                            .disabled(agent.status == .paused)
+                            .disabled(model.status(of: agent) == .paused)
                         Button { Task { await model.wake(agent) } } label: {
                             Text("Wake now").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.fabrixSignal)
-                            .disabled(agent.status == .running)
+                            .disabled(model.status(of: agent) == .running)
                     }
                     .controlSize(.large)
                 }
@@ -77,7 +77,7 @@ struct AgentDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(agent.name).font(.title2.weight(.semibold))
                 HStack(spacing: 4) {
-                    StatusPill(agent.status.style)
+                    StatusPill(model.status(of: agent).style)
                     Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board"))")
                         .font(.caption)
                         .foregroundStyle(Palette.steel)

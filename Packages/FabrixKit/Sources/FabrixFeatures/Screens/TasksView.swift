@@ -200,7 +200,7 @@ private struct TaskDetailContent: View {
                     HStack(spacing: 8) {
                         Button("Wake agent") { Task { await model.wake(assignee) } }
                             .buttonStyle(.fabrixPrimary)
-                            .disabled(assignee.status == .running)
+                            .disabled(model.status(of: assignee) == .running)
                         NavigationLink(value: assignee.id) { Text("Open agent") }
                             .buttonStyle(.fabrixSecondary)
                     }

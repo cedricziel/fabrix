@@ -376,6 +376,10 @@ public final class AppModel {
         id.flatMap { index.agents[$0] }
     }
 
+    func status(of agent: Agent) -> AgentStatus {
+        .shown(reported: agent.status, hasLiveRun: runs(of: agent.id).contains(where: \.isLive))
+    }
+
     func liveRun(for task: WorkItem) -> Run? {
         index.liveRunsByTask[task.identifier]
     }

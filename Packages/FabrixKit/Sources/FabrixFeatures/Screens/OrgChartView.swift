@@ -80,6 +80,7 @@ private struct Rail: View {
 }
 
 private struct OrgNodeCard: View {
+    @Environment(AppModel.self) private var model
     let agent: Agent
     let isSelected: Bool
     let select: () -> Void
@@ -90,7 +91,7 @@ private struct OrgNodeCard: View {
                 AvatarBadge(agent.initials, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(agent.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    StatusPill(agent.status.style)
+                    StatusPill(model.status(of: agent).style)
                 }
                 Spacer(minLength: 0)
             }
