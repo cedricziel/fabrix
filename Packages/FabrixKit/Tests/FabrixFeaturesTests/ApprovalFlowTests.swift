@@ -91,7 +91,7 @@ struct ApprovalFlowTests {
 
         #expect(model.waitingApprovals.map(\.id) == ["h1"])
         #expect(model.snapshot?.approvals.filter { $0.state == .approved }.map(\.id).sorted() == ["b1", "s1"])
-        #expect(model.lastError != nil)
+        #expect(model.actionError != nil)
         #expect(model.decisionErrors.keys.sorted() == ["h1"])
 
         let failed = try #require(model.waitingApprovals.first)
@@ -137,7 +137,7 @@ struct ApprovalFlowTests {
         }
 
         #expect(model.snapshot?.approvals.first { $0.id == approval.id }?.state == .approved)
-        #expect(model.lastError == nil)
+        #expect(model.actionError == nil)
         #expect(model.decisionErrors.isEmpty)
     }
 
@@ -160,7 +160,7 @@ struct ApprovalFlowTests {
         await service.release()
         await committing.value
 
-        #expect(model.lastError == nil)
+        #expect(model.actionError == nil)
         #expect(model.decisionErrors.isEmpty)
         #expect(model.waitingApprovals.contains { $0.id == "h1" })
     }

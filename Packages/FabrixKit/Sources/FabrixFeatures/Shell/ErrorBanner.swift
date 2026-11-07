@@ -1,15 +1,15 @@
 import FabrixDesign
 import SwiftUI
 
-/// Shows why the last refresh or action failed while older data stays on screen.
+/// Shows why the user's last action failed. Connection problems go to the status strip.
 struct ErrorBanner: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let message = model.lastError {
+        if let message = model.actionError {
             NoticeBanner(systemImage: "exclamationmark.triangle.fill", tint: Palette.halt, message: message) {
                 Button {
-                    withAnimation { model.dismissError() }
+                    withAnimation { model.dismissActionError() }
                 } label: {
                     Image(systemName: "xmark")
                         .frame(minWidth: NoticeBanner<EmptyView>.hitSize, minHeight: NoticeBanner<EmptyView>.hitSize)
@@ -63,10 +63,14 @@ struct ErrorAnnouncer: ViewModifier {
     @Environment(AppModel.self) private var model
 
     func body(content: Content) -> some View {
-        content.onChange(of: model.lastError) { _, message in
-            if let message {
-                AccessibilityNotification.Announcement(message).post()
+        content
+            .onChange(of: model.actionError) { _, message in
+                if let message { AccessibilityNotification.Announcement(message).post() }
             }
-        }
+            .onChange(of: model.connectionProblem?.issue) { _, issue in
+                if issue != nil, let detail = model.connectionProblem?.detail {
+                    AccessibilityNotification.Announcement(detail).post()
+                }
+            }
     }
 }

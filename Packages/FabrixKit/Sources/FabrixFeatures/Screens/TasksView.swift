@@ -9,11 +9,24 @@ struct TasksView: View {
 
     var body: some View {
         let visible = model.visibleTasks
+        let emptiness = ListEmptiness(total: model.snapshot?.tasks.count ?? 0, visible: visible.count, query: model.searchText)
         Group {
             if isCompact {
                 TaskList(sections: TaskBoard.sections(for: visible))
+                    .overlay {
+                        EmptyStateView(
+                            emptiness: emptiness, title: .features("No tasks yet"), systemImage: "rectangle.split.3x1",
+                            hint: .features("Create one on your Paperclip board.")
+                        )
+                    }
             } else {
                 TaskBoardView(columns: TaskBoard.columns(for: visible), selectedID: $selectedID)
+                    .overlay {
+                        EmptyStateView(
+                            emptiness: emptiness, title: .features("No tasks yet"), systemImage: "rectangle.split.3x1",
+                            hint: .features("Create one on your Paperclip board.")
+                        )
+                    }
                     .inspector(isPresented: $selectedID.isPresent()) {
                         if let selectedID {
                             TaskDetailView(taskID: selectedID)
@@ -203,11 +216,7 @@ private struct TaskList: View {
                 }
             }
         }
-        .overlay {
-            if sections.isEmpty {
-                ContentUnavailableView.search
-            }
-        }
+
     }
 }
 
@@ -220,7 +229,11 @@ struct TaskDetailView: View {
         if let task = model.task(taskID) {
             TaskDetailContent(task: task)
         } else {
-            ContentUnavailableView(.features("Task not found"), systemImage: "rectangle.slash")
+            ContentUnavailableView {
+                Label(.features("Task not found"), systemImage: "rectangle.slash")
+            } description: {
+                Text("It was deleted or moved on the board.", bundle: .module)
+            }
         }
     }
 }
@@ -260,9 +273,11 @@ private struct TaskDetailContent: View {
                 }
                 if let assignee {
                     HStack(spacing: 8) {
-                        Button(.features("Wake agent")) { Task { await model.wake(assignee) } }
-                            .buttonStyle(.fabrixPrimary)
-                            .disabled(model.status(of: assignee) == .running)
+                        Button { Task { await model.wake(assignee) } } label: {
+                            ActionLabel(.features("Wake agent"), isBusy: model.isPending(.wake(assignee.id)))
+                        }
+                        .buttonStyle(.fabrixPrimary)
+                        .disabled(!model.canWake(assignee))
                         NavigationLink(value: assignee.id) { Text("Open agent", bundle: .module) }
                             .buttonStyle(.fabrixSecondary)
                     }

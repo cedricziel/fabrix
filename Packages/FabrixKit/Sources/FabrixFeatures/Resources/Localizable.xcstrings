@@ -1,7 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ Sign in again." : {
+
+    },
     "%@ couldn't be opened. Remove it and add it again." : {
+
+    },
+    "%@ had a problem" : {
+
+    },
+    "%@ had a problem (%lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ had a problem (%2$lld)"
+          }
+        }
+      }
+    },
+    "%@ is no longer available." : {
 
     },
     "%@ no longer accepts Fabrix's key." : {
@@ -138,6 +157,9 @@
     "Budget this month" : {
 
     },
+    "Can't reach %@" : {
+
+    },
     "Can't reach the factory" : {
 
     },
@@ -171,6 +193,9 @@
     "Connect a factory" : {
 
     },
+    "Connecting to %@…" : {
+
+    },
     "Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime." : {
 
     },
@@ -181,6 +206,12 @@
 
     },
     "Create" : {
+
+    },
+    "Create a company on your Paperclip board, then refresh." : {
+
+    },
+    "Create one on your Paperclip board." : {
 
     },
     "Create one with `paperclipai token board create` on a signed-in machine." : {
@@ -219,6 +250,9 @@
     "Enter the factory address, like https://factory.example.com." : {
 
     },
+    "Every agent stops after its current step. Resume the company to start them again." : {
+
+    },
     "Explore the demo" : {
 
     },
@@ -237,8 +271,15 @@
     "Fabrix will ask for %@ when you open it, so nobody else can approve or pause your agents. You can change this in Settings." : {
 
     },
-    "Fabrix's key for this factory expires %@." : {
-
+    "Fabrix's key for %@ expires %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Fabrix's key for %1$@ expires %2$@"
+          }
+        }
+      }
     },
     "Factories" : {
 
@@ -261,6 +302,9 @@
     "Hire" : {
 
     },
+    "Hire your first agent on your Paperclip board." : {
+
+    },
     "Immediately" : {
 
     },
@@ -270,7 +314,13 @@
     "In review" : {
 
     },
+    "It was deleted or moved on the board." : {
+
+    },
     "It was deleted, archived or made private in Paperclip." : {
+
+    },
+    "It was removed from the company on the board." : {
 
     },
     "Lead %@" : {
@@ -315,6 +365,12 @@
     "New task" : {
 
     },
+    "No access" : {
+
+    },
+    "No access to %@" : {
+
+    },
     "No active projects." : {
 
     },
@@ -322,6 +378,9 @@
 
     },
     "No agent is running right now." : {
+
+    },
+    "No agents yet" : {
 
     },
     "No companies yet" : {
@@ -363,6 +422,9 @@
     "No tasks in this project yet." : {
 
     },
+    "No tasks yet" : {
+
+    },
     "Not Now" : {
 
     },
@@ -373,6 +435,12 @@
 
     },
     "OIDC issuer" : {
+
+    },
+    "Offline" : {
+
+    },
+    "Online" : {
 
     },
     "Open" : {
@@ -403,6 +471,12 @@
 
     },
     "Pause" : {
+
+    },
+    "Pause %@?" : {
+
+    },
+    "Pause Company" : {
 
     },
     "Pause company" : {
@@ -441,6 +515,15 @@
     "Recent runs" : {
 
     },
+    "Reconnect" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Refresh (⌘R)" : {
+
+    },
     "Reject" : {
 
     },
@@ -468,6 +551,9 @@
     "Resume every agent in %@" : {
 
     },
+    "Resume the company to wake agents." : {
+
+    },
     "Retry" : {
 
     },
@@ -486,7 +572,13 @@
     "See all %lld" : {
 
     },
+    "Sending…" : {
+
+    },
     "Sent with every request to this factory, e.g. a proxy access token." : {
+
+    },
+    "Server problem" : {
 
     },
     "Set a %@ on this device to use the lock." : {
@@ -508,6 +600,12 @@
 
     },
     "Sign in with browser" : {
+
+    },
+    "Signed out" : {
+
+    },
+    "Signed out of %@" : {
 
     },
     "Single sign-on (OIDC)" : {
@@ -537,13 +635,13 @@
     "The request expires at %@." : {
 
     },
-    "This factory has no companies." : {
-
-    },
-    "This factory no longer accepts Fabrix's key." : {
+    "This factory" : {
 
     },
     "This project is gone" : {
+
+    },
+    "This server's version isn't supported yet" : {
 
     },
     "Title" : {
@@ -585,6 +683,9 @@
     "Updated" : {
 
     },
+    "Updated %@" : {
+
+    },
     "Value" : {
 
     },
@@ -612,6 +713,12 @@
     "Your decision wasn't sent: %@" : {
 
     },
+    "Your sign-in to %@ ended. Enter your credentials again to continue." : {
+
+    },
+    "Your single sign-on session for %@ ended." : {
+
+    },
     "^[%lld older task](inflect: true) not loaded, so not counted" : {
 
     },
@@ -634,6 +741,12 @@
 
     },
     "the board" : {
+
+    },
+    "the company" : {
+
+    },
+    "the factory" : {
 
     },
     "this factory" : {

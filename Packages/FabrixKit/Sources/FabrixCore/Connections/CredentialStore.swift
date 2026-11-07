@@ -13,6 +13,12 @@ public struct KeychainError: Error, Equatable, Sendable {
     public var status: OSStatus
 }
 
+extension KeychainError: LocalizedError {
+    public var errorDescription: String? {
+        "Fabrix couldn't use the Keychain (\(status)). Unlock the device and try again."
+    }
+}
+
 /// Generic-password items in the data protection keychain, shared code for iOS and macOS.
 public struct KeychainCredentialStore: CredentialStore {
     public var service: String

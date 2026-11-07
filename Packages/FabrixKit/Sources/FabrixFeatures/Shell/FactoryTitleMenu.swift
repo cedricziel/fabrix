@@ -112,6 +112,11 @@ public struct FactoryCommands: Commands {
     public init() {}
 
     public var body: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button(.features("Refresh")) { Task { await model?.refresh() } }
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(model == nil || model?.isOnboarding == true)
+        }
         CommandMenu(Text("Factory", bundle: .module)) {
             if let model, let navigator, !model.isOnboarding {
                 FactoryMenuContent(model: model, navigator: navigator, showsShortcuts: true)

@@ -11,7 +11,12 @@ actor GatedService: FactoryService {
     private var heldWaiters: [CheckedContinuation<Void, Never>] = []
     private let failingDecisions: Set<Approval.ID>
     private var failingSnapshots = false
+    private var failingPauses = false
+    private var companiesError: (any Error)?
+    private var removedCompanies: Set<Company.ID> = []
     private(set) var snapshotCalls = 0
+    private(set) var companiesCalls = 0
+    private(set) var pauseCalls = 0
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
         self.inner = inner
@@ -20,6 +25,10 @@ actor GatedService: FactoryService {
 
     func holdNextSnapshot() { holdNext = true }
     func failSnapshots(_ failing: Bool) { failingSnapshots = failing }
+    func failPauses(_ failing: Bool) { failingPauses = failing }
+    func failCompanies(with error: (any Error)?) { companiesError = error }
+    /// Like deleting a company on the board: it leaves the list, and its snapshot answers 403.
+    func removeCompany(_ id: Company.ID) { removedCompanies.insert(id) }
 
     /// Returns once a snapshot response is being held.
     func waitUntilHolding() async {
@@ -34,12 +43,17 @@ actor GatedService: FactoryService {
 
     func companies() async throws -> [Company] {
         try Task.checkCancellation()
-        return try await inner.companies()
+        companiesCalls += 1
+        if let companiesError { throw companiesError }
+        return try await inner.companies().filter { !removedCompanies.contains($0.id) }
     }
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
         try Task.checkCancellation()
         snapshotCalls += 1
+        if removedCompanies.contains(companyID) {
+            throw PaperclipError.forbidden("User does not have access to this company")
+        }
         if failingSnapshots { throw URLError(.notConnectedToInternet) }
         let snapshot = try await inner.snapshot(companyID: companyID)
         if holdNext {
@@ -66,6 +80,8 @@ actor GatedService: FactoryService {
 
     func pause(agentID: Agent.ID) async throws {
         try Task.checkCancellation()
+        pauseCalls += 1
+        if failingPauses { throw PaperclipError.conflict("Agent is not invokable in its current state") }
         try await inner.pause(agentID: agentID)
     }
     func setCompanyPaused(_ paused: Bool, companyID: Company.ID) async throws {

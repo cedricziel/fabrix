@@ -60,7 +60,10 @@ struct ApprovalsView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(decided.approved ? Palette.done : Palette.halt)
                                 Spacer()
-                                if decided.canUndo {
+                                if decided.isSending {
+                                    ProgressView().controlSize(.small)
+                                    Text("Sending…", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
+                                } else if decided.canUndo {
                                     Button(.features("Undo")) { withAnimation { model.undo(decided.id) } }
                                         .buttonStyle(.fabrixSecondary)
                                 }

@@ -30,13 +30,15 @@ struct SplitShell: View {
                     }
                 }
                 .id(model.snapshot?.company.id)
+                .statusInsets()
                     .factoryTitle()
+                    // On the content column: iPad shows nothing attached to the split view itself.
+                    .toolbar { CompanyToolbar() }
                     .fabrixDestinations()
             }
             .refreshable { await model.refresh() }
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: .features("Search tasks, agents"))
-        .toolbar { CompanyToolbar() }
     }
 }
 
@@ -71,6 +73,11 @@ private struct Sidebar: View {
                 Section(.features("Projects")) { ProjectsSidebarGroup() }
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            if let factory = model.factory {
+                FactoryHealthRow(name: factory.name, health: FactoryHealth(model.connectionProblem))
+            }
+        }
     }
 
     private var selection: Binding<SidebarItem?> {
@@ -94,6 +101,24 @@ private struct Sidebar: View {
     }
 }
 
+private struct FactoryHealthRow: View {
+    let name: String
+    let health: FactoryHealth
+
+    var body: some View {
+        HStack(spacing: 8) {
+            StatusDot(health.style, size: 8)
+            Text(name).lineLimit(1)
+            Spacer(minLength: 4)
+            Text(health.label).foregroundStyle(Palette.muted)
+        }
+        .font(.caption)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Pause company and New task, shared by the split view and the iPhone Factory tab.
 struct CompanyToolbar: ToolbarContent {
     @Environment(AppModel.self) private var model
@@ -103,6 +128,8 @@ struct CompanyToolbar: ToolbarContent {
         #if os(macOS)
         // The leading edge belongs to navigation and the title menu.
         ToolbarItem(placement: .secondaryAction) { pauseButton }
+        // Pull to refresh doesn't exist on macOS.
+        ToolbarItem(placement: .automatic) { refreshButton }
         ToolbarItem(placement: .automatic) { newTaskButton }
         #else
         ToolbarItemGroup(placement: .primaryAction) {
@@ -115,16 +142,38 @@ struct CompanyToolbar: ToolbarContent {
     @ViewBuilder private var pauseButton: some View {
         if let company = model.snapshot?.company {
             Button {
-                Task { await model.setCompanyPaused(!company.isPaused) }
+                // Pausing stops every agent, so it asks first; resuming doesn't need to.
+                if company.isPaused {
+                    Task { await model.setCompanyPaused(false) }
+                } else {
+                    navigator.confirmingPauseCompany = true
+                }
             } label: {
                 Label(company.isPaused ? .features("Resume company") : .features("Pause company"),
                       systemImage: company.isPaused ? "play.fill" : "pause.fill")
             }
+            .disabled(model.isPending(.companyPause))
             .help(company.isPaused
                 ? .features("Resume every agent in \(company.name)")
                 : .features("Pause every agent in \(company.name)"))
         }
     }
+
+    #if os(macOS)
+    private var refreshButton: some View {
+        Button {
+            Task { await model.retry() }
+        } label: {
+            if model.isRetrying {
+                ProgressView().controlSize(.small)
+            } else {
+                Label(.features("Refresh"), systemImage: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isRetrying)
+        .help(Text("Refresh (⌘R)", bundle: .module))
+    }
+    #endif
 
     private var newTaskButton: some View {
         Button {

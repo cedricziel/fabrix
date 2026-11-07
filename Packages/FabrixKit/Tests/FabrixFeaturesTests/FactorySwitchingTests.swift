@@ -104,7 +104,7 @@ struct FactorySwitchingTests {
         await model.removeOpenFactory()
 
         #expect(model.factory?.name == "one.example")
-        #expect(model.lastError == "Keychain locked")
+        #expect(model.actionError == "Keychain locked")
     }
 
     @Test func removingTheDemoDoesNothing() async {
@@ -230,6 +230,20 @@ struct FactorySwitchingTests {
         #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
     }
 
+    @Test func closingTheFormMidConnectOpensNothingAndKeepsHeldDecisions() async throws {
+        let (model, _) = await connected(["one.example"])
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        let connecting = Task { await model.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k")) }
+        connecting.cancel()
+        let opened = await connecting.value
+
+        #expect(!opened)
+        #expect(model.factory?.name == "one.example")
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
+    }
+
     @Test func cancelledSignInKeepsTheUndoWindow() async throws {
         let (model, connector) = await connected(["one.example"])
         let approval = try #require(model.waitingApprovals.first)
@@ -259,5 +273,31 @@ struct FactorySwitchingTests {
         #expect(windowB.factory?.name == "one.example")
         #expect(windowB.agent("cto")?.status == .paused)
         #expect(connector.factories.count == 1)
+    }
+
+    @Test func cancellingAConnectLeavesNoError() async {
+        let connector = RecordingConnector()
+        connector.delay = .seconds(5)
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+
+        let connecting = Task { await model.connect(ConnectForm(address: "slow.example", method: .paperclip, apiKey: "k")) }
+        while !model.isConnecting { await Task.yield() }
+        connecting.cancel()
+        let opened = await connecting.value
+
+        #expect(!opened)
+        #expect(!model.isConnecting)
+        #expect(model.isOnboarding)
+        #expect(model.connectError == nil)
+    }
+
+    @Test func leavingOrExploringClearsAnOldConnectError() async {
+        let connector = RecordingConnector(failure: "Unauthorized")
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+        await model.connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "bad"))
+        #expect(model.connectError == "Unauthorized")
+
+        await model.exploreDemo()
+        #expect(model.connectError == nil)
     }
 }

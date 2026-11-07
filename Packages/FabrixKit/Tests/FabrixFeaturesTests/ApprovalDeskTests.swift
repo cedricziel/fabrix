@@ -61,6 +61,14 @@ struct ApprovalDeskTests {
         #expect(desk.stagedIDs == ["s1"])
     }
 
+    @Test func aCommittingDecisionIsSendingUntilTheFactoryShowsIt() {
+        var desk = ApprovalDesk()
+        desk.stage("h1", approve: true)
+        #expect(desk.decided(approvals).first?.isSending == false)
+        _ = desk.beginCommit("h1")
+        #expect(desk.decided(approvals).first?.isSending == true)
+    }
+
     @Test func finishingACommitDefersToServerState() {
         var desk = ApprovalDesk()
         desk.stage("h1", approve: true)

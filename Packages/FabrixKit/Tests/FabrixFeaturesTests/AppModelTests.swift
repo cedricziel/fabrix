@@ -155,14 +155,13 @@ struct AppModelTests {
         await model.refresh()
         #expect(model.loadState == .loaded)
         #expect(model.snapshot?.company.name == "Atlas")
-        #expect(model.lastError != nil)
-
-        model.dismissError()
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem?.issue == .unreachable)
+        #expect(model.actionError == nil)
 
         await service.failSnapshots(false)
         await model.refresh()
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem == nil)
+        #expect(model.lastRefreshedAt != nil)
     }
 
     @Test func pollDuringCompanySwitchKeepsTheChosenCompany() async throws {
@@ -190,7 +189,7 @@ struct AppModelTests {
         load.cancel()
         await load.value
         #expect(model.loadState == .loading)
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem == nil)
 
         let polling = Task { await model.keepFresh(every: .seconds(60)) }
         defer { polling.cancel() }
@@ -209,7 +208,7 @@ struct AppModelTests {
         await service.failSnapshots(true)
         await model.select(orbit)
         #expect(model.snapshot?.company.name == "Atlas")
-        #expect(model.lastError != nil)
+        #expect(model.actionError != nil)
 
         await service.failSnapshots(false)
         await model.select(orbit)

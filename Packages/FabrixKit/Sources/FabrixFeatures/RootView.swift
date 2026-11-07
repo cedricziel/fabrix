@@ -1,33 +1,50 @@
+import AuthenticationServices
 import FabrixCore
 import FabrixDesign
 import SwiftUI
 
 public struct RootView: View {
-    @State private var model: AppModel
-    @State private var navigator = Navigator()
-    @State private var shutdownTask: UUID?
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
-    @State private var offeringLock = false
-    @State private var lockOfferIsDue = false
+    @State private var model: AppModel?
+    private let makeModel: @MainActor () -> AppModel
     private let lock: AppLock
-    @Environment(\.scenePhase) private var scenePhase
-    #if os(iOS)
-        @Environment(\.horizontalSizeClass) private var sizeClass
-    #endif
 
-    public init(model: AppModel = AppModel(), lock: AppLock = .shared) {
-        _model = State(initialValue: model)
+    /// The model is built on first appearance, once per view identity. SwiftUI may create
+    /// `RootView` many times; building the model reads saved factories and the Keychain.
+    public init(model: @escaping @autoclosure @MainActor () -> AppModel = AppModel(), lock: AppLock = .shared) {
+        makeModel = model
         self.lock = lock
     }
 
     /// Connects and reopens factories through `factoryStore`. Pass the app's single store so
     /// other parts of the app (telemetry scrubbing) see factories as soon as they are added.
     public init(factoryStore: FactoryStore) {
-        _model = State(initialValue: AppModel(connector: StoreConnector(store: factoryStore)))
+        makeModel = { AppModel(connector: StoreConnector(store: factoryStore)) }
         lock = .shared
     }
 
     public var body: some View {
+        if let model {
+            AppRoot(model: model, lock: lock)
+        } else {
+            Color.clear.onAppear { model = makeModel() }
+        }
+    }
+}
+
+private struct AppRoot: View {
+    let model: AppModel
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var navigator = Navigator()
+    @State private var shutdownTask: UUID?
+    @State private var offeringLock = false
+    @State private var lockOfferIsDue = false
+    let lock: AppLock
+    @Environment(\.scenePhase) private var scenePhase
+    #if os(iOS)
+        @Environment(\.horizontalSizeClass) private var sizeClass
+    #endif
+
+    var body: some View {
         Group {
             if model.isOnboarding {
                 OnboardingView()
@@ -37,13 +54,17 @@ public struct RootView: View {
                 } description: {
                     Text((model.signedOutReason ?? .boardKeyRejected).message(for: model.factory?.name))
                 } actions: {
-                    SignInBanner()
+                    Button(.features("Sign in again")) {
+                        Task { await model.signInAgain() }
+                    }
+                    .buttonStyle(.fabrixPrimary)
+                    .disabled(model.browserSignIn != nil)
                     Button(.features("Choose another factory")) { model.disconnect() }
                 }
             } else {
                 switch model.loadState {
                 case .loading:
-                    ProgressView()
+                    ConnectingView()
                 case .loaded:
                     Group {
                         if isCompact {
@@ -52,12 +73,7 @@ public struct RootView: View {
                             SplitShell()
                         }
                     }
-                    .safeAreaInset(edge: .top) {
-                        VStack(spacing: 0) {
-                            SignInBanner()
-                            ErrorBanner()
-                        }
-                    }
+                    .environment(\.timersFrozenAt, model.dataFrozenAt)
                     .modifier(ErrorAnnouncer())
                 case .empty:
                     // The title menu stays reachable so another factory can be opened or this one removed.
@@ -65,23 +81,39 @@ public struct RootView: View {
                         ContentUnavailableView {
                             Label(.features("No companies yet"), systemImage: "building.2")
                         } description: {
-                            Text("This factory has no companies.", bundle: .module)
+                            Text("Create a company on your Paperclip board, then refresh.", bundle: .module)
                         } actions: {
+                            Button {
+                                Task { await model.retry() }
+                            } label: {
+                                if model.isRetrying { ProgressView().controlSize(.small) } else { Text("Refresh", bundle: .module) }
+                            }
+                            .buttonStyle(.fabrixPrimary)
+                            .disabled(model.isRetrying)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Palette.paper)
                         .factoryTitle()
                     }
                 case let .failed(message):
                     NavigationStack {
                         ContentUnavailableView {
-                            Label(.features("Can't reach the factory"), systemImage: "exclamationmark.triangle")
+                            Label(model.failedTitle, systemImage: "exclamationmark.triangle")
                         } description: {
                             Text(message)
                         } actions: {
-                            Button(.features("Try again")) { Task { await model.refresh() } }
-                                .buttonStyle(.fabrixPrimary)
+                            Button {
+                                Task { await model.retry() }
+                            } label: {
+                                if model.isRetrying { ProgressView().controlSize(.small) } else { Text("Try again", bundle: .module) }
+                            }
+                            .buttonStyle(.fabrixPrimary)
+                            .disabled(model.isRetrying)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Palette.paper)
                         .factoryTitle()
                     }
                 }
@@ -89,6 +121,9 @@ public struct RootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.paper)
+        .onChange(of: model.fullScreenAnnouncement, initial: true) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         // Inside the lock, so sheets close when it locks.
@@ -105,6 +140,14 @@ public struct RootView: View {
                     .frame(minWidth: 360)
                     .environment(model)
             }
+        }
+        .confirmationDialog(
+            Text("Pause \(model.snapshot?.company.name ?? String(localized: "the company", bundle: .module))?", bundle: .module),
+            isPresented: $navigator.confirmingPauseCompany, titleVisibility: .visible
+        ) {
+            Button(.features("Pause Company")) { Task { await model.setCompanyPaused(true) } }
+        } message: {
+            Text("Every agent stops after its current step. Resume the company to start them again.", bundle: .module)
         }
         .confirmationDialog(
             Text("Remove \(model.factory?.name ?? String(localized: "this factory", bundle: .module))?", bundle: .module),
@@ -217,3 +260,25 @@ struct PreviewHost<Content: View>: View {
 }
 
 #Preview("Demo") { RootView(model: .demo()) }
+
+/// The first load of a factory: says which factory, and offers a way out if it takes long.
+private struct ConnectingView: View {
+    @Environment(AppModel.self) private var model
+    @State private var offersEscape = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+            Text("Connecting to \(model.factory?.name ?? String(localized: "the factory", bundle: .module))…", bundle: .module)
+                .foregroundStyle(Palette.steel)
+            if offersEscape {
+                Button(.features("Choose another factory")) { model.disconnect() }
+                    .buttonStyle(.fabrixSecondary)
+            }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation { offersEscape = true }
+        }
+    }
+}

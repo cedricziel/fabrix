@@ -7,6 +7,13 @@ import Observation
 @Observable
 public final class FactoryStore {
     public private(set) var factories: [Factory]
+
+    /// Fails a silent server after 15 seconds instead of URLSession's 60, so the app can say so.
+    public nonisolated static let defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 15
+        return URLSession(configuration: configuration)
+    }()
     /// Changes whenever a factory is saved, reconnected or removed, even when its record looks
     /// the same, so open windows can pick up new credentials.
     public private(set) var revision = 0
@@ -27,7 +34,7 @@ public final class FactoryStore {
         var headerNames: [String]?
     }
 
-    public init(defaults: UserDefaults = .standard, credentials: any CredentialStore = KeychainCredentialStore(), session: URLSession = .shared) {
+    public init(defaults: UserDefaults = .standard, credentials: any CredentialStore = KeychainCredentialStore(), session: URLSession = FactoryStore.defaultSession) {
         self.defaults = defaults
         self.credentials = credentials
         self.session = session
