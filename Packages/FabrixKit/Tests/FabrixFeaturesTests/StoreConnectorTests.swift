@@ -36,6 +36,14 @@ struct StoreConnectorTests {
         #expect(configuration.oidc?.tokenHeader == "X-Forwarded-Access-Token")
     }
 
+    @Test func signInRequestNamesTheDevice() {
+        let name = StoreConnector.clientName
+        #expect(name.hasPrefix("Fabrix (") && name.hasSuffix(")"))
+        #expect(name.count > "Fabrix ()".count)
+        // Paperclip accepts at most 120 characters and appends " (board)" to name the key.
+        #expect(name.count <= 120)
+    }
+
     @Test func unknownFactoryIsNotRestored() throws {
         let store = FactoryStore(defaults: UserDefaults(suiteName: UUID().uuidString)!, credentials: InMemoryCredentialStore())
         #expect(try StoreConnector(store: store).restore(factoryID: "missing") == nil)

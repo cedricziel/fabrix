@@ -1,5 +1,8 @@
 import FabrixCore
 import Foundation
+#if canImport(UIKit)
+    import UIKit
+#endif
 
 /// Connects through FabrixCore's `FactoryStore`, which validates credentials against the
 /// server and keeps factories in UserDefaults and their secrets in the Keychain.
@@ -66,8 +69,16 @@ public final class StoreConnector: FactoryConnector {
         return try connection(for: factory)
     }
 
-    /// How the request appears on Paperclip's approval page.
-    static let clientName = "Fabrix"
+    /// How the request appears on Paperclip's approval page. Paperclip names the issued key after it,
+    /// so users can tell this device's key apart in `paperclipai token board list` and revoke it.
+    static var clientName: String {
+        #if os(macOS)
+            let device = Host.current().localizedName ?? "Mac"
+        #else
+            let device = UIDevice.current.name
+        #endif
+        return "Fabrix (\(device.prefix(100)))"
+    }
 
     public func forget(factoryID: Factory.ID) throws {
         guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return }
