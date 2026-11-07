@@ -48,9 +48,12 @@ struct OnboardingView: View {
                     Button {
                         connect()
                     } label: {
-                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                        Group {
+                            if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(FabrixButtonStyle(role: .primary, fullWidth: true))
+                    .buttonStyle(.fabrixPrimary)
                     .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
                     if !model.canConnect {
                         Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.")
@@ -59,17 +62,19 @@ struct OnboardingView: View {
                     }
                 }
                 .padding(20)
-                .fabrixCard()
+                .cardSurface()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("No factory yet?").font(.headline)
                     Text("Walk through a sample company with seven agents, live runs and approvals waiting on you.")
                         .foregroundStyle(Palette.steel)
-                    Button("Explore the demo") { Task { await model.exploreDemo() } }
-                        .buttonStyle(FabrixButtonStyle(role: .signal, fullWidth: true))
+                    Button { Task { await model.exploreDemo() } } label: {
+                            Text("Explore the demo").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.fabrixSignal)
                 }
                 .padding(20)
-                .fabrixCard()
+                .cardSurface()
             }
             .padding(24)
             .frame(maxWidth: 520)
