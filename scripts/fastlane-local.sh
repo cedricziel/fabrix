@@ -13,6 +13,8 @@ MATCH_PASSWORD="$(op item get "fastlane-ci: match" --vault "$VAULT" --fields lab
 for k in REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL; do
   export "$k=$(op item get "Fabrix: App Review contact" --vault "$VAULT" --fields "label=$k" --reveal)"
 done
-export ASC_KEY_ID="3W9XDG5U47" ASC_KEY_CONTENT ASC_ISSUER_ID MATCH_PASSWORD
+OTLP_ENDPOINT="$(op item get "signaldb - apps / fabrix ingest" --vault "$VAULT" --fields label=otlp_http)"
+OTLP_API_KEY="$(op item get "signaldb - apps / fabrix ingest" --vault "$VAULT" --fields label=credential --reveal)"
+export ASC_KEY_ID="3W9XDG5U47" ASC_KEY_CONTENT ASC_ISSUER_ID MATCH_PASSWORD OTLP_ENDPOINT OTLP_API_KEY
 
 PATH="/opt/homebrew/opt/ruby/bin:$PATH" exec bundle exec fastlane "$@"
