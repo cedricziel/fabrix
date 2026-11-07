@@ -16,6 +16,10 @@ on:
       MATCH_PASSWORD: { required: true }
       MATCH_KEYCHAIN_PASSWORD: { required: true }
       MATCH_DEPLOY_KEY: { required: true }
+      REVIEW_CONTACT_FIRST_NAME: { required: false }
+      REVIEW_CONTACT_LAST_NAME: { required: false }
+      REVIEW_CONTACT_PHONE: { required: false }
+      REVIEW_CONTACT_EMAIL: { required: false }
 
 permissions:
   contents: read
@@ -28,7 +32,7 @@ jobs:
   upload:
     name: ${{ matrix.platform }}
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -64,6 +68,10 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          REVIEW_CONTACT_FIRST_NAME: ${{ secrets.REVIEW_CONTACT_FIRST_NAME }}
+          REVIEW_CONTACT_LAST_NAME: ${{ secrets.REVIEW_CONTACT_LAST_NAME }}
+          REVIEW_CONTACT_PHONE: ${{ secrets.REVIEW_CONTACT_PHONE }}
+          REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
           FASTLANE_HIDE_CHANGELOG: "true"
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "5"

@@ -1,0 +1,3 @@
+Fabrix is a native control room for Paperclip agent factories on iPhone, iPad and Mac.
+
+This beta runs on built-in sample data: tap "Explore the demo" to see agents at work, pending approvals and live runs. Connecting your own Paperclip server comes in a later build.

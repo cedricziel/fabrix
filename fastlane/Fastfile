@@ -6,12 +6,15 @@ TEAM_ID        = "WPW3QSLZ2F"
 PROJECT        = "Fabrix.xcodeproj"
 OUTPUT_DIR     = "build/fastlane"
 REPO_ROOT      = File.expand_path("..", __dir__)
+PUBLIC_BETA_GROUP = "Public beta"
+PRIVACY_URL    = "https://github.com/cedricziel/fabrix/blob/main/PRIVACY.md"
 
 TARGETS = {
   ios: {
     target: "FabrixiOS",
     match_platform: "ios",
     upload_platform: "ios",
+    review_platform: "IOS",
     destination: "generic/platform=iOS",
     artifact: "#{OUTPUT_DIR}/Fabrix.ipa",
   },
@@ -19,6 +22,7 @@ TARGETS = {
     target: "FabrixMac",
     match_platform: "macos",
     upload_platform: "osx",
+    review_platform: "MAC_OS",
     destination: "generic/platform=macOS",
     artifact: "#{OUTPUT_DIR}/Fabrix.pkg",
   },
@@ -82,6 +86,53 @@ lane :register_bundle_id do
   else
     UI.important("No App Store Connect app for #{APP_IDENTIFIER} yet. Create it in App Store Connect (iOS + macOS).")
   end
+end
+
+desc "Create the public TestFlight group (idempotent) and print its join link"
+lane :setup_public_beta do
+  load_app_store_connect_api_key
+  group = public_beta_group
+  UI.success("Public beta link: #{group.public_link}")
+end
+
+desc "Send an uploaded build to the public beta group and submit it for Beta App Review"
+desc "  platform:ios|mac  build:<number> (default: the latest build for that platform)"
+lane :distribute_public_beta do |options|
+  t = TARGETS.fetch(options[:platform].to_s == "mac" ? :mac : :ios)
+  api_key = load_app_store_connect_api_key
+  public_beta_group
+  beta = public_beta_params
+  UI.user_error!("Set REVIEW_CONTACT_* to distribute to the public beta") if beta.empty?
+  expire_builds_waiting_for_review(t[:review_platform])
+  upload_to_testflight(**beta.merge(
+    api_key: api_key,
+    app_identifier: APP_IDENTIFIER,
+    app_platform: t[:upload_platform],
+    distribute_only: true,
+    build_number: options[:build],
+    app_version: options[:version] || (options[:build] ? nil : marketing_version({}))
+  ))
+end
+
+desc "Update the TestFlight test information (description, feedback email, privacy URL) without a build"
+desc "  privacy_url:<url>  override the privacy policy URL"
+lane :sync_beta_info do |options|
+  load_app_store_connect_api_key
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
+  attributes = {
+    description: beta_description,
+    privacyPolicyUrl: options[:privacy_url] || PRIVACY_URL
+  }
+  email = ENV["REVIEW_CONTACT_EMAIL"].to_s.strip
+  attributes[:feedbackEmail] = email unless email.empty?
+  existing = Spaceship::ConnectAPI.get_beta_app_localizations(filter: { app: app.id }).to_models
+  localization = existing.find { |l| l.locale == "en-US" }
+  if localization
+    Spaceship::ConnectAPI.patch_beta_app_localizations(localization_id: localization.id, attributes: attributes)
+  else
+    Spaceship::ConnectAPI.post_beta_app_localizations(app_id: app.id, attributes: attributes.merge(locale: "en-US"))
+  end
+  UI.success("Updated the TestFlight test information")
 end
 
 desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
@@ -156,16 +207,88 @@ def release_target(key, options)
   notes_file = ENV["RELEASE_NOTES_FILE"].to_s
   notes = File.read(notes_file).strip if !notes_file.empty? && File.exist?(notes_file)
 
-  params = {
-    api_key: load_app_store_connect_api_key,
+  api_key = load_app_store_connect_api_key
+  public_beta_group
+  beta = public_beta_params
+  expire_builds_waiting_for_review(t[:review_platform]) unless beta.empty?
+  params = beta.merge(
+    api_key: api_key,
     app_identifier: APP_IDENTIFIER,
     app_platform: t[:upload_platform],
-    skip_waiting_for_build_processing: true,
-    changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes,
-  }
+    # Distributing to an external group needs the build processed first.
+    skip_waiting_for_build_processing: beta.empty?,
+    changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes
+  )
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
 
   upload_to_testflight(**params)
+end
+
+def public_beta_group
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
+  app.get_beta_groups.find { |g| g.name == PUBLIC_BETA_GROUP } ||
+    app.create_beta_group(
+      group_name: PUBLIC_BETA_GROUP,
+      is_internal_group: false,
+      public_link_enabled: true,
+      public_link_limit: 10_000,
+      public_link_limit_enabled: true
+    )
+end
+
+# Beta App Review accepts one waiting submission per version and platform, and
+# iOS and macOS share a version, so only this platform's waiting builds expire.
+def expire_builds_waiting_for_review(platform)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
+  app.get_builds(
+    filter: {
+      "betaAppReviewSubmission.betaReviewState" => "WAITING_FOR_REVIEW",
+      "expired" => false,
+      "preReleaseVersion.platform" => platform
+    },
+    includes: "betaAppReviewSubmission,preReleaseVersion"
+  ).each do |build|
+    UI.important("Expiring #{platform} build #{build.version}, which is still waiting for Beta App Review")
+    build.expire!
+  end
+end
+
+def beta_description
+  File.read(File.join(__dir__, "metadata", "beta", "description.txt")).strip
+end
+
+def public_beta_params
+  description = beta_description
+  params = {
+    wait_processing_timeout_duration: 1800,
+    distribute_external: true,
+    groups: [PUBLIC_BETA_GROUP],
+    notify_external_testers: true,
+    submit_beta_review: true,
+    demo_account_required: false,
+    beta_app_description: description,
+    localized_app_info: {
+      "default" => { description: description, privacy_policy_url: PRIVACY_URL },
+      "en-US" => { description: description, privacy_policy_url: PRIVACY_URL }
+    }
+  }
+  contact = %w[REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL].map { |k| ENV[k].to_s.strip }
+  if contact.any?(&:empty?)
+    UI.important("REVIEW_CONTACT_* not set: builds go to internal testers only")
+    return {}
+  end
+  first, last, phone, email = contact
+  params[:beta_app_feedback_email] = email
+  params[:localized_app_info].each_value { |info| info[:feedback_email] = email }
+  params[:beta_app_review_info] = {
+    contact_first_name: first,
+    contact_last_name: last,
+    contact_phone: phone,
+    contact_email: email,
+    demo_account_required: false,
+    notes: File.read(File.join(__dir__, "metadata", "beta", "review_notes.txt")).strip
+  }
+  params
 end
 
 def load_app_store_connect_api_key
