@@ -44,9 +44,10 @@ The seed covers the board-key provider only. The sandbox has no OIDC identity pr
 
 - Contract checks: `xcrun swift test --package-path Packages/FabrixKit --filter Sandbox`
   runs `SandboxContractTests` with the exported variables. They are skipped when
-  `FABRIX_SANDBOX_URL` is unset. A filter that matches nothing still exits 0, so check that
-  the summary line reports more than zero tests; if it reports none, say the contract check
-  was skipped. The tests change the seeded data: they approve and reject approvals and pause
+  `FABRIX_SANDBOX_URL` is unset. A filter that matches nothing still exits 0, and Swift
+  Testing counts skipped tests in its summary, so a positive count proves nothing. Check that each
+  `SandboxContractTests` test has its own `✔ … passed` line and that no `➜ … skipped` line
+  appears; otherwise say the contract check was skipped. The tests change the seeded data: they approve and reject approvals and pause
   agents. Re-seed a fresh sandbox before running them again.
 - App check (only once the app can connect to a factory and shows approvals and
   agents; until then, report it as skipped): build and launch `FabrixMac` (see CLAUDE.md), connect it to
