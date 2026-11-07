@@ -15,22 +15,25 @@
 - [x] 2.2 Add `ProjectStatusStyle` and `ProjectStatusPill`, with the same shape as the status pill. Test: `ProjectComponentTests.statusStyle` (labels and tones; tones reuse the ink/tint pairs `ContrastTests` already checks). Touches `FabrixDesign/Projects.swift`.
 - [x] 2.3 Add `TaskCountsBar(open:blocked:done:)` with its text line, and the bar hidden from accessibility. Test: `ProjectComponentTests.countsBarFractions` and `emptyProjectHasEmptyBar`. Touches `FabrixDesign/Projects.swift`.
 
-## 3. Features: state, list, navigation (PR 3, FabrixFeatures, after #35/#37)
+## 3. Features: project state (PR 3, FabrixFeatures)
 
-- [ ] 3.1 Add `ProjectBoard` (counts, active and completed lists, tasks by status, activity, lead resolution). Tests: `ProjectBoardTests` (`countsSkipCancelled`, `taskWithoutProjectCountsNowhere`, `activityIncludesTaskEvents`, `leadOutsideCompany`, `archivedNotListed`). Touches `FabrixFeatures/Logic/ProjectBoard.swift`.
-- [ ] 3.2 `AppModel.projectsState`: load beside the snapshot under the same request generation; first load `.loading`; failure → `.failed` with the last list; `.unsupported` passes through; reset on company switch. Tests: `AppModelProjectsTests` (`loadsBesideSnapshot`, `failureKeepsCompanyUsable`, `refreshFailureKeepsLastList`, `unsupportedHidesProjects`, `switchCompanyResetsProjects`, `staleProjectsDropped`). Touches `AppModel.swift`, `GatedService.swift`.
-- [ ] 3.3 Regular-width sidebar: a Projects group with All projects and project rows (open and blocked counts), hidden when unsupported, and `SidebarItem` selection. Test: `NavigatorTests.projectSelectionSurvivesRefresh` and `projectSelectionClearsOnCompanySwitch`. Touches `Shell/AppSection.swift`, `Shell/SplitShell.swift`.
-- [ ] 3.4 Compact width: Projects in the Factory tab's More menu, and a Projects card on the overview (up to three projects, See all). Test: `NavigatorTests.compactProjectsOpenInFactoryTab`. Touches `Shell/AppSection.swift`, `Shell/CompactShell.swift`, `Screens/OverviewView.swift`.
-- [ ] 3.5 `ProjectsView`: Active/Completed, rows with swatch, status pill, lead, counts bar, target date and repository count; loading, empty, error-with-retry and unsupported states. No test (view only); its logic is covered by 3.1–3.2. Touches `Screens/ProjectsView.swift`.
+- [x] 3.1 Add `ProjectBoard` (counts, active and completed lists, tasks by status, activity, lead resolution). Tests: `ProjectBoardTests` (`countsSkipCancelled`, `taskWithoutProjectCountsNowhere`, `activityIncludesTaskAndProjectEvents`, `leadResolution`, `archivedNotListedAndCompletedSplitOut`). Touches `FabrixFeatures/Logic/ProjectBoard.swift`.
+- [x] 3.2 `AppModel.projectsState`: load beside the snapshot under the same request generation; first load `.loading`; failure → `.failed` with the last list; `.unsupported` passes through; reset on company switch. Tests: `AppModelProjectsTests` (`loadsBesideSnapshot`, `failureKeepsCompanyUsable`, `refreshFailureKeepsLastList`, `retryAfterFailure`, `unsupportedHidesProjects`, `switchCompanySwapsProjects`). Touches `AppModel.swift`, a `ProjectsFactory` test double.
 
-## 4. Features: detail, filter, chip (PR 4, FabrixFeatures)
+## 4. Features: projects screens and navigation (PR 4, FabrixFeatures)
 
-- [ ] 4.1 `ProjectDetailView`: header, counts, tasks by status, repositories (git opens its URL; folder doesn't), activity, lead outside the company, and the "project is gone" state. Test: `ProjectBoardTests.detailGoneWhenProjectMissing`. Touches `Screens/ProjectDetailView.swift`, `Shell/AppSection.swift` (route).
-- [ ] 4.2 `AppModel.taskProjectFilter` (`.all`, `.project`, `.none`) applied in `visibleTasks`, and reset on company switch. Tests: `TaskBoardTests.filterByProject`, `filterNoProject`, `filterResetsOnCompanySwitch`. Touches `AppModel.swift`, `Logic/TaskBoard.swift`.
-- [ ] 4.3 Tasks UI: a filter menu in the toolbar, a token that clears it, a "Project details" link when filtered, and a `ProjectChip` on cards and rows only when unfiltered. Test: `TaskBoardTests.chipOnlyWhenUnfiltered` (the `TaskBoard` row value carries the chip). Touches `Screens/TasksView.swift`, `Logic/TaskBoard.swift`.
-- [ ] 4.4 Check against the sandbox (`/validate`), take a Mac screenshot on the demo factory, and run the iOS and Mac builds. No test (verification).
+- [x] 4.1 Regular-width sidebar: a Projects group with All projects and project rows (open and blocked counts), hidden when unsupported, and `SidebarItem` selection. Tests: `NavigatorTests.regularLayoutShowsAPickedProjectInPlaceOfTheSection`, `companySwitchLeavesTheProject`. Touches `Shell/AppSection.swift`, `Shell/SplitShell.swift`.
+- [x] 4.2 Compact width: Projects in the Factory tab's More menu, and a Projects card on the overview (up to three projects, See all). Test: `NavigatorTests.compactProjectsOpenInFactoryTab`. Touches `Shell/AppSection.swift`, `Shell/CompactShell.swift`, `Screens/OverviewView.swift`.
+- [x] 4.3 `ProjectsView`: Active/Completed, rows with swatch, status pill, lead, counts bar, target date and repository count; loading, empty, error-with-retry and unsupported states. No test (view only); its logic is covered by 3.1–3.2. Touches `Screens/ProjectsView.swift`.
+- [x] 4.4 `ProjectDetailView`: header, counts, tasks by status, repositories (git opens its URL; folder doesn't), activity, lead outside the company, and the "project is gone" state. No separate test: the gone state follows `ProjectBoard.project(_:)` returning nil, covered by `ProjectBoardTests.archivedNotListedAndCompletedSplitOut`. Touches `Screens/ProjectDetailView.swift`, `Shell/AppSection.swift` (route).
 
-## 5. Docs and archive (PR 5)
+## 5. Features: task project filter and chip (PR 5, FabrixFeatures)
 
-- [ ] 5.1 Add a Projects section to `docs/paperclip-api.md`: endpoints, the status mapping, workspaces → repositories, 404 → unsupported, and the cross-company lead. No test (docs).
-- [ ] 5.2 Archive OpenSpec change `add-projects` as the last commit. No test.
+- [x] 5.1 `AppModel.taskProjectFilter` (`.all`, `.project`, `.none`) applied in `visibleTasks`, and reset on company switch. Tests: `TaskProjectFilterTests.filterByProject`, `filterNoProject`, `filterCombinesWithSearch`, `filterResetsOnCompanySwitch`. Touches `AppModel.swift`.
+- [x] 5.2 Tasks UI: a filter menu in the toolbar, a token that clears it, a "Project details" link when filtered, and a `ProjectChip` on cards and rows only when unfiltered. Test: `TaskProjectFilterTests.chipOnlyWhenUnfiltered` (`AppModel.chipProject(for:)`). Touches `Screens/TasksView.swift`, `AppModel.swift`.
+- [ ] 5.3 Check against the sandbox (`/validate`), take a Mac screenshot on the demo factory, and run the iOS and Mac builds. No test (verification).
+
+## 6. Docs and archive (PR 6)
+
+- [x] 6.1 Add a Projects section to `docs/paperclip-api.md`: endpoints, the status mapping, workspaces → repositories, 404 → unsupported, and the cross-company lead. No test (docs).
+- [ ] 6.2 Archive OpenSpec change `add-projects` as the last commit. No test.
