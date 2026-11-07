@@ -680,6 +680,9 @@ public final class AppModel {
         if case .unsupported = result {
             projectsUnsupported = true
         }
+        if case let .project(id) = taskProjectFilter, case let .loaded(projects) = next, !projects.contains(where: { $0.id == id }) {
+            taskProjectFilter = .all
+        }
         if next != projectsState {
             projectsState = next
         }

@@ -9,6 +9,7 @@ actor ProjectsFactory: FactoryService {
         case demo
         case fail
         case unsupported
+        case without(Project.ID)
     }
 
     private let demo = DemoFactoryService()
@@ -44,6 +45,7 @@ actor ProjectsFactory: FactoryService {
             companyID == "orbit" ? [Project(id: "orbit-site", name: "Orbit site", status: .planned)] : try await demo.projects(companyID: companyID)
         case .fail: throw URLError(.notConnectedToInternet)
         case .unsupported: throw FactoryServiceError.unsupported
+        case let .without(id): try await demo.projects(companyID: companyID).filter { $0.id != id }
         }
     }
 
@@ -173,6 +175,17 @@ struct TaskProjectFilterTests {
         model.taskProjectFilter = .project("mobile")
         model.searchText = "offline"
         #expect(model.visibleTasks.map(\.identifier) == ["ATL-151"])
+    }
+
+    @Test func filterResetsWhenItsProjectDisappears() async {
+        let service = ProjectsFactory()
+        let connection = FactoryConnection(factory: FactoryConnection.demo().factory, service: service)
+        let model = AppModel(connection: connection, defaults: UserDefaults(suiteName: "TaskProjectFilterTests.\(UUID().uuidString)")!)
+        await model.refresh()
+        model.taskProjectFilter = .project("mobile")
+        await service.answer(.without("mobile"))
+        await model.refresh()
+        #expect(model.taskProjectFilter == .all)
     }
 
     @Test func filterResetsOnCompanySwitch() async throws {
