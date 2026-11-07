@@ -15,4 +15,7 @@
 
 - [x] 3.1 `Localizable.xcstrings` in FabrixDesign and FabrixFeatures, processed and filled from an Xcode build (`Package.swift`, `Resources/`); no test, resources
 - [x] 3.2 Features literals pass `bundle: .module` (every screen); tests `LocalizationBundleTests` in both test targets check that a Features and a Design string look up their own module bundle
-- [ ] 3.3 Archive the change
+- [x] 3.3 `.features("…")` helper for Design components and controls; `scripts/check-feature-strings.sh` in CI rejects literals without a bundle (`FabrixFeatures/Localization.swift`, `.github/workflows/ci.yml`); no test, the script is the check
+- [x] 3.4 Keep wordless keys, placeholders and preview copy out of the catalogs; `scripts/sync-string-catalogs.sh` refreshes them (`FabrixDesign/Previews.swift`, screens); test `LocalizationBundleTests` resolves a probe key from each compiled catalog
+- [x] 3.5 Fold the model-to-style mappings into `Display.swift` and delete `Shell/Common.swift`; no test, pure move
+- [x] 3.6 Archive the change
