@@ -19,8 +19,8 @@ The app SHALL export traces, logs and metrics over OTLP/HTTP to SignalDB (tenant
 Telemetry SHALL contain only the following, named after the OpenTelemetry semantic conventions where they cover the data:
 
 - Resource: `service.name` (`fabrix`), `service.version`, `service.instance.id` (random per install), `app.build`, `deployment.environment.name`, `os.type`, `os.name`, `os.version`, `os.description`, `device.model.identifier`, and the SDK's `telemetry.sdk.*`.
-- HTTP client spans: `http.request.method`, `http.response.status_code`, `url.scheme`, `url.path` (templated), `url.full` (hashed host, templated path, no query), `server.address` (hashed), `server.port`, `error.type`, and `exception.*` events.
-- Paperclip attributes, all under `paperclip.*`: `paperclip.factory.id`, `paperclip.auth.method`, `paperclip.approval.kind`, `paperclip.agent.status`, `paperclip.run.adapter`, `paperclip.api.route`.
+- HTTP client spans: `http.request.method`, `http.response.status_code`, `http.request.body.size`, `http.response.body.size`, `url.scheme`, `url.path` (templated), `url.full` (hashed host, templated path, no query), `server.address` (hashed) and `server.port`.
+- Paperclip attributes, all under `paperclip.*`: `paperclip.factory.id`, `paperclip.auth.method`, `paperclip.approval.kind`, `paperclip.agent.status`, `paperclip.run.adapter`, and `paperclip.api.route` (only on requests to a known factory host).
 - Metrics: `fabrix.app.launches`, with no point attributes.
 
 The `paperclip.*` names SHALL be defined once in code (`PaperclipAttribute`).
@@ -43,6 +43,11 @@ Telemetry SHALL NOT contain a Paperclip factory's name or host, any URL's query,
 
 - **WHEN** the app requests `https://factory.example:3100/api/companies/<uuid>/agents?key=x`
 - **THEN** the exported span has `url.full` `https://<token>/api/companies/{id}/agents`, `server.address` `<token>` and `paperclip.api.route` `/api/companies/{id}/agents`
+
+#### Scenario: Request to another host
+
+- **WHEN** the app requests `/api/…` on a host that is not a saved factory
+- **THEN** the span gets no `paperclip.api.route`
 
 #### Scenario: URL inside free text
 
