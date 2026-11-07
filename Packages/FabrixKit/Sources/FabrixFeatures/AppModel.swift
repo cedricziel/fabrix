@@ -645,9 +645,10 @@ public final class AppModel {
         async let earlyProjects = Self.fetchProjects(from: service, companyID: projectsUnsupported ? nil : wanted)
         do {
             let (companies, current) = try await Self.load(from: service, current: wanted)
+            let isGone = wanted.map { id in !companies.contains { $0.id == id } } ?? false
             let fresh: CompanySnapshot?
             if let selected = companies.first(where: { $0.id == wanted }) ?? companies.first {
-                fresh = if let current, current.company.id == selected.id {
+                fresh = if !isGone, let current = try current?.get(), current.company.id == selected.id {
                     current
                 } else {
                     try await service.snapshot(companyID: selected.id)
@@ -656,6 +657,9 @@ public final class AppModel {
                 fresh = nil
             }
             guard selectedCompanyID == wanted, accept(request) else { return }
+            if isGone, let gone = snapshot?.company.name {
+                actionError = String(localized: "\(gone) is no longer available.")
+            }
             selectedCompanyID = fresh?.company.id
             if companies != self.companies {
                 self.companies = companies
@@ -686,13 +690,23 @@ public final class AppModel {
     }
 
     /// Loads the company list and, when a company is already shown, its snapshot in parallel.
+    /// The snapshot's failure is returned, not thrown: a deleted company answers 403, and only
+    /// the list can tell that apart from a lost connection.
     private static func load(
         from service: any FactoryService, current id: Company.ID?
-    ) async throws -> ([Company], CompanySnapshot?) {
+    ) async throws -> ([Company], Result<CompanySnapshot, any Error>?) {
         guard let id else { return try (await service.companies(), nil) }
         async let companies = service.companies()
-        async let snapshot = service.snapshot(companyID: id)
+        async let snapshot = capture { try await service.snapshot(companyID: id) }
         return try await (companies, snapshot)
+    }
+
+    private static func capture<T>(_ work: () async throws -> T) async -> Result<T, any Error> {
+        do {
+            return try await .success(work())
+        } catch {
+            return .failure(error)
+        }
     }
 
     /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded

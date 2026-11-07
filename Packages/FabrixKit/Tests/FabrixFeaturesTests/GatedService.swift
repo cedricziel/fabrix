@@ -13,6 +13,7 @@ actor GatedService: FactoryService {
     private var failingSnapshots = false
     private var failingPauses = false
     private var companiesError: (any Error)?
+    private var removedCompanies: Set<Company.ID> = []
     private(set) var snapshotCalls = 0
     private(set) var companiesCalls = 0
 
@@ -25,6 +26,8 @@ actor GatedService: FactoryService {
     func failSnapshots(_ failing: Bool) { failingSnapshots = failing }
     func failPauses(_ failing: Bool) { failingPauses = failing }
     func failCompanies(with error: (any Error)?) { companiesError = error }
+    /// Like deleting a company on the board: it leaves the list, and its snapshot answers 403.
+    func removeCompany(_ id: Company.ID) { removedCompanies.insert(id) }
 
     /// Returns once a snapshot response is being held.
     func waitUntilHolding() async {
@@ -41,12 +44,15 @@ actor GatedService: FactoryService {
         try Task.checkCancellation()
         companiesCalls += 1
         if let companiesError { throw companiesError }
-        return try await inner.companies()
+        return try await inner.companies().filter { !removedCompanies.contains($0.id) }
     }
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
         try Task.checkCancellation()
         snapshotCalls += 1
+        if removedCompanies.contains(companyID) {
+            throw PaperclipError.forbidden("User does not have access to this company")
+        }
         if failingSnapshots { throw URLError(.notConnectedToInternet) }
         let snapshot = try await inner.snapshot(companyID: companyID)
         if holdNext {
