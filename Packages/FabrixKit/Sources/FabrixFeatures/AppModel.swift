@@ -34,7 +34,10 @@ public final class AppModel {
     private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
+    private let undoWindow: Duration
     private var index = SnapshotIndex(nil)
+    private var desk = ApprovalDesk()
+    private var commitTimers: [Approval.ID: Task<Void, Never>] = [:]
 
     private static let demoKey = "fabrix.exploringDemo"
 
@@ -44,10 +47,12 @@ public final class AppModel {
     public init(
         connection: FactoryConnection? = nil,
         connector: (any FactoryConnector)? = nil,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        undoWindow: Duration = .seconds(8)
     ) {
         self.connector = connector
         self.defaults = defaults
+        self.undoWindow = undoWindow
         if let connection = connection ?? (defaults.bool(forKey: Self.demoKey) ? .demo() : nil) {
             use(connection)
         }
@@ -100,6 +105,9 @@ public final class AppModel {
     public func disconnect() {
         defaults.removeObject(forKey: Self.demoKey)
         generation += 1
+        commitTimers.values.forEach { $0.cancel() }
+        commitTimers = [:]
+        desk = ApprovalDesk()
         service = nil
         factory = nil
         companies = []
@@ -214,6 +222,63 @@ public final class AppModel {
         guard request.generation == generation, request.number > appliedRequest else { return false }
         appliedRequest = request.number
         return true
+    }
+
+    // MARK: Approvals
+
+    var waitingApprovals: [Approval] {
+        desk.waiting(snapshot?.approvals ?? [])
+    }
+
+    var decidedApprovals: [DecidedApproval] {
+        desk.decided(snapshot?.approvals ?? [])
+    }
+
+    public var waitingCount: Int {
+        waitingApprovals.count
+    }
+
+    /// Stages the decision; it reaches the factory after the undo window.
+    func decide(_ approval: Approval, approve: Bool) {
+        desk.stage(approval.id, approve: approve)
+        commitTimers[approval.id]?.cancel()
+        commitTimers[approval.id] = Task { [undoWindow] in
+            try? await Task.sleep(for: undoWindow)
+            guard !Task.isCancelled else { return }
+            await self.commit([approval.id])
+        }
+    }
+
+    func undo(_ id: Approval.ID) {
+        if desk.undo(id) {
+            commitTimers.removeValue(forKey: id)?.cancel()
+        }
+    }
+
+    /// Sends every staged decision now, e.g. when the app goes to the background.
+    public func commitStagedDecisions() async {
+        await commit(desk.stagedIDs)
+    }
+
+    private func commit(_ ids: [Approval.ID]) async {
+        guard let service else { return }
+        let verdicts = ids.compactMap { id -> (Approval.ID, Bool)? in
+            commitTimers.removeValue(forKey: id)?.cancel()
+            return desk.beginCommit(id).map { (id, $0) }
+        }
+        guard !verdicts.isEmpty else { return }
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for (id, approve) in verdicts {
+                    group.addTask { try await service.decide(approvalID: id, approve: approve) }
+                }
+                try await group.waitForAll()
+            }
+        } catch {
+            lastError = error.localizedDescription
+        }
+        await refresh()
+        verdicts.forEach { desk.finish($0.0) }
     }
 
     // MARK: Agents and company

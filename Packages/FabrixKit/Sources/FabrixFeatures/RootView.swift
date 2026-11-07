@@ -64,6 +64,11 @@ public struct RootView: View {
             guard model.factory != nil, scenePhase == .active else { return }
             await model.keepFresh()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                Task { await model.commitStagedDecisions() }
+            }
+        }
     }
 
     private var isCompact: Bool {
