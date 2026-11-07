@@ -8,6 +8,7 @@ TEAM_ID        = "WPW3QSLZ2F"
 PROJECT        = "Fabrix.xcodeproj"
 OUTPUT_DIR     = "build/fastlane"
 REPO_ROOT      = File.expand_path("..", __dir__)
+TELEMETRY_SECRETS = File.join(REPO_ROOT, "Config", "Telemetry.secrets.xcconfig")
 PUBLIC_BETA_GROUP = "Public beta"
 PRIVACY_URL    = "https://github.com/cedricziel/fabrix/blob/main/PRIVACY.md"
 
@@ -339,20 +340,24 @@ def public_beta_params
   params
 end
 
-# Bakes the SignalDB ingest key into the build via a gitignored xcconfig, so it never
-# shows up in xcodebuild arguments or logs. Without both values the app runs with telemetry off.
+# Bakes the SignalDB ingest key into Release builds via a gitignored xcconfig, so it never
+# shows up in xcodebuild arguments or logs.
+# Without both values the app runs with telemetry off.
 def write_telemetry_secrets
-  path = File.join(REPO_ROOT, "Config", "Telemetry.secrets.xcconfig")
   endpoint = ENV["OTLP_ENDPOINT"].to_s.strip
   api_key = ENV["OTLP_API_KEY"].to_s.strip
   if endpoint.empty? || api_key.empty?
-    File.delete(path) if File.exist?(path)
+    File.delete(TELEMETRY_SECRETS) if File.exist?(TELEMETRY_SECRETS)
     UI.important("OTLP_ENDPOINT or OTLP_API_KEY not set: building with telemetry off")
     return
   end
-  # xcconfig treats // as a comment, so split it with an empty variable expansion.
-  File.write(path, "OTLP_ENDPOINT = #{endpoint.gsub("//", "/$()/")}\nOTLP_API_KEY = #{api_key}\n")
+  File.write(TELEMETRY_SECRETS, "OTLP_ENDPOINT = #{xcconfig_literal(endpoint)}\nOTLP_API_KEY = #{xcconfig_literal(api_key)}\n")
   UI.message("Telemetry export enabled for this build")
+end
+
+# xcconfig expands $(...) and treats // as a comment start, so both are escaped.
+def xcconfig_literal(value)
+  value.gsub("$", "$$").gsub("//", "/$()/")
 end
 
 def load_app_store_connect_api_key
