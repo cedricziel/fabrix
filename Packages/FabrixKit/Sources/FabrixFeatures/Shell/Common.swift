@@ -2,18 +2,6 @@ import FabrixCore
 import FabrixDesign
 import SwiftUI
 
-/// Ticks once a second while visible.
-struct ElapsedText: View {
-    let since: Date
-
-    var body: some View {
-        TimelineView(.periodic(from: since, by: 1)) { context in
-            Text(Elapsed.string(from: since, to: context.date))
-                .monospacedDigit()
-        }
-    }
-}
-
 extension Binding {
     /// Shows a presentation while an optional selection is set; dismissing clears it.
     func isPresent<Wrapped: Sendable>() -> Binding<Bool> where Value == Wrapped? {

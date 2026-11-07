@@ -3,24 +3,6 @@ import Foundation
 import Testing
 
 struct FormattingTests {
-    private let start = Date(timeIntervalSinceReferenceDate: 0)
-
-    @Test(arguments: [
-        (0, "00:00"),
-        (62, "01:02"),
-        (724.9, "12:04"),
-        (3599, "59:59"),
-        (3600, "1:00:00"),
-        (7509, "2:05:09"),
-    ] as [(TimeInterval, String)])
-    func elapsedUsesMinutesAndSecondsUnderAnHour(seconds: TimeInterval, expected: String) {
-        #expect(Elapsed.string(from: start, to: start + seconds) == expected)
-    }
-
-    @Test func elapsedNeverGoesNegative() {
-        #expect(Elapsed.string(from: start, to: start - 30) == "00:00")
-    }
-
     @Test func moneyRoundsBudgetsToWholeDollars() {
         let locale = Locale(identifier: "en_US")
         #expect(Money.dollars(41_249, locale: locale) == "$412")
