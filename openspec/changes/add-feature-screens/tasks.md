@@ -16,8 +16,8 @@
 
 ## 3. Overview (PR 3)
 
-- [ ] 3.1 Company metrics (`Logic/OverviewMetrics.swift`); tests `OverviewMetricsTests`
-- [ ] 3.2 Overview screen with live runs, decisions and activity (`Screens/OverviewView.swift`); no test, visual only
+- [x] 3.1 Company metrics (`Logic/OverviewMetrics.swift`); tests `OverviewMetricsTests`
+- [x] 3.2 Overview screen with live runs, decisions and activity (`Screens/OverviewView.swift`); no test, visual only
 
 ## 4. Task board (PR 4)
 
