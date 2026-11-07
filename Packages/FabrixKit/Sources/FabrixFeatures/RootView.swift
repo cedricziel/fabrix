@@ -35,7 +35,7 @@ public struct RootView: View {
                 ContentUnavailableView {
                     Label("Sign in again", systemImage: "key")
                 } description: {
-                    Text("\(model.factory?.name ?? "This factory") no longer accepts Fabrix's key.")
+                    Text((model.signedOutReason ?? .boardKeyRejected).message(for: model.factory?.name))
                 } actions: {
                     SignInBanner()
                     Button("Choose another factory") { model.disconnect() }

@@ -217,6 +217,7 @@ struct BrowserSignInTests {
         let (model, _, rejecting) = await rejectedModel()
 
         #expect(model.needsSignIn)
+        #expect(model.signedOutReason == .boardKeyRejected)
         #expect(model.lastError == nil)
         let callsAfterRejection = rejecting.calls.withLock { $0 }
         await model.refresh()
@@ -442,10 +443,29 @@ struct BrowserSignInTests {
         #expect(model.browserSignIn == nil)
     }
 
+    @Test func signedOutTextNamesWhatEnded() {
+        #expect(SignedOutReason.boardKeyRejected.message(for: "Atlas") == "Atlas no longer accepts Fabrix's key.")
+        #expect(SignedOutReason.identityProviderSessionEnded.message(for: "Atlas") == "Your single sign-on session for Atlas ended.")
+    }
+
+    @Test func cancelBeatsALateIdentityProviderFailure() async {
+        let connector = RecordingConnector()
+        connector.identityProviderError = OIDCError.provider(code: "access_denied", description: "User said no")
+        let model = await relaunched(connector, service: ProxySignedOut(), usesBoardKey: false, usesOIDC: true)
+        model.webAuthenticator = ApprovalSheet()
+        connector.beforeIdentityProvider = { await MainActor.run { model.cancelBrowserSignIn() } }
+
+        await model.signInAgain()
+
+        #expect(model.browserSignIn == nil)
+        #expect(model.needsSignIn)
+    }
+
     @Test func expiredProxySessionOnABoardKeyFactoryAsksToSignInAgain() async {
         let model = await relaunched(RecordingConnector(), service: ProxySignedOut(), usesBoardKey: true, usesOIDC: true)
 
         #expect(model.needsSignIn)
+        #expect(model.signedOutReason == .identityProviderSessionEnded)
         #expect(model.lastError == nil)
     }
 

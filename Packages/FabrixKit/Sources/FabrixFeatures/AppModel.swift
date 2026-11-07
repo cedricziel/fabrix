@@ -13,6 +13,14 @@ public struct BrowserSignInState: Equatable, Sendable {
 
 }
 
+/// Why the open factory needs "Sign in again".
+public enum SignedOutReason: Equatable, Sendable {
+    /// Paperclip rejected the board key, e.g. it expired or was revoked.
+    case boardKeyRejected
+    /// The identity provider in front of the factory needs a new login.
+    case identityProviderSessionEnded
+}
+
 public enum LoadState: Equatable, Sendable {
     case loading, loaded, empty
     case failed(String)
@@ -39,7 +47,12 @@ public final class AppModel {
     /// The factory from the last launch couldn't reopen; onboarding asks for what is missing.
     public private(set) var reconnect: ReconnectNeeded?
     /// The factory rejected its board key; refreshing waits until the user signs in again.
-    public private(set) var needsSignIn = false
+    public private(set) var signedOutReason: SignedOutReason?
+
+    /// Refreshing waits until the user signs in again.
+    public var needsSignIn: Bool {
+        signedOutReason != nil
+    }
     /// When the board key expires, set only once that is close.
     public private(set) var keyExpiry: Date?
     /// Successful connections to real factories this session; the demo and restores don't count.
@@ -215,13 +228,19 @@ public final class AppModel {
             return
         }
         guard let webAuthenticator else { return }
+        signInRun += 1
+        let run = signInRun
         isConnecting = true
         defer { isConnecting = false }
         do {
-            await finishConnecting(try await connector.signInAgainToIdentityProvider(factoryID: factory.id, webAuthenticator: webAuthenticator))
+            let connection = try await connector.signInAgainToIdentityProvider(factoryID: factory.id, webAuthenticator: webAuthenticator)
+            guard run == signInRun else { return }
+            await finishConnecting(connection)
             retrySignIn = nil
             browserSignIn = nil
         } catch where !Self.isCancellation(error) {
+            // A failure that arrives after Cancel must not bring the sheet back.
+            guard run == signInRun else { return }
             // Shown by the sign-in sheet with Try again, on top of the signed-out screen.
             retrySignIn = { [weak self] in await self?.signInAgain(webAuthenticator: webAuthenticator) }
             browserSignIn = BrowserSignInState(failure: error.localizedDescription)
@@ -352,9 +371,13 @@ public final class AppModel {
         }
     }
 
+    private func markSignedOut(by error: any Error) {
+        signedOutReason = if case .signInRequired = error as? PaperclipError { .identityProviderSessionEnded } else { .boardKeyRejected }
+    }
+
     private func report(_ error: any Error) {
         if isSignedOut(error) {
-            needsSignIn = true
+            markSignedOut(by: error)
             lastError = nil
         } else {
             lastError = error.localizedDescription
@@ -481,7 +504,7 @@ public final class AppModel {
         service = connection.service
         usesBoardKey = connection.usesBoardKey
         usesOIDC = connection.usesOIDC
-        needsSignIn = false
+        signedOutReason = nil
         keyExpiry = nil
         checkedKeyExpiry = false
         lastError = nil
@@ -500,7 +523,7 @@ public final class AppModel {
         service = connection.service
         usesBoardKey = connection.usesBoardKey
         usesOIDC = connection.usesOIDC
-        needsSignIn = false
+        signedOutReason = nil
         keyExpiry = nil
         checkedKeyExpiry = false
         companies = []
@@ -688,7 +711,7 @@ public final class AppModel {
             if isSignedOut(error), let approve = verdictByID[id] {
                 // The key was rejected, not the decision: keep it for after signing in again.
                 desk.stage(id, approve: approve)
-                needsSignIn = true
+                markSignedOut(by: error)
             } else {
                 desk.finish(id)
                 messages[id] = error.localizedDescription

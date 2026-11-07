@@ -75,12 +75,23 @@ struct SignInBanner: View {
     }
 
     private var message: String? {
-        if model.needsSignIn {
-            return String(localized: "This factory no longer accepts Fabrix's key.")
+        if let reason = model.signedOutReason {
+            return reason.message(for: nil)
         }
         if let expiry = model.keyExpiry {
             return String(localized: "Fabrix's key for this factory expires \(expiry.formatted(.relative(presentation: .named))).")
         }
         return nil
+    }
+}
+
+extension SignedOutReason {
+    /// Says what ended: the Paperclip key, or the single sign-on session in front of it.
+    func message(for factoryName: String?) -> String {
+        let factory = factoryName ?? String(localized: "This factory")
+        return switch self {
+        case .boardKeyRejected: String(localized: "\(factory) no longer accepts Fabrix's key.")
+        case .identityProviderSessionEnded: String(localized: "Your single sign-on session for \(factory) ended.")
+        }
     }
 }
