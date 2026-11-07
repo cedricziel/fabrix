@@ -134,6 +134,109 @@ struct FactoryStoreTests {
         #expect(store.factories.isEmpty)
     }
 
+    // MARK: - Auth configurations
+
+    private func identityProvider(recorder: RequestRecorder? = nil) -> FakeServer {
+        FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens())], recorder: recorder, dynamicRoutes: [
+            "GET /.well-known/openid-configuration": { request in
+                .json(OIDCFixtures.discovery(issuer: URL(string: "https://\(request.url!.host()!)")!))
+            },
+        ])
+    }
+
+    @Test func connectsWithOIDCFrontDoorAndBoardKey() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: [
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+            "GET /api/companies": .json(PaperclipFixtures.companies),
+        ], recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token"), usesBoardKey: true)
+
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_secret", webAuthenticator: FakeWebAuthenticator.approving())
+        _ = try await store.service(for: factory).companies()
+
+        for path in ["/api/cli-auth/me", "/api/companies"] {
+            let request = try #require(recorder.last("GET", path))
+            #expect(request.value(forHTTPHeaderField: "X-Forwarded-Access-Token") == "Bearer access-1")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_secret")
+        }
+        #expect(store.auth(for: factory) == auth)
+    }
+
+    @Test func oidcOnlyConnectionSendsNoBoardKey() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL))
+
+        let factory = try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "ignored", webAuthenticator: FakeWebAuthenticator.approving())
+
+        #expect(recorder.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer access-1")
+        #expect(try credentials.credential(for: factory.id) == nil)
+    }
+
+    @Test func rejectsConflictingAuthorizationHeaders() async throws {
+        let recorder = RequestRecorder()
+        let paperclip = FakeServer(routes: [:], recorder: recorder)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: paperclip.baseURL), usesBoardKey: true)
+
+        await #expect {
+            try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+        } throws: { error in
+            if case .invalidAuthConfiguration = error as? PaperclipError { true } else { false }
+        }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func boardKeyConfigurationNeedsAKey() async throws {
+        let paperclip = FakeServer(routes: [:])
+
+        await #expect {
+            try await store(paperclip).connect(url: paperclip.baseURL, auth: .boardKey, boardKey: "  ", webAuthenticator: nil)
+        } throws: { error in
+            if case .invalidAuthConfiguration = error as? PaperclipError { true } else { false }
+        }
+    }
+
+    @Test func failedValidationAfterOIDCSignInPersistsNothing() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"nope"}"#, status: 401)])
+        let store = store(paperclip)
+
+        await #expect(throws: PaperclipError.unauthorized("nope")) {
+            try await store.connect(url: paperclip.baseURL, auth: FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL)), boardKey: nil, webAuthenticator: FakeWebAuthenticator.approving())
+        }
+        #expect(store.factories.isEmpty)
+        #expect(credentials.isEmpty)
+    }
+
+    @Test func authConfigurationSurvivesRelaunch() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+
+        let relaunched = store(paperclip)
+
+        #expect(relaunched.factories == [factory])
+        #expect(relaunched.auth(for: factory) == auth)
+    }
+
+    @Test func removeDeletesOIDCTokens() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = store(paperclip)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL)), boardKey: nil, webAuthenticator: FakeWebAuthenticator.approving())
+        #expect(!credentials.isEmpty)
+
+        try store.remove(factory)
+
+        #expect(credentials.isEmpty)
+        #expect(store.auth(for: factory) == FactoryAuthConfiguration.none)
+    }
+
     @Test func refusesBoardKeyOverRemoteHTTP() async throws {
         let store = FactoryStore(defaults: defaults, credentials: credentials, session: StubURLProtocol.session)
 

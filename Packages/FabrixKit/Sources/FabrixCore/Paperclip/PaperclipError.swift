@@ -18,6 +18,8 @@ public enum PaperclipError: Error, Equatable, Sendable {
     case invalidServerURL
     /// Credentials would travel over plain HTTP to a host outside this machine or a private network.
     case insecureConnection
+    /// The chosen auth configuration can't work, e.g. two layers both need `Authorization`.
+    case invalidAuthConfiguration(String)
     /// The browser sign-in was cancelled in Paperclip.
     case signInCancelled
     /// The browser sign-in was not approved in time.
@@ -48,6 +50,7 @@ extension PaperclipError: LocalizedError {
         case .decoding: "The server sent a response Fabrix doesn't understand."
         case .invalidServerURL: "Enter a server address like https://paperclip.example.com."
         case .insecureConnection: "Use https:// to sign in to a server outside your local network."
+        case let .invalidAuthConfiguration(message): message
         case .signInCancelled: "Sign-in was cancelled."
         case .signInExpired: "Sign-in timed out. Try again."
         }

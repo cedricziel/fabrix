@@ -26,6 +26,15 @@ There are two ways to get a board API key:
 | `POST` | `/api/cli-auth/challenges`                    | Start browser sign-in. Body: `{ "command": "fabrix connect", "clientName": "Fabrix" }`. Returns `id`, `token`, `boardApiToken`, `approvalPath`, `approvalUrl`, `expiresAt`, `suggestedPollIntervalMs`. |
 | `GET`  | `/api/cli-auth/challenges/{id}?token={token}` | Poll the challenge. `status` is `pending`, `approved`, `cancelled` or `expired`.                                                                                                                       |
 
+### OIDC in front of Paperclip
+
+Paperclip has no OIDC login for board users. When a reverse proxy protects the server with OIDC, Fabrix signs in to the identity provider with Authorization Code + PKCE and sends `Bearer <access token>` on every request:
+
+- In `Authorization` when the proxy fronts a `local_trusted` server.
+- In a header you name, such as `X-Forwarded-Access-Token`, when Paperclip also needs a board key in `Authorization`.
+
+The proxy must accept bearer tokens, for example oauth2-proxy with `--skip-jwt-bearer-tokens`.
+
 ## Reads
 
 | Method | Path                                                  | Maps to                                                                                    |

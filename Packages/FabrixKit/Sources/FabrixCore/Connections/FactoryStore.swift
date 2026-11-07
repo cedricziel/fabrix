@@ -1,41 +1,80 @@
 import Foundation
 import Observation
 
-/// The Paperclip servers this device is connected to. Factory records live in
-/// `UserDefaults`; credentials live in a `CredentialStore` (the Keychain by default).
+/// The Paperclip servers this device is connected to. Factory records and their auth
+/// configuration live in `UserDefaults`; secrets live in a `CredentialStore` (the Keychain by default).
 @MainActor
 @Observable
 public final class FactoryStore {
     public private(set) var factories: [Factory]
 
+    @ObservationIgnored private var authConfigurations: [Factory.ID: FactoryAuthConfiguration]
+    /// One provider per factory, so concurrent services share a single token refresh.
+    @ObservationIgnored private var oidcProviders: [Factory.ID: OIDCAuthProvider] = [:]
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let credentials: any CredentialStore
     @ObservationIgnored private let session: URLSession
     private static let defaultsKey = "fabrix.factories"
 
+    private struct StoredFactory: Codable {
+        var factory: Factory
+        var auth: FactoryAuthConfiguration
+    }
+
     public init(defaults: UserDefaults = .standard, credentials: any CredentialStore = KeychainCredentialStore(), session: URLSession = .shared) {
         self.defaults = defaults
         self.credentials = credentials
         self.session = session
-        factories = defaults.data(forKey: Self.defaultsKey)
-            .flatMap { try? JSONDecoder().decode([Factory].self, from: $0) } ?? []
+        let stored = defaults.data(forKey: Self.defaultsKey)
+            .flatMap { try? JSONDecoder().decode([StoredFactory].self, from: $0) } ?? []
+        factories = stored.map(\.factory)
+        authConfigurations = Dictionary(stored.map { ($0.factory.id, $0.auth) }, uniquingKeysWith: { _, last in last })
     }
 
-    /// Checks the credential against the server, then saves the factory.
+    /// Connects with a board API key, or without credentials when `credential` is nil or blank.
+    @discardableResult
+    public func connect(url: URL, credential: String?, name: String? = nil) async throws -> Factory {
+        let key = Self.trimmed(credential)
+        return try await connect(url: url, auth: key == nil ? .none : .boardKey, boardKey: key, name: name, webAuthenticator: nil)
+    }
+
+    /// Signs in as `auth` describes, checks the result against the server, then saves the factory.
     ///
     /// - Parameters:
     ///   - url: Server address. A trailing `/api` is ignored.
-    ///   - credential: A board API key (`pcp_board_…`), or nil for servers in `local_trusted` mode.
-    ///   - name: Display name. Defaults to the server's host.
+    ///   - auth: Which layers to use. OIDC sign-in runs first when `auth.oidc` is set.
+    ///   - boardKey: The Paperclip board API key; required when `auth.usesBoardKey`, ignored otherwise.
+    ///   - name: Display name. Defaults to the server's host, or the saved name when reconnecting.
+    ///   - webAuthenticator: Shows the OIDC login page; required when `auth.oidc` is set.
     /// - Returns: The saved factory. Connecting to a server that is already saved updates it in place.
-    /// - Throws: `PaperclipError`, for example `.unauthorized` for a rejected key, or `KeychainError`.
+    /// - Throws: `PaperclipError` (`.invalidServerURL`, `.invalidAuthConfiguration`, `.unauthorized`, …),
+    ///   `OIDCError` from the identity provider, or `KeychainError`. Nothing is saved when it throws.
     @discardableResult
-    public func connect(url: URL, credential: String?, name: String? = nil) async throws -> Factory {
+    public func connect(
+        url: URL, auth: FactoryAuthConfiguration, boardKey: String?, name: String? = nil,
+        webAuthenticator: (any WebAuthenticator)?
+    ) async throws -> Factory {
         let baseURL = try PaperclipClient.serverURL(url)
-        let credential = credential?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let secret = credential?.isEmpty == false ? credential : nil
+        try auth.validate()
+        let key = auth.usesBoardKey ? Self.trimmed(boardKey) : nil
+        if auth.usesBoardKey, key == nil {
+            throw PaperclipError.invalidAuthConfiguration("Enter a board API key.")
+        }
 
-        _ = try await PaperclipClient(baseURL: baseURL, credential: secret, session: session).boardSession()
+        var oidcTokens: OIDCTokens?
+        var oidcProvider: OIDCAuthProvider?
+        if let oidc = auth.oidc {
+            guard let webAuthenticator else {
+                throw PaperclipError.invalidAuthConfiguration("OIDC sign-in needs a web authenticator.")
+            }
+            let tokens = try await OIDCFlow(settings: oidc, session: session).signIn(using: webAuthenticator)
+            let staged = OIDCTokenStore(credentials: InMemoryCredentialStore(), account: "candidate")
+            try staged.save(tokens)
+            oidcTokens = tokens
+            oidcProvider = OIDCAuthProvider(settings: oidc, tokens: staged, session: session)
+        }
+        let candidate = PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: oidcProvider, boardKey: key), session: session)
+        _ = try await candidate.boardSession()
 
         let existing = factories.firstIndex { $0.baseURL == baseURL }
         let factory = Factory(
@@ -44,7 +83,10 @@ public final class FactoryStore {
             baseURL: baseURL,
             isOnline: true
         )
-        try credentials.setCredential(secret, for: factory.id)
+        try credentials.setCredential(key, for: factory.id)
+        try oidcTokenStore(factory.id).save(oidcTokens)
+        oidcProviders[factory.id] = nil
+        authConfigurations[factory.id] = auth
         if let existing {
             factories[existing] = factory
         } else {
@@ -76,20 +118,55 @@ public final class FactoryStore {
         }
     }
 
-    /// Forgets the factory and deletes its credential.
+    /// The saved auth configuration, or `.none` for an unknown factory.
+    public func auth(for factory: Factory) -> FactoryAuthConfiguration {
+        authConfigurations[factory.id] ?? .none
+    }
+
+    /// Forgets the factory and deletes its board key and OIDC tokens.
     public func remove(_ factory: Factory) throws {
         try credentials.setCredential(nil, for: factory.id)
+        try oidcTokenStore(factory.id).save(nil)
+        oidcProviders[factory.id] = nil
+        authConfigurations[factory.id] = nil
         factories.removeAll { $0.id == factory.id }
         save()
     }
 
-    /// A live `FactoryService` for a saved factory, using its stored credential.
+    /// A live `FactoryService` for a saved factory, authenticated with its stored configuration.
     public func service(for factory: Factory) throws -> PaperclipFactoryService {
-        let client = try PaperclipClient(baseURL: factory.baseURL, credential: credentials.credential(for: factory.id), session: session)
+        let auth = auth(for: factory)
+        let key = auth.usesBoardKey ? try credentials.credential(for: factory.id) : nil
+        let client = PaperclipClient(baseURL: factory.baseURL, auth: Self.chain(oidc: oidcProvider(for: factory, settings: auth.oidc), boardKey: key), session: session)
         return PaperclipFactoryService(client: client)
     }
 
+    private func oidcProvider(for factory: Factory, settings: OIDCSettings?) -> OIDCAuthProvider? {
+        guard let settings else { return nil }
+        if let cached = oidcProviders[factory.id] {
+            return cached
+        }
+        let provider = OIDCAuthProvider(settings: settings, tokens: oidcTokenStore(factory.id), session: session)
+        oidcProviders[factory.id] = provider
+        return provider
+    }
+
+    private static func chain(oidc: OIDCAuthProvider?, boardKey: String?) -> any AuthProvider {
+        let layers: [(any AuthProvider)?] = [oidc, boardKey.map { BearerTokenAuth(token: $0) }]
+        return ChainedAuth(layers.compactMap(\.self))
+    }
+
+    private func oidcTokenStore(_ factoryID: Factory.ID) -> OIDCTokenStore {
+        OIDCTokenStore(credentials: credentials, account: "\(factoryID).oidc")
+    }
+
+    private static func trimmed(_ secret: String?) -> String? {
+        guard let secret = secret?.trimmingCharacters(in: .whitespacesAndNewlines), !secret.isEmpty else { return nil }
+        return secret
+    }
+
     private func save() {
-        defaults.set(try? JSONEncoder().encode(factories), forKey: Self.defaultsKey)
+        let stored = factories.map { StoredFactory(factory: $0, auth: auth(for: $0)) }
+        defaults.set(try? JSONEncoder().encode(stored), forKey: Self.defaultsKey)
     }
 }
