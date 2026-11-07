@@ -10,9 +10,9 @@
 
 ## 2. Lock UI (PR 3)
 
-- [ ] 2.1 Add `FabrixMark` and `BrandCover` (FabrixDesign `Brand.swift`). No test: visual only.
-- [ ] 2.2 Add `AppModel.connectCount` and `decide(_:approve:confirmingWith:)` (FabrixFeatures `AppModel.swift`, `Lock/AppLock+Approvals.swift`). Tests: `AppLockTests.approvalGateBlocksDecisionWhenAuthenticationFails`, `AppModelTests.connectingCountsOnlyRealFactories`.
-- [ ] 2.3 Add `LockScreen`, `PrivacyCover` and the `.appLock(_:)` modifier with scene mapping; apply it in `RootView` (`Lock/LockViews.swift`, `RootView.swift`). No test: view wiring; the state machine is covered in 1.3–1.4.
-- [ ] 2.4 Route Approve and Reject in `ApprovalsView` and `OverviewView` through the gate. Covered by 2.2.
-- [ ] 2.5 Add `SettingsView` with the Security section, the first-connect offer sheet, the iPhone More menu item, the iPad sidebar button and the macOS `Settings` scene (`Lock/SettingsView.swift`, `Shell/`, `App/Shared/FabrixApp.swift`). No test: view wiring.
-- [ ] 2.6 Archive the OpenSpec change.
+- [x] 2.1 Add `FabrixMark` and `BrandCover` (FabrixDesign `Brand.swift`). No test: visual only.
+- [x] 2.2 Add `AppModel.connectCount` and `decide(_:approve:confirmingWith:)` (FabrixFeatures `AppModel.swift`, `Lock/AppLock+Approvals.swift`). Tests: `AppLockTests.approvalGateBlocksDecisionWhenAuthenticationFails`, `AppModelTests.connectingCountsOnlyRealFactories`.
+- [x] 2.3 Add `LockScreen`, `PrivacyCover` and the `.appLock(_:)` modifier with scene mapping; apply it in `RootView` (`Lock/LockViews.swift`, `RootView.swift`). No test: view wiring; the state machine is covered in 1.3–1.4.
+- [x] 2.4 Route Approve and Reject in `ApprovalsView` and `OverviewView` through the gate. Covered by 2.2.
+- [x] 2.5 Add `SettingsView` with the Security section, the first-connect offer sheet, the iPhone More menu item, the iPad sidebar button and the macOS `Settings` scene (`Lock/SettingsView.swift`, `Shell/`, `App/Shared/FabrixApp.swift`). No test: view wiring.
+- [x] 2.6 Archive the OpenSpec change.

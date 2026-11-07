@@ -36,6 +36,8 @@ Alternative considered: putting the state in `AppModel`. Rejected. `AppModel` is
 
 **Applying the lock.** A `.appLock(_:)` modifier in `RootView` swaps the content for `LockScreen` while locked and overlays `PrivacyCover` while covered. It sits inside the `.task` (polling) and `.onChange` (commit) modifiers, so those keep running while locked. The New task and Settings sheets attach inside it, so they close when the content goes away.
 
+On macOS the window toolbar (company name, search) sits outside the view tree, so the modifier also hides it while covered.
+
 **Brand visuals (FabrixDesign).** `FabrixMark` draws the app icon's mark in SwiftUI from the same path as `scripts/render-app-icons.swift`, because the package can't load the app's `AppIcon` asset. `BrandCover` puts the mark and name on `Palette.paper` and takes optional content below. The lock screen and the privacy cover both use it. FabrixDesign still has no FabrixCore dependency.
 
 **Approval confirmation.** `AppModel.decide(_:approve:confirmingWith:)` awaits `lock.confirmDecision()` and calls the existing `decide(_:approve:)` only on success. `confirmDecision()` returns true without prompting when the setting is off. The undo window and commit rules are unchanged.
