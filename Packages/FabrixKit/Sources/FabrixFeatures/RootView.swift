@@ -73,12 +73,6 @@ private struct AppRoot: View {
                             SplitShell()
                         }
                     }
-                    .safeAreaInset(edge: .top) {
-                        VStack(spacing: 0) {
-                            ConnectionStatusBar()
-                            ErrorBanner()
-                        }
-                    }
                     .environment(\.timersFrozenAt, model.dataFrozenAt)
                     .modifier(ErrorAnnouncer())
                 case .empty:

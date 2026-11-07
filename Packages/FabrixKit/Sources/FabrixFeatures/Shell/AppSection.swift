@@ -137,8 +137,10 @@ struct ProjectRoute: Hashable {
 extension View {
     /// Destinations every navigation stack in the app can push.
     func fabrixDestinations() -> some View {
-        navigationDestination(for: Agent.ID.self) { AgentDetailView(agentID: $0) }
-            .navigationDestination(for: AppSection.self) { SectionScreen(section: $0).navigationTitle($0.title) }
-            .navigationDestination(for: ProjectRoute.self) { ProjectDetailView(projectID: $0.id) }
+        navigationDestination(for: Agent.ID.self) { AgentDetailView(agentID: $0).statusInsets() }
+            .navigationDestination(for: AppSection.self) {
+                SectionScreen(section: $0).statusInsets().navigationTitle($0.title)
+            }
+            .navigationDestination(for: ProjectRoute.self) { ProjectDetailView(projectID: $0.id).statusInsets() }
     }
 }

@@ -8,7 +8,7 @@ struct ConnectionStatusBar: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
-            if let status = status(now: context.date) {
+            if let status = status(now: max(context.date, model.lastRefreshedAt ?? context.date)) {
                 StatusStrip(
                     status.tone, title: status.title, detail: status.detail,
                     actionTitle: status.action.map(title), isBusy: isBusy(status.action)
@@ -51,6 +51,19 @@ struct ConnectionStatusBar: View {
         switch action {
         case .retry: String(localized: "Retry", bundle: .module)
         case .signIn: String(localized: "Sign in again", bundle: .module)
+        }
+    }
+}
+
+extension View {
+    /// The connection strip and the action error banner above a content column, so they never
+    /// cover the sidebar.
+    func statusInsets() -> some View {
+        safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                ConnectionStatusBar()
+                ErrorBanner()
+            }
         }
     }
 }

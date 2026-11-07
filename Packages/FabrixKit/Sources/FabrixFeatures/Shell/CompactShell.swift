@@ -28,6 +28,7 @@ private struct TabStack: View {
         NavigationStack(path: path) {
             SectionScreen(section: tab.root)
                 .id(model.snapshot?.company.id)
+                .statusInsets()
                 .factoryTitle(tab == .factory ? nil : tab.title)
                 .fabrixDestinations()
                 .toolbar {

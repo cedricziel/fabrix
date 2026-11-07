@@ -65,6 +65,7 @@ struct ConnectionStatus: Equatable {
             let formatter = RelativeDateTimeFormatter()
             formatter.locale = locale
             formatter.unitsStyle = .full
+            formatter.dateTimeStyle = .named
             return String(localized: "Updated \(formatter.localizedString(for: min(date, now), relativeTo: now))", bundle: .module)
         }
     }

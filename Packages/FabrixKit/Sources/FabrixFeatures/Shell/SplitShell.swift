@@ -30,6 +30,7 @@ struct SplitShell: View {
                     }
                 }
                 .id(model.snapshot?.company.id)
+                .statusInsets()
                     .factoryTitle()
                     .fabrixDestinations()
             }
