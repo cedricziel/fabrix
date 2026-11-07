@@ -2,7 +2,7 @@
 
 ### Requirement: Company projects
 
-The service SHALL list a company's projects that are not archived, with each project's name, description, status, lead agent, target date, colour, goals, linked repositories and archived flag. Project statuses `backlog`, `planned`, `in_progress`, `completed` and `cancelled` SHALL map to backlog, planned, in progress, completed and cancelled; an unknown status SHALL map to backlog. When the factory has no projects endpoint, the service SHALL report projects as unsupported instead of returning an error.
+The service SHALL list a company's projects that are not archived, with each project's name, description, status, lead agent, target date, colour, goals, linked repositories and archived flag. Project statuses `backlog`, `planned`, `in_progress`, `completed` and `cancelled` SHALL map to backlog, planned, in progress, completed and cancelled; an unknown status SHALL map to other, which does not count as active. A malformed project or repository row SHALL be skipped without failing the list. Only `http` and `https` repository URLs SHALL be kept as links. The service SHALL pass on the server's count of a project's tasks when the server sends one. When the factory has no projects endpoint, the service SHALL report projects as unsupported instead of returning an error.
 
 #### Scenario: Projects from a live server
 
@@ -17,7 +17,17 @@ The service SHALL list a company's projects that are not archived, with each pro
 #### Scenario: Unknown project status
 
 - **WHEN** the server sends a project status this version of Fabrix does not know
-- **THEN** the project still loads, with the status backlog
+- **THEN** the project still loads, with the status other, and is not listed as active
+
+#### Scenario: Malformed project row
+
+- **WHEN** one row of the projects list can't be read
+- **THEN** the other projects still load
+
+#### Scenario: Repository URL that isn't a web link
+
+- **WHEN** a Git workspace's repository URL uses a scheme other than `http` or `https`
+- **THEN** the repository is listed without a link
 
 #### Scenario: Server without projects
 
@@ -26,7 +36,7 @@ The service SHALL list a company's projects that are not archived, with each pro
 
 ### Requirement: Task project and activity subject
 
-Each task SHALL carry the project it belongs to, or none. Each activity event SHALL carry the task or project it is about, when it is about one.
+Each task SHALL carry the project it belongs to, or none. Each activity event SHALL carry the task or project it is about, when it is about one. The snapshot SHALL name the company's terminated agents, which it otherwise leaves out.
 
 #### Scenario: Task in a project
 

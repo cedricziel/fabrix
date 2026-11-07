@@ -30,6 +30,11 @@ The task board SHALL offer a project filter with All projects, each of the compa
 - **WHEN** the board is filtered to one project
 - **THEN** it offers a way to open that project's detail
 
+#### Scenario: Filtered project goes away
+
+- **WHEN** the board is filtered to a project that a refresh no longer contains
+- **THEN** the board shows all projects
+
 #### Scenario: Filter after company switch
 
 - **WHEN** the user switches company while the board is filtered to a project

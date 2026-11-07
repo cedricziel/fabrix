@@ -54,7 +54,9 @@ Mapping lives in `PaperclipMapping.swift`, and `ProjectDTO`/`ProjectWorkspaceDTO
 
 - A workspace's repository name is the `owner/name` path of `repoUrl`, falling back to the workspace `name`.
 - A `local_path` workspace uses `cwd`.
-- An unknown project status maps to `.backlog`.
+- An unknown project status maps to `.other`, which isn't active, so a server status like `on_hold` can't hide a finished project among active ones.
+- Rows decode leniently: a malformed project or workspace is skipped, not fatal for the list.
+- Repository links keep only `http`/`https` URLs.
 - Activity with `entityType == "issue"` sets `taskID`, and `"project"` sets `projectID`.
 
 ### 3. Counts and project activity are computed in FabrixFeatures
@@ -66,12 +68,15 @@ Mapping lives in `PaperclipMapping.swift`, and `ProjectDTO`/`ProjectWorkspaceDTO
 - `activity(for:)` returns events whose `projectID` matches, or whose `taskID` belongs to the project, newest first.
 - It also gives active and completed lists and the lead resolution: `.agent(Agent)`, `.outsideCompany`, or `.none`.
 
-`taskCount` from the server isn't used: it includes done and cancelled tasks, and the issues are already in the snapshot.
+Counts come from the snapshot's issues, which are capped at 500. The server's `taskCount` (every task, done and cancelled included) is kept on `Project`. When it exceeds the project's loaded tasks, the UI says how many older tasks weren't loaded and aren't counted, instead of a fetch per project. `CompanySnapshot.formerAgentIDs` lets a terminated lead show as a former agent rather than as another company's.
 
 ### 4. `AppModel` owns project state and the filter
 
 - `projectsState: ProjectsState` holds `.loading`, `.loaded([Project])`, `.failed(String, last: [Project])` or `.unsupported`.
-- `refresh()` starts `projects(companyID:)` alongside `snapshot(companyID:)`, under the same request generation, so a stale answer from the previous company is dropped.
+- `refresh()` starts `projects(companyID:)` in parallel with the snapshot (`async let`) when a company is already shown, under the same request generation, so a stale answer from the previous company is dropped.
+- An `unsupported` answer is remembered for the open factory, so it isn't asked again on every poll.
+- A failed company switch reloads the shown company's projects.
+- A loaded list without the filtered project resets the task filter to `.all`.
 - The first load for a company shows `.loading`. Later failures keep the last list in `.failed`.
 - `taskProjectFilter: ProjectFilter` is `.all`, `.project(ID)` or `.none`.
 - `select(_ company:)` resets the projects to `.loading`, the filter to `.all`, and the open project.
@@ -86,7 +91,7 @@ Mapping lives in `PaperclipMapping.swift`, and `ProjectDTO`/`ProjectWorkspaceDTO
 
 ### 6. Design components
 
-`FabrixDesign` gains the proposed `ProjectSwatch`, `ProjectChip`, `ProjectStatusPill` and `TaskCountsBar`. They take plain values (name, hex string, a status style, three integers), never Core types. `ProjectStatusPill` takes a design-side `ProjectStatusStyle`; FabrixFeatures maps `ProjectStatus` onto it, as it already does for `AgentStatus` → `StatusStyle`.
+`FabrixDesign` gains the proposed `ProjectSwatch`, `ProjectChip` and `TaskCountsBar`. They take plain values (name, hex string, three integers), never Core types. Project statuses reuse `StatusPill` through `StatusPill(_:title:)`: a design-side `ProjectStatusStyle` names the label and the `StatusStyle` it looks like, and FabrixFeatures maps `ProjectStatus` onto it.
 
 ### 7. Lead from another company
 
