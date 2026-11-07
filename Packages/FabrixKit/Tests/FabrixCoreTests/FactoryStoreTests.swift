@@ -315,17 +315,15 @@ struct FactoryStoreTests {
         }
     }
 
-    private let proxyHeader = [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]
-
     @Test func customHeadersAreSentAndStoredInTheKeychain() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
         let store = store(server)
 
-        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: proxyHeader)
+        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: PaperclipFixtures.proxyHeader)
 
         #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret")
-        #expect(try store.customHeaders(for: factory) == proxyHeader)
+        #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
         #expect(try credentials.credential(for: "\(factory.id).headers")?.contains("proxy-secret") == true)
         let record = try #require(defaults.data(forKey: "fabrix.factories"))
         #expect(String(decoding: record, as: UTF8.self).contains("X-Proxy-Token"))
@@ -335,13 +333,13 @@ struct FactoryStoreTests {
     @Test func customHeadersSurviveRelaunch() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me), "GET /api/companies": .json(PaperclipFixtures.companies)], recorder: recorder)
-        let factory = try await store(server).connect(url: server.baseURL, credential: "pcp_board_secret", headers: proxyHeader)
+        let factory = try await store(server).connect(url: server.baseURL, credential: "pcp_board_secret", headers: PaperclipFixtures.proxyHeader)
 
         let relaunched = store(server)
         _ = try await relaunched.service(for: factory).companies()
 
         #expect(recorder.last("GET", "/api/companies")?.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret")
-        #expect(try relaunched.customHeaders(for: factory) == proxyHeader)
+        #expect(try relaunched.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
     }
 
     @Test func oldRecordsDecodeWithoutHeaderNames() async throws {
@@ -361,7 +359,7 @@ struct FactoryStoreTests {
     @Test func removeDeletesCustomHeaderValues() async throws {
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
         let store = store(server)
-        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: proxyHeader)
+        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: PaperclipFixtures.proxyHeader)
 
         try store.remove(factory)
 
@@ -384,7 +382,7 @@ struct FactoryStoreTests {
         let store = FactoryStore(defaults: defaults, credentials: credentials, session: StubURLProtocol.session)
 
         await #expect(throws: PaperclipError.insecureConnection) {
-            try await store.connect(url: URL(string: "http://paperclip.example.com")!, credential: nil, headers: proxyHeader)
+            try await store.connect(url: URL(string: "http://paperclip.example.com")!, credential: nil, headers: PaperclipFixtures.proxyHeader)
         }
         #expect(credentials.isEmpty)
     }
@@ -397,7 +395,7 @@ struct FactoryStoreTests {
         let store = store(paperclip)
         let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL))
 
-        try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: nil, headers: proxyHeader, webAuthenticator: FakeWebAuthenticator.approving())
+        try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: nil, headers: PaperclipFixtures.proxyHeader, webAuthenticator: FakeWebAuthenticator.approving())
 
         #expect(!idpRequests.requests.isEmpty)
         #expect(idpRequests.requests.allSatisfy { $0.value(forHTTPHeaderField: "X-Proxy-Token") == nil })
@@ -413,11 +411,11 @@ struct FactoryStoreTests {
         ], recorder: recorder)
         let store = store(paperclip)
 
-        let challenge = try await store.startSignIn(url: paperclip.baseURL, clientName: "Fabrix", headers: proxyHeader)
+        let challenge = try await store.startSignIn(url: paperclip.baseURL, clientName: "Fabrix", headers: PaperclipFixtures.proxyHeader)
         let factory = try await store.completeSignIn(challenge)
 
         #expect(recorder.requests.count == 3)
         #expect(recorder.requests.allSatisfy { $0.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret" })
-        #expect(try store.customHeaders(for: factory) == proxyHeader)
+        #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
     }
 }

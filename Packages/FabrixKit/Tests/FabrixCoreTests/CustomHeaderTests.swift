@@ -12,13 +12,11 @@ struct CustomHeaderTests {
         #expect(headers == [CustomHeader(name: "X-Proxy-Token", value: "secret")])
     }
 
-    @Test(arguments: ["", "  ", "X Proxy", "X-Proxy:", "Prox\u{e9}", "X-Token\nInjected"])
-    func rejectsInvalidNames(name: String) {
-        #expect(throws: PaperclipError.self) { try CustomHeader.validated([CustomHeader(name: name, value: "v")], for: .none) }
-    }
-
-    @Test(arguments: ["Host", "content-length", "Transfer-Encoding", "CONNECTION"])
-    func rejectsReservedNames(name: String) {
+    @Test(arguments: [
+        "", "  ", "X Proxy", "X-Proxy:", "Prox\u{e9}", "X-Token\nInjected",
+        "Host", "content-length", "Transfer-Encoding", "CONNECTION",
+    ])
+    func rejectsInvalidAndReservedNames(name: String) {
         #expect(throws: PaperclipError.self) { try CustomHeader.validated([CustomHeader(name: name, value: "v")], for: .none) }
     }
 

@@ -271,7 +271,7 @@ struct PaperclipClientTests {
     @Test func customHeadersAreAddedToRequests() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
-        let auth = ChainedAuth([CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]), BearerTokenAuth(token: "k")])
+        let auth = ChainedAuth([CustomHeadersAuth(headers: PaperclipFixtures.proxyHeader), BearerTokenAuth(token: "k")])
         let client = PaperclipClient(baseURL: server.baseURL, auth: auth, session: server.session)
 
         _ = try await client.boardSession()
@@ -285,7 +285,7 @@ struct PaperclipClientTests {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: [:], recorder: recorder)
         let client = PaperclipClient(
-            baseURL: server.httpBaseURL, auth: CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]),
+            baseURL: server.httpBaseURL, auth: CustomHeadersAuth(headers: PaperclipFixtures.proxyHeader),
             session: server.session
         )
 
@@ -298,7 +298,7 @@ struct PaperclipClientTests {
         let evil = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: attacker)
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: evil.baseURL.appending(path: "api/cli-auth/me"))])
         let client = PaperclipClient(
-            baseURL: server.baseURL, auth: CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]),
+            baseURL: server.baseURL, auth: CustomHeadersAuth(headers: PaperclipFixtures.proxyHeader),
             session: server.session
         )
 
