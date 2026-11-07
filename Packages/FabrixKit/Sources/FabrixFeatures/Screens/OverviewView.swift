@@ -184,6 +184,7 @@ private struct LiveRunRow: View {
 private struct DecisionsCard: View {
     @Environment(AppModel.self) private var model
     @Environment(Navigator.self) private var navigator
+    @Environment(AppLock.self) private var lock
     let waiting: [Approval]
 
     var body: some View {
@@ -201,7 +202,7 @@ private struct DecisionsCard: View {
                     }
                     Text(approval.title).fontWeight(.semibold)
                     HStack(spacing: 8) {
-                        Button("Approve") { model.decide(approval, approve: true) }
+                        Button("Approve") { Task { await model.decide(approval, approve: true, confirmingWith: lock) } }
                             .buttonStyle(.fabrixPrimary)
                         Button("Open") { navigator.open(.approvals) }
                             .buttonStyle(.fabrixSecondary)

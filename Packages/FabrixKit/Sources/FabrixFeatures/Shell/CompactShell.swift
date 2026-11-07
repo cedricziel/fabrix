@@ -40,6 +40,8 @@ private struct TabStack: View {
                                         Label(section.title, systemImage: section.systemImage)
                                     }
                                 }
+                                Divider()
+                                SettingsButton()
                             } label: {
                                 Label("More", systemImage: "ellipsis.circle")
                             }

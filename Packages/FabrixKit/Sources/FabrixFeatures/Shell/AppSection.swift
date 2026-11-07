@@ -72,6 +72,12 @@ final class Navigator {
     var showingNewTask = false
     var confirmingRemove = false
     var showingAddFactory = false
+    var showingSettings = false
+
+    /// Another sheet can't present on top; the lock offer waits for these to close.
+    var isPresentingSheet: Bool {
+        showingNewTask || showingAddFactory || showingSettings
+    }
     var isCompact = false
 
     /// A new factory or company starts every stack at its root.
