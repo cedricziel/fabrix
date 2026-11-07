@@ -3,6 +3,16 @@ import FabrixCore
 import Foundation
 import Observation
 
+/// A browser sign-in in progress, or how the last one ended.
+public struct BrowserSignInState: Equatable, Sendable {
+    /// The page where the user approves Fabrix; nil when the request couldn't be created.
+    public var approvalURL: URL?
+    public var expiresAt: Date?
+    /// Why the sign-in ended without a connection.
+    public var failure: String?
+
+}
+
 public enum LoadState: Equatable, Sendable {
     case loading, loaded, empty
     case failed(String)
@@ -25,6 +35,13 @@ public final class AppModel {
     public private(set) var lastError: String?
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
+    public private(set) var browserSignIn: BrowserSignInState?
+    /// The factory from the last launch couldn't reopen; onboarding asks for what is missing.
+    public private(set) var reconnect: ReconnectNeeded?
+    /// The factory rejected its board key; refreshing waits until the user signs in again.
+    public private(set) var needsSignIn = false
+    /// When the board key expires, set only once that is close.
+    public private(set) var keyExpiry: Date?
     public var searchText = ""
 
     private var service: (any FactoryService)?
@@ -38,6 +55,11 @@ public final class AppModel {
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
     private let undoWindow: Duration
+    private var usesBoardKey = false
+    private var signInTask: Task<FactoryConnection, any Error>?
+    private var retrySignIn: (@MainActor () async -> Void)?
+    private var checkedKeyExpiry = false
+    private static let expiryWarning: TimeInterval = 5 * 24 * 60 * 60
     private var index = SnapshotIndex(nil)
     private var desk = ApprovalDesk()
     /// Why a decision didn't reach the factory, shown on its approval until decided again.
@@ -81,7 +103,13 @@ public final class AppModel {
     /// The demo, or the factory connected at the last launch.
     private func restoredConnection() -> FactoryConnection? {
         if defaults.bool(forKey: Self.demoKey) { return .demo() }
-        return defaults.string(forKey: Self.factoryKey).flatMap { connector?.restore(factoryID: $0) }
+        guard let id = defaults.string(forKey: Self.factoryKey) else { return nil }
+        do {
+            return try connector?.restore(factoryID: id)
+        } catch let request as ReconnectNeeded {
+            reconnect = request
+        } catch {}
+        return nil
     }
 
     public func exploreDemo() async {
@@ -92,9 +120,12 @@ public final class AppModel {
         await refresh()
     }
 
+    /// - Parameter openURL: Opens the browser sign-in approval page in the user's browser.
     /// - Returns: Whether the factory is now open.
     @discardableResult
-    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async -> Bool {
+    func connect(
+        _ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil, openURL: @escaping @MainActor (URL) -> Void = { _ in }
+    ) async -> Bool {
         guard let connector, !isConnecting else { return false }
         let request: (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader])
         do {
@@ -103,19 +134,20 @@ public final class AppModel {
             connectError = error.message
             return false
         }
+        if request.auth.usesBrowserSignIn {
+            return await runBrowserSignIn(openURL: openURL) {
+                try await connector.startBrowserSignIn(
+                    baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
+                )
+            }
+        }
         isConnecting = true
         defer { isConnecting = false }
         do {
             let connection = try await connector.connect(
                 baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
             )
-            // Only now is the open factory being left; a cancelled or failed sign-in keeps the undo window.
-            await commitStagedDecisions()
-            use(connection)
-            defaults.set(connection.factory.id, forKey: Self.factoryKey)
-            defaults.removeObject(forKey: Self.demoKey)
-            connectError = nil
-            await refresh()
+            await finishConnecting(connection)
             return true
         } catch {
             // Closing the sign-in sheet is a choice, not a failure.
@@ -132,6 +164,109 @@ public final class AppModel {
         FactoryMenu(saved: connector?.factories ?? [], open: factory, companies: companies, selectedCompanyID: snapshot?.company.id)
     }
 
+    private func finishConnecting(_ connection: FactoryConnection) async {
+        // Only now is the open factory being left; a cancelled or failed sign-in keeps the undo window.
+        await commitStagedDecisions()
+        reconnect = nil
+        use(connection)
+        defaults.set(connection.factory.id, forKey: Self.factoryKey)
+        defaults.removeObject(forKey: Self.demoKey)
+        connectError = nil
+        await refresh()
+    }
+
+    // MARK: Browser sign-in
+
+    /// Only a saved factory that uses a Paperclip key can get a new one through the browser.
+    public var canSignInAgain: Bool {
+        canForgetFactory && usesBoardKey
+    }
+
+    /// Runs browser sign-in for the current factory and replaces only its key.
+    func signInAgain(openURL: @escaping @MainActor (URL) -> Void) async {
+        guard canSignInAgain, let connector, let factory else { return }
+        await runBrowserSignIn(openURL: openURL) {
+            try await connector.startReauthentication(factoryID: factory.id)
+        }
+    }
+
+    func retryBrowserSignIn() async {
+        await retrySignIn?()
+    }
+
+    /// Stops waiting for approval, or dismisses a failed sign-in.
+    func cancelBrowserSignIn() {
+        signInTask?.cancel()
+        signInTask = nil
+        retrySignIn = nil
+        browserSignIn = nil
+    }
+
+    /// - Returns: Whether the factory is now open.
+    @discardableResult
+    private func runBrowserSignIn(
+        openURL: @escaping @MainActor (URL) -> Void, start: @escaping @MainActor () async throws -> SignInChallenge
+    ) async -> Bool {
+        guard let connector else { return false }
+        retrySignIn = { [weak self] in await self?.runBrowserSignIn(openURL: openURL, start: start) }
+        signInTask?.cancel()
+        connectError = nil
+        isConnecting = true
+        defer { isConnecting = false }
+        do {
+            let challenge = try await start()
+            browserSignIn = BrowserSignInState(approvalURL: challenge.approvalURL, expiresAt: challenge.expiresAt)
+            openURL(challenge.approvalURL)
+            let task = Task { try await connector.completeBrowserSignIn(challenge) }
+            signInTask = task
+            let connection = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            signInTask = nil
+            retrySignIn = nil
+            browserSignIn = nil
+            await finishConnecting(connection)
+            return true
+        } catch {
+            if Self.isCancellation(error) {
+                retrySignIn = nil
+                browserSignIn = nil
+            } else {
+                browserSignIn = BrowserSignInState(failure: Self.signInFailure(error))
+            }
+            return false
+        }
+    }
+
+    private static func signInFailure(_ error: any Error) -> String {
+        switch error as? PaperclipError {
+        case .signInExpired: "The sign-in request expired before it was approved."
+        case .signInCancelled: "The sign-in request was cancelled in the browser."
+        default: error.localizedDescription
+        }
+    }
+
+    /// Shows a failed request. A rejected key asks for sign-in instead of failing every refresh.
+    private func report(_ error: any Error) {
+        if canSignInAgain, case .unauthorized = error as? PaperclipError {
+            needsSignIn = true
+            lastError = nil
+        } else {
+            lastError = error.localizedDescription
+        }
+    }
+
+    private func checkKeyExpiry(_ service: any FactoryService) async {
+        guard canSignInAgain, !checkedKeyExpiry else { return }
+        checkedKeyExpiry = true
+        let session = generation
+        guard let expiry = try? await service.credentialExpiry(), session == generation else { return }
+        keyExpiry = expiry.timeIntervalSinceNow < Self.expiryWarning ? expiry : nil
+    }
+
+    /// A real factory can be forgotten; the demo has nothing saved.
+    public var canForgetFactory: Bool {
+        connector != nil && factory != nil && factory?.id != FactoryConnection.demo().factory.id
+    }
+
     /// Opens a saved factory or the demo, and remembers it for the next launch.
     func open(_ target: Factory) async {
         guard target.id != factory?.id else { return }
@@ -140,7 +275,18 @@ public final class AppModel {
             await exploreDemo()
             return
         }
-        guard let connection = connector?.restore(factoryID: target.id) else {
+        let restored: FactoryConnection?
+        do {
+            restored = try connector?.restore(factoryID: target.id)
+        } catch let request as ReconnectNeeded {
+            // Its header values are gone; onboarding asks for them with the address filled in.
+            disconnect()
+            reconnect = request
+            return
+        } catch {
+            restored = nil
+        }
+        guard let connection = restored else {
             lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.")
             return
         }
@@ -170,7 +316,14 @@ public final class AppModel {
     /// it was removed, and picks up new credentials when it was connected again.
     func followStoreChanges() async {
         guard let connector, let factory, factory.id != FactoryConnection.demo().factory.id else { return }
-        guard let current = connector.restore(factoryID: factory.id) else {
+        let current: FactoryConnection?
+        do {
+            current = try connector.restore(factoryID: factory.id)
+        } catch {
+            // Still saved, but its secrets can't be read here; keep the open connection.
+            return
+        }
+        guard let current else {
             await leaveForNextFactory()
             return
         }
@@ -197,6 +350,7 @@ public final class AppModel {
     /// Leaves the current factory. A connected factory stays saved, with its credentials,
     /// in the connector's store; it just isn't reopened on the next launch.
     public func disconnect() {
+        cancelBrowserSignIn()
         defaults.removeObject(forKey: Self.demoKey)
         defaults.removeObject(forKey: Self.factoryKey)
         generation += 1
@@ -224,6 +378,10 @@ public final class AppModel {
         selectedCompanyID = nil
         factory = connection.factory
         service = connection.service
+        usesBoardKey = connection.usesBoardKey
+        needsSignIn = false
+        keyExpiry = nil
+        checkedKeyExpiry = false
         companies = []
         snapshot = nil
         lastError = nil
@@ -233,7 +391,7 @@ public final class AppModel {
     // MARK: Loading
 
     public func refresh() async {
-        guard let service else { return }
+        guard let service, !needsSignIn else { return }
         let request = beginRequest()
         let wanted = selectedCompanyID
         do {
@@ -260,9 +418,10 @@ public final class AppModel {
             lastRefresh = clock.now
             lastError = nil
             loadState = fresh == nil ? .empty : .loaded
+            await checkKeyExpiry(service)
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == wanted, accept(request) else { return }
-            lastError = error.localizedDescription
+            report(error)
             if snapshot == nil {
                 loadState = .failed(error.localizedDescription)
             }
@@ -305,7 +464,7 @@ public final class AppModel {
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             selectedCompanyID = snapshot?.company.id
-            lastError = error.localizedDescription
+            report(error)
         }
     }
 
@@ -429,7 +588,7 @@ public final class AppModel {
             try await action(service)
             await refresh()
         } catch {
-            lastError = error.localizedDescription
+            report(error)
         }
     }
 

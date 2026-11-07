@@ -51,7 +51,7 @@ struct AppModelTests {
         let model = AppModel(connector: connector, defaults: freshDefaults())
         #expect(model.canConnect)
 
-        await model.connect(ConnectForm(address: "factory.local:3100", apiKey: "secret"))
+        await model.connect(ConnectForm(address: "factory.local:3100", method: .paperclip, apiKey: "secret"))
 
         #expect(connector.calls == [ConnectCall(url: "https://factory.local:3100", auth: .paperclip(apiKey: "secret"))])
         #expect(model.factory?.name == "factory.local")
@@ -62,7 +62,7 @@ struct AppModelTests {
     @Test func connectingPassesCustomHeaders() async {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: freshDefaults())
-        var form = ConnectForm(address: "f.example", apiKey: "secret")
+        var form = ConnectForm(address: "f.example", method: .paperclip, apiKey: "secret")
         form.headers = [ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "proxy-secret")]
 
         await model.connect(form)
@@ -74,7 +74,7 @@ struct AppModelTests {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: freshDefaults())
 
-        await model.connect(ConnectForm(address: "ftp://nope", apiKey: "k"))
+        await model.connect(ConnectForm(address: "ftp://nope", method: .paperclip, apiKey: "k"))
 
         #expect(connector.calls.isEmpty)
         #expect(model.isOnboarding)
@@ -97,7 +97,7 @@ struct AppModelTests {
 
     @Test func connectorFailureStaysInOnboardingWithTheMessage() async {
         let model = AppModel(connector: RecordingConnector(failure: "Unauthorized"), defaults: freshDefaults())
-        await model.connect(ConnectForm(address: "https://f.example", apiKey: "bad"))
+        await model.connect(ConnectForm(address: "https://f.example", method: .paperclip, apiKey: "bad"))
         #expect(model.isOnboarding)
         #expect(model.connectError == "Unauthorized")
     }
@@ -245,7 +245,7 @@ struct AppModelTests {
     @Test func connectedFactoryReopensOnNextLaunch() async {
         let defaults = freshDefaults()
         let connector = RecordingConnector()
-        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", apiKey: "k"))
+        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "k"))
 
         let relaunched = AppModel(connector: connector, defaults: defaults)
 
@@ -256,7 +256,7 @@ struct AppModelTests {
     @Test func forgottenFactoryFallsBackToOnboarding() async {
         let defaults = freshDefaults()
         let connector = RecordingConnector()
-        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", apiKey: "k"))
+        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "k"))
         connector.saved = [:]
 
         #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
@@ -268,7 +268,7 @@ struct AppModelTests {
         let model = AppModel(connector: connector, defaults: defaults)
         await model.exploreDemo()
         model.disconnect()
-        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "k"))
 
         #expect(AppModel(connector: connector, defaults: defaults).factory?.name == "f.example")
     }
@@ -277,7 +277,7 @@ struct AppModelTests {
         let defaults = freshDefaults()
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: defaults)
-        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "k"))
         model.disconnect()
 
         #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
@@ -347,15 +347,78 @@ final class RecordingConnector: FactoryConnector {
         // Like FactoryStore, connecting to a saved address again keeps its ID.
         let id = factories.first { $0.baseURL == baseURL }?.id ?? "f-\(calls.count)"
         let factory = Factory(id: id, name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
-        let connection = FactoryConnection(factory: factory, service: service ?? DemoFactoryService())
+        let connection = FactoryConnection(factory: factory, service: service ?? DemoFactoryService(), usesBoardKey: true)
         if saved[id] == nil { order.append(id) }
         saved[id] = connection
         revision += 1
         return connection
     }
 
-    func restore(factoryID: Factory.ID) -> FactoryConnection? {
-        saved[factoryID]
+    var restoreError: (any Error)?
+
+    func restore(factoryID: Factory.ID) throws -> FactoryConnection? {
+        if let restoreError { throw restoreError }
+        return saved[factoryID]
+    }
+
+    /// How a browser sign-in ends once the app starts waiting.
+    enum BrowserOutcome {
+        case approve
+        case fail(PaperclipError)
+        case waitUntilCancelled
+    }
+
+    var browserOutcome = BrowserOutcome.approve
+    /// The service a re-signed-in factory gets, standing in for the renewed key.
+    var renewedService: any FactoryService = DemoFactoryService()
+    private(set) var browserCalls: [ConnectCall] = []
+    private(set) var reauthenticated: [Factory.ID] = []
+    private(set) var cancelledWaits = 0
+
+    func startBrowserSignIn(
+        baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator _: (any WebAuthenticator)?
+    ) async throws -> SignInChallenge {
+        browserCalls.append(ConnectCall(url: baseURL.absoluteString, auth: auth, headers: headers))
+        if let error { throw error }
+        return challenge(for: baseURL)
+    }
+
+    func startReauthentication(factoryID: Factory.ID) async throws -> SignInChallenge {
+        reauthenticated.append(factoryID)
+        guard let factory = saved[factoryID]?.factory else { throw PaperclipError.notFound(nil) }
+        return challenge(for: factory.baseURL)
+    }
+
+    func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection {
+        switch browserOutcome {
+        case .approve:
+            if let existing = saved.values.first(where: { $0.factory.baseURL == challenge.serverURL }) {
+                let renewed = FactoryConnection(factory: existing.factory, service: renewedService, usesBoardKey: true)
+                saved[existing.factory.id] = renewed
+                return renewed
+            }
+            let factory = Factory(id: "f-browser", name: challenge.serverURL.host() ?? "", baseURL: challenge.serverURL, isOnline: true)
+            let connection = FactoryConnection(factory: factory, service: DemoFactoryService(), usesBoardKey: true)
+            saved[factory.id] = connection
+            return connection
+        case let .fail(error):
+            throw error
+        case .waitUntilCancelled:
+            do {
+                try await Task.sleep(for: .seconds(3600))
+            } catch {
+                cancelledWaits += 1
+                throw error
+            }
+            throw PaperclipError.signInExpired
+        }
+    }
+
+    private func challenge(for baseURL: URL) -> SignInChallenge {
+        SignInChallenge(
+            serverURL: baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new",
+            approvalURL: baseURL.appending(path: "cli-auth/ch-1"), pollInterval: .zero, expiresAt: .now + 600
+        )
     }
 
     var forgetError: (any Error)?
