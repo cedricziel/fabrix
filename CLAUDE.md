@@ -16,7 +16,7 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
 
 - `App/Shared`, `App/iOS`, `App/macOS`: thin app shells; all logic lives in the package.
 - `Packages/FabrixKit`:
-  - `FabrixCore`: models, `FactoryService` protocol (the UI/server seam), `DemoFactoryService`, Paperclip API client.
+  - `FabrixCore`: models, `FactoryService` protocol (the UI/server seam), `DemoFactoryService`; the Paperclip API client lands here next.
   - `FabrixDesign`: tokens (`Palette`, type) and reusable components. No dependency on Core.
   - `FabrixFeatures`: screens and `AppModel`. Depends on Core + Design.
 
