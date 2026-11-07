@@ -17,7 +17,13 @@ permissions:
 jobs:
   test:
     name: Test
-    if: ${{ !github.event.pull_request.draft }}
+    # In a stack, run the macOS job only where a merge into main can happen:
+    # the top PR (all layers) and the lowest unmerged one (targets main).
+    if: >-
+      ${{ !github.event.pull_request.draft &&
+          (github.event.pull_request.stack == null ||
+           github.event.pull_request.stack.position == github.event.pull_request.stack.size ||
+           github.event.pull_request.stack.base.ref == github.event.pull_request.base.ref) }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:

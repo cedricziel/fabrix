@@ -23,6 +23,7 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
 ## Rules
 
 - PRs merge with merge commits (no squash). Split larger work into native stacked PRs with `gh stack` (`gh stack init`, `gh stack add`, `gh stack submit`, `gh stack sync`).
+- GitHub has no auto-merge for stacked PRs. The macOS CI job runs only on a stack's top PR and its lowest unmerged PR. Run `gh stack sync` so both are current, then merge with `gh stack merge <pr> --merge --yes`. Never merge a middle layer on its own; its CI was skipped.
 
 - Views talk to `FactoryService` only, never to the HTTP client directly.
 - Reusable visuals go in `FabrixDesign`; feature folders compose them.
