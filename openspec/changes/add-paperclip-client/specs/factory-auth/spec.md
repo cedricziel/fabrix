@@ -83,6 +83,17 @@ The app SHALL refresh an OIDC access token that is expired or about to expire be
 - **THEN** the request is sent with the new tokens
 - **AND** the next request uses them without another refresh
 
+#### Scenario: Keychain read fails after refresh
+
+- **WHEN** a refresh succeeds but the Keychain can't be read to confirm the stored sign-in
+- **THEN** the request is sent with the new tokens
+- **AND** the next refresh uses the new refresh token
+
+#### Scenario: Refresh token already rejected
+
+- **WHEN** the identity provider has rejected the refresh token once
+- **THEN** later requests fail as unauthorized without asking the identity provider again
+
 #### Scenario: Proxy rejects the token with a JSON error
 
 - **WHEN** the proxy answers `401` with `WWW-Authenticate` and the body `{"error":"invalid_token"}`
@@ -91,7 +102,7 @@ The app SHALL refresh an OIDC access token that is expired or about to expire be
 #### Scenario: Factory removed or reconnected while a service is still in use
 
 - **WHEN** a service created before the factory was removed or reconnected needs a token refresh
-- **THEN** the request fails as unauthorized
+- **THEN** the request fails as unauthorized without spending the refresh token
 - **AND** the Keychain keeps the state left by the removal or the new sign-in
 
 #### Scenario: Refresh rejected

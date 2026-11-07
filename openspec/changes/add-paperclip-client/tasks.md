@@ -32,7 +32,11 @@
   - stale providers don't overwrite a newer sign-in (compare-and-swap);
   - a proxy 401 is recognized by `WWW-Authenticate`;
   - a failed save after a refresh still returns the fresh tokens;
-  - no provider credential travels over plain HTTP to a remote host (`PaperclipClientTests.refusesAnyProviderCredentialOverRemoteHTTP`).
+  - no provider credential travels over plain HTTP to a remote host (`PaperclipClientTests.refusesAnyProviderCredentialOverRemoteHTTP`);
+  - the replaced-check runs before refreshing, inside a serialized `OIDCTokenStore`;
+  - a failed Keychain read keeps the fresh tokens (`keepsFreshTokensWhenKeychainReadFailsAfterRefresh`);
+  - a rejected refresh token is not retried (`rejectedRefreshIsNotRetried`);
+  - a corrupt blob is reported as unreadable (`corruptStoredTokensAreReportedAsUnreadable`).
 
   Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`, `OIDCAuthProviderTests.concurrentRequestsAllSeeRejectedRefreshAsUnauthorized`, `refreshAfterRemovalDoesNotRecreateTokens`, `refreshAfterReconnectKeepsTheNewSignIn`, `jsonProxy401StillRefreshes`.
 
