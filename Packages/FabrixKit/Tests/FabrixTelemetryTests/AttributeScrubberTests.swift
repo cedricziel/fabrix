@@ -119,6 +119,18 @@ struct AttributeScrubberTests {
         #expect(scrubbed == "https://\(anonymizer.hash("bad host.acme.lan"))/api/x")
     }
 
+    @Test func onlyTheConnectionTypeSurvivesFromNetworkStatus() {
+        let scrubbed = scrubber.scrub(attributes: [
+            "network.connection.type": .string("cell"),
+            "network.connection.subtype": .string("LTE"),
+            "network.carrier.name": .string("Telekom"),
+            "network.carrier.icc": .string("de"),
+            "network.carrier.mcc": .string("262"),
+            "network.carrier.mnc": .string("01"),
+        ])
+        #expect(scrubbed == ["network.connection.type": .string("cell")])
+    }
+
     @Test func unbracketedIPv6AddressesKeepTheirWholeAddress() {
         let scrubber = AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["fe80::1"])
         let scrubbed = scrubber.scrub(attributes: [

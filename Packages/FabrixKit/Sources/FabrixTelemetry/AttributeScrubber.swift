@@ -11,7 +11,12 @@ struct AttributeScrubber: Sendable {
     private static let urlKeys: Set<String> = [
         SemanticConventions.Url.full.rawValue, SemanticConventions.Url.path.rawValue, "http.url", "http.target",
     ]
-    private static let droppedKeys: Set<String> = [SemanticConventions.Url.query.rawValue, SemanticConventions.Url.fragment.rawValue]
+    private static let droppedKeys: Set<String> = [
+        SemanticConventions.Url.query.rawValue, SemanticConventions.Url.fragment.rawValue,
+        SemanticAttributes.networkConnectionSubtype.rawValue, SemanticAttributes.networkCarrierName.rawValue,
+        SemanticAttributes.networkCarrierIcc.rawValue, SemanticAttributes.networkCarrierMcc.rawValue,
+        SemanticAttributes.networkCarrierMnc.rawValue,
+    ]
 
     let anonymizer: Anonymizer
     /// Longest first, so a value that contains another is replaced whole.
