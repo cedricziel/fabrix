@@ -3,6 +3,7 @@ import Foundation
 
 /// Wraps a service and can hold the next snapshot response, so tests can make
 /// responses arrive out of order. The held response is read before holding, so it is stale.
+/// Like URLSession, every call throws when its task is cancelled.
 actor GatedService: FactoryService {
     private let inner: any FactoryService
     private var holdNext = false
@@ -30,9 +31,13 @@ actor GatedService: FactoryService {
         held = nil
     }
 
-    func companies() async throws -> [Company] { try await inner.companies() }
+    func companies() async throws -> [Company] {
+        try Task.checkCancellation()
+        return try await inner.companies()
+    }
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
+        try Task.checkCancellation()
         if failingSnapshots { throw URLError(.notConnectedToInternet) }
         let snapshot = try await inner.snapshot(companyID: companyID)
         if holdNext {
@@ -47,12 +52,20 @@ actor GatedService: FactoryService {
     }
 
     func decide(approvalID: Approval.ID, approve: Bool) async throws {
+        try Task.checkCancellation()
         if failingDecisions.contains(approvalID) { throw URLError(.badServerResponse) }
         try await inner.decide(approvalID: approvalID, approve: approve)
     }
 
-    func wake(agentID: Agent.ID) async throws { try await inner.wake(agentID: agentID) }
-    func pause(agentID: Agent.ID) async throws { try await inner.pause(agentID: agentID) }
+    func wake(agentID: Agent.ID) async throws {
+        try Task.checkCancellation()
+        try await inner.wake(agentID: agentID)
+    }
+
+    func pause(agentID: Agent.ID) async throws {
+        try Task.checkCancellation()
+        try await inner.pause(agentID: agentID)
+    }
     func setCompanyPaused(_ paused: Bool, companyID: Company.ID) async throws {
         try await inner.setCompanyPaused(paused, companyID: companyID)
     }
@@ -69,6 +82,25 @@ struct OtherFactory: FactoryService {
         var snapshot = try await base.snapshot(companyID: "atlas")
         snapshot.company = Company(id: "orbit", name: "Orbit")
         return snapshot
+    }
+
+    func decide(approvalID _: Approval.ID, approve _: Bool) async throws {}
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
+}
+
+/// Two companies, to switch between.
+struct TwoCompanyFactory: FactoryService {
+    let atlas = DemoFactoryService()
+    let orbit = OtherFactory()
+
+    func companies() async throws -> [Company] {
+        try await atlas.companies() + orbit.companies()
+    }
+
+    func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
+        companyID == "orbit" ? try await orbit.snapshot(companyID: companyID) : try await atlas.snapshot(companyID: companyID)
     }
 
     func decide(approvalID _: Approval.ID, approve _: Bool) async throws {}

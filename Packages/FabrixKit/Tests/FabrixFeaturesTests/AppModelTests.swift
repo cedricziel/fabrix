@@ -139,6 +139,41 @@ struct AppModelTests {
         #expect(model.lastError == nil)
     }
 
+    @Test func pollDuringCompanySwitchKeepsTheChosenCompany() async throws {
+        let service = GatedService(TwoCompanyFactory())
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        #expect(model.snapshot?.company.name == "Atlas")
+        let orbit = try #require(model.companies.first { $0.name == "Orbit" })
+
+        await service.holdNextSnapshot()
+        let switching = Task { await model.select(orbit) }
+        await service.waitUntilHolding()
+        await model.refresh()
+        await service.release()
+        await switching.value
+
+        #expect(model.snapshot?.company.name == "Orbit")
+        await model.refresh()
+        #expect(model.snapshot?.company.name == "Orbit")
+    }
+
+    @Test func cancelledFirstLoadIsNotAFailure() async {
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: GatedService()), defaults: freshDefaults())
+        let load = Task { await model.refresh() }
+        load.cancel()
+        await load.value
+        #expect(model.loadState == .loading)
+        #expect(model.lastError == nil)
+
+        let polling = Task { await model.keepFresh(every: .seconds(60)) }
+        defer { polling.cancel() }
+        for _ in 0 ..< 1000 where model.loadState != .loaded {
+            await Task.yield()
+        }
+        #expect(model.loadState == .loaded)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)

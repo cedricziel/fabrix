@@ -28,6 +28,8 @@ public final class AppModel {
 
     private var service: (any FactoryService)?
     private var generation = 0
+    /// The company the user chose; requests for any other company are stale.
+    private var selectedCompanyID: Company.ID?
     private var requestCount = 0
     private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
@@ -108,6 +110,7 @@ public final class AppModel {
 
     private func use(_ connection: FactoryConnection) {
         generation += 1
+        selectedCompanyID = nil
         factory = connection.factory
         service = connection.service
         companies = []
@@ -121,11 +124,11 @@ public final class AppModel {
     public func refresh() async {
         guard let service else { return }
         let request = beginRequest()
-        let shown = snapshot?.company.id
+        let wanted = selectedCompanyID
         do {
-            let (companies, current) = try await Self.load(from: service, current: shown)
+            let (companies, current) = try await Self.load(from: service, current: wanted)
             let fresh: CompanySnapshot?
-            if let selected = companies.first(where: { $0.id == shown }) ?? companies.first {
+            if let selected = companies.first(where: { $0.id == wanted }) ?? companies.first {
                 fresh = if let current, current.company.id == selected.id {
                     current
                 } else {
@@ -134,7 +137,8 @@ public final class AppModel {
             } else {
                 fresh = nil
             }
-            guard accept(request) else { return }
+            guard selectedCompanyID == wanted, accept(request) else { return }
+            selectedCompanyID = fresh?.company.id
             if companies != self.companies {
                 self.companies = companies
             }
@@ -144,7 +148,7 @@ public final class AppModel {
             lastError = nil
             loadState = fresh == nil ? .empty : .loaded
         } catch {
-            guard accept(request) else { return }
+            guard !Self.isCancellation(error), selectedCompanyID == wanted, accept(request) else { return }
             lastError = error.localizedDescription
             if snapshot == nil {
                 loadState = .failed(error.localizedDescription)
@@ -162,9 +166,9 @@ public final class AppModel {
         return try await (companies, snapshot)
     }
 
-    /// Refreshes on a fixed interval until cancelled; the first call loads right away.
+    /// Refreshes on a fixed interval until cancelled; loads right away unless already loaded.
     public func keepFresh(every interval: Duration = .seconds(20)) async {
-        if loadState == .loading {
+        if loadState != .loaded {
             await refresh()
         }
         while !Task.isCancelled {
@@ -175,16 +179,23 @@ public final class AppModel {
     }
 
     public func select(_ company: Company) async {
-        guard let service, company.id != snapshot?.company.id else { return }
+        guard let service, company.id != selectedCompanyID else { return }
+        selectedCompanyID = company.id
         let request = beginRequest()
         do {
             let fresh = try await service.snapshot(companyID: company.id)
-            guard accept(request) else { return }
+            guard selectedCompanyID == company.id, accept(request) else { return }
             snapshot = fresh
+            lastError = nil
         } catch {
-            guard accept(request) else { return }
+            guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             lastError = error.localizedDescription
         }
+    }
+
+    /// A cancelled request (the scene went inactive, the view went away) is not a failure.
+    private static func isCancellation(_ error: any Error) -> Bool {
+        error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled
     }
 
     /// Responses arrive out of order: a slow poll can land after a newer refresh, or after
