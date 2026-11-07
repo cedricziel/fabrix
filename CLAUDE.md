@@ -22,6 +22,8 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
 
 ## Rules
 
+- PRs merge with merge commits (no squash). Split larger work into native stacked PRs with `gh stack` (`gh stack init`, `gh stack add`, `gh stack submit`, `gh stack sync`).
+
 - Views talk to `FactoryService` only, never to the HTTP client directly.
 - Reusable visuals go in `FabrixDesign`; feature folders compose them.
 - Every behavior change gets a Swift Testing test in the package.
