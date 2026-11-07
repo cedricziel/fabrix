@@ -64,16 +64,49 @@ The proxy must accept bearer tokens, for example oauth2-proxy with `--skip-jwt-b
 
 ## Reads
 
-| Method | Path                                                  | Maps to                                                                                    |
-| ------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `GET`  | `/api/companies?scope=accessible`                     | `[Company]`: companies the user can open.                                                  |
-| `GET`  | `/api/companies/{companyId}`                          | `Company`, plus `spentMonthlyCents` and `budgetMonthlyCents` for the snapshot.             |
-| `GET`  | `/api/companies/{companyId}/agents`                   | `[Agent]`. Terminated agents are dropped.                                                  |
-| `GET`  | `/api/agents/{agentId}`                               | Used by `wake` to check whether the agent is paused.                                       |
-| `GET`  | `/api/companies/{companyId}/issues?limit=500`         | `[WorkItem]`.                                                                              |
-| `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status; an approval in both answers is listed once. |
-| `GET`  | `/api/companies/{companyId}/heartbeat-runs?limit=50`  | `[Run]`. A `403` (run telemetry hidden from this user) yields no runs instead of an error. |
-| `GET`  | `/api/companies/{companyId}/activity?limit=50`        | `[ActivityEvent]`.                                                                         |
+| Method | Path                                                                                   | Maps to                                                                                                                                                                                                    |
+| ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/companies?scope=accessible`                                                      | `[Company]`: companies the user can open.                                                                                                                                                                  |
+| `GET`  | `/api/companies/{companyId}`                                                           | `Company`, plus `spentMonthlyCents` and `budgetMonthlyCents` for the snapshot.                                                                                                                             |
+| `GET`  | `/api/companies/{companyId}/agents`                                                    | `[Agent]`. Terminated agents are dropped.                                                                                                                                                                  |
+| `GET`  | `/api/agents/{agentId}`                                                                | Used by `wake` to check whether the agent is paused.                                                                                                                                                       |
+| `GET`  | `/api/companies/{companyId}/issues?limit=500`                                          | `[WorkItem]`.                                                                                                                                                                                              |
+| `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status; an approval in both answers is listed once.                                                                         |
+| `GET`  | `/api/companies/{companyId}/heartbeat-runs?limit=50`                                   | `[Run]`. A `403` (run telemetry hidden from this user) yields no runs instead of an error.                                                                                                                 |
+| `GET`  | `/api/companies/{companyId}/activity?limit=50`                                         | `[ActivityEvent]`.                                                                                                                                                                                         |
+| `GET`  | `/api/companies/{companyId}/projects`                                                  | `[Project]` via `projects(companyID:)`. Archived projects are left out. A `404` means the server has no projects endpoint: `FactoryServiceError.unsupported`, and the app hides projects without an error. |
+
+An issue's `projectId` maps to `WorkItem.projectID`. An activity row with `entityType` `issue` sets `ActivityEvent.taskID`; one with `entityType` `project` sets `ActivityEvent.projectID`.
+
+Projects are a separate call, not part of the company snapshot, so a failed projects request doesn't fail the snapshot.
+
+### Project fields
+
+The server omits archived projects unless the request has `?includeArchived=true`. Fabrix doesn't send it, and also drops any row with `archivedAt` set.
+
+| Paperclip field             | `Project`                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `name`                      | `name`                                                                                          |
+| `description`               | `summary`                                                                                       |
+| `leadAgentId`               | `leadAgentID`                                                                                   |
+| `color` (`#RRGGBB`)         | `colorHex`                                                                                      |
+| `goals[].title`             | `goals`                                                                                         |
+| `targetDate` (`YYYY-MM-DD`) | `targetDate` as `DateComponents`, so no time zone shifts the day. Malformed values are dropped. |
+| `workspaces`                | `repositories`                                                                                  |
+
+Each workspace maps by `sourceType`. `isPrimary` is kept in every case.
+
+| Workspace `sourceType`           | Repository                                                                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `git_repo`                       | `.git`. `url` is `repoUrl`, `name` is `owner/name` from the URL path (else the workspace `name`), `ref` is `defaultRef` (else `repoRef`). |
+| `local_path`, `non_git_path`     | `.folder`, `name` is `cwd`.                                                                                                               |
+| anything else (`remote_managed`) | `.other`                                                                                                                                  |
+
+Fabrix ignores `budget`, `urlKey` and `taskCount`. `taskCount` counts every task including done ones; Fabrix counts open, blocked and done tasks from the snapshot's issues instead.
+
+A project belongs to one company. Paperclip refuses issues, assignees and goals from another company, but accepts a `leadAgentId` from another company. Fabrix shows such a lead as "Lead outside this company", without agent actions.
+
+`GET /api/projects/{urlKey}` works only with `?companyId=`; without it the server answers `500`. Fabrix doesn't call it.
 
 ## Writes
 
@@ -112,6 +145,17 @@ Issue `status` values (`backlog`, `todo`, `in_progress`, `in_review`, `blocked`,
 | `pending`, `revision_requested` | `.pending`      |
 | `approved`                      | `.approved`     |
 | `rejected`, `cancelled`         | `.rejected`     |
+
+| Paperclip project `status` | `ProjectStatus` |
+| -------------------------- | --------------- |
+| `backlog`                  | `.backlog`      |
+| `planned`                  | `.planned`      |
+| `in_progress`              | `.inProgress`   |
+| `completed`                | `.completed`    |
+| `cancelled`                | `.cancelled`    |
+| anything else              | `.backlog`      |
+
+`.backlog`, `.planned` and `.inProgress` count as active. The app lists the others under Completed.
 
 A heartbeat run is live (`Run.finishedAt == nil`) while its status is `queued`, `scheduled_retry` or `running`.
 
