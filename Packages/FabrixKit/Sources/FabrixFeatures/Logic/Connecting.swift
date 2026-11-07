@@ -6,11 +6,14 @@ public struct FactoryConnection: Sendable {
     public var service: any FactoryService
     /// Whether a rejected or expiring Paperclip key can be replaced by signing in again.
     public var usesBoardKey: Bool
+    /// Whether an identity provider sits in front of the factory, so its login can be renewed.
+    public var usesOIDC: Bool
 
-    public init(factory: Factory, service: any FactoryService, usesBoardKey: Bool = false) {
+    public init(factory: Factory, service: any FactoryService, usesBoardKey: Bool = false, usesOIDC: Bool = false) {
         self.factory = factory
         self.service = service
         self.usesBoardKey = usesBoardKey
+        self.usesOIDC = usesOIDC
     }
 
     public static func demo() -> FactoryConnection {
@@ -70,8 +73,12 @@ public protocol FactoryConnector: AnyObject, Sendable {
         baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
     ) async throws -> SignInChallenge
 
-    /// A browser sign-in request that replaces the key of a saved factory.
-    func startReauthentication(factoryID: Factory.ID) async throws -> SignInChallenge
+    /// A browser sign-in request that replaces the key of a saved factory. With `webAuthenticator`,
+    /// an OIDC front door is logged in to again first.
+    func startReauthentication(factoryID: Factory.ID, webAuthenticator: (any WebAuthenticator)?) async throws -> SignInChallenge
+
+    /// Logs in to the identity provider in front of a saved factory again and returns its renewed connection.
+    func signInAgainToIdentityProvider(factoryID: Factory.ID, webAuthenticator: any WebAuthenticator) async throws -> FactoryConnection
 
     /// Waits for approval, then saves the factory. Cancel the calling task to stop waiting.
     func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection
@@ -85,11 +92,14 @@ public struct ReconnectNeeded: Error, Equatable, Sendable {
     public var factory: Factory
     public var headerNames: [String]
     public var reason: String
+    /// The saved sign-in method, so the form opens with it instead of the default.
+    public var auth: FactoryAuthConfiguration
 
-    public init(factory: Factory, headerNames: [String], reason: String) {
+    public init(factory: Factory, headerNames: [String], reason: String, auth: FactoryAuthConfiguration = .boardKey) {
         self.factory = factory
         self.headerNames = headerNames
         self.reason = reason
+        self.auth = auth
     }
 }
 
@@ -158,5 +168,10 @@ extension ConnectForm {
     init(reconnecting request: ReconnectNeeded) {
         self.init(address: request.factory.baseURL.absoluteString)
         headers = request.headerNames.map { HeaderRow(name: $0) }
+        if let oidc = request.auth.oidc {
+            method = request.auth.usesBoardKey ? .oidcWithBrowser : .oidc
+            issuer = oidc.issuer.absoluteString
+            clientID = oidc.clientID
+        }
     }
 }

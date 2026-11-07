@@ -56,6 +56,7 @@ public final class AppModel {
     private let defaults: UserDefaults
     private let undoWindow: Duration
     private var usesBoardKey = false
+    private var usesOIDC = false
     private var signInTask: Task<FactoryConnection, any Error>?
     /// Bumped by every start and cancel, so a run that was overtaken never connects.
     private var signInRun = 0
@@ -188,15 +189,36 @@ public final class AppModel {
 
     /// Only a saved factory that uses a Paperclip key can get a new one through the browser.
     public var canSignInAgain: Bool {
-        canForgetFactory && usesBoardKey
+        canForgetFactory && (usesBoardKey || usesOIDC)
     }
 
-    /// Runs browser sign-in for the current factory and replaces only its key.
+    /// Shows the identity provider's and Paperclip's pages for "Sign in again". The views set it
+    /// from their web authentication session, so callers of `signInAgain()` need nothing from the view.
+    public var webAuthenticator: (any WebAuthenticator)?
+
+    /// Signs in to the open factory again with whatever its saved sign-in needs, keeping its ID,
+    /// headers and settings. For a connection-health state or a banner to call.
+    public func signInAgain() async {
+        await signInAgain(webAuthenticator: webAuthenticator)
+    }
+
     func signInAgain(webAuthenticator: (any WebAuthenticator)?) async {
         guard canSignInAgain, !isConnecting, let connector, let factory else { return }
-        await runBrowserSignIn(webAuthenticator: webAuthenticator) {
-            try await connector.startReauthentication(factoryID: factory.id)
+        if usesBoardKey {
+            // Browser approval for a new key; an OIDC front door is logged in to again on the way.
+            await runBrowserSignIn(webAuthenticator: webAuthenticator) {
+                try await connector.startReauthentication(factoryID: factory.id, webAuthenticator: webAuthenticator)
+            }
+            return
         }
+        guard let webAuthenticator else { return }
+        isConnecting = true
+        defer { isConnecting = false }
+        do {
+            await finishConnecting(try await connector.signInAgainToIdentityProvider(factoryID: factory.id, webAuthenticator: webAuthenticator))
+        } catch where !Self.isCancellation(error) {
+            lastError = error.localizedDescription
+        } catch {}
     }
 
     func retryBrowserSignIn() async {
@@ -314,8 +336,17 @@ public final class AppModel {
     }
 
     /// Shows a failed request. A rejected key asks for sign-in instead of failing every refresh.
+    /// A rejected board key, or an identity-provider session that ended; "Sign in again" fixes both.
+    private func isSignedOut(_ error: any Error) -> Bool {
+        switch error as? PaperclipError {
+        case .unauthorized: canForgetFactory && usesBoardKey
+        case .signInRequired: canForgetFactory && usesOIDC
+        default: false
+        }
+    }
+
     private func report(_ error: any Error) {
-        if canSignInAgain, case .unauthorized = error as? PaperclipError {
+        if isSignedOut(error) {
             needsSignIn = true
             lastError = nil
         } else {
@@ -324,7 +355,7 @@ public final class AppModel {
     }
 
     private func checkKeyExpiry(_ service: any FactoryService) async {
-        guard canSignInAgain, !checkedKeyExpiry else { return }
+        guard canForgetFactory, usesBoardKey, !checkedKeyExpiry else { return }
         checkedKeyExpiry = true
         let session = generation
         guard let expiry = try? await service.credentialExpiry(), session == generation else { return }
@@ -442,6 +473,7 @@ public final class AppModel {
         factory = connection.factory
         service = connection.service
         usesBoardKey = connection.usesBoardKey
+        usesOIDC = connection.usesOIDC
         needsSignIn = false
         keyExpiry = nil
         checkedKeyExpiry = false
@@ -460,6 +492,7 @@ public final class AppModel {
         factory = connection.factory
         service = connection.service
         usesBoardKey = connection.usesBoardKey
+        usesOIDC = connection.usesOIDC
         needsSignIn = false
         keyExpiry = nil
         checkedKeyExpiry = false
@@ -645,7 +678,7 @@ public final class AppModel {
         let verdictByID = Dictionary(uniqueKeysWithValues: verdicts)
         var messages: [Approval.ID: String] = [:]
         for (id, error) in failures {
-            if canSignInAgain, case .unauthorized = error as? PaperclipError, let approve = verdictByID[id] {
+            if isSignedOut(error), let approve = verdictByID[id] {
                 // The key was rejected, not the decision: keep it for after signing in again.
                 desk.stage(id, approve: approve)
                 needsSignIn = true

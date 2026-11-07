@@ -45,7 +45,7 @@ public final class StoreConnector: FactoryConnector {
             return try connection(for: factory)
         } catch let error as PaperclipError {
             guard case let .missingHeaderValues(names) = error else { return nil }
-            throw ReconnectNeeded(factory: factory, headerNames: names, reason: error.localizedDescription)
+            throw ReconnectNeeded(factory: factory, headerNames: names, reason: error.localizedDescription, auth: store.auth(for: factory))
         } catch {
             return nil
         }
@@ -60,9 +60,17 @@ public final class StoreConnector: FactoryConnector {
         )
     }
 
-    public func startReauthentication(factoryID: Factory.ID) async throws -> SignInChallenge {
-        guard let factory = store.factories.first(where: { $0.id == factoryID }) else { throw PaperclipError.notFound(nil) }
-        return try await store.startReauthentication(of: factory, clientName: Self.clientName)
+    public func startReauthentication(factoryID: Factory.ID, webAuthenticator: (any WebAuthenticator)?) async throws -> SignInChallenge {
+        try await store.startReauthentication(of: savedFactory(factoryID), clientName: Self.clientName, webAuthenticator: webAuthenticator)
+    }
+
+    public func signInAgainToIdentityProvider(factoryID: Factory.ID, webAuthenticator: any WebAuthenticator) async throws -> FactoryConnection {
+        try await connection(for: store.signInAgainToIdentityProvider(of: savedFactory(factoryID), webAuthenticator: webAuthenticator))
+    }
+
+    private func savedFactory(_ id: Factory.ID) throws -> Factory {
+        guard let factory = store.factories.first(where: { $0.id == id }) else { throw PaperclipError.notFound(nil) }
+        return factory
     }
 
     public func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws {
@@ -113,6 +121,7 @@ public final class StoreConnector: FactoryConnector {
     }
 
     private func connection(for factory: Factory) throws -> FactoryConnection {
-        try FactoryConnection(factory: factory, service: store.service(for: factory), usesBoardKey: store.auth(for: factory).usesBoardKey)
+        let auth = store.auth(for: factory)
+        return try FactoryConnection(factory: factory, service: store.service(for: factory), usesBoardKey: auth.usesBoardKey, usesOIDC: auth.oidc != nil)
     }
 }

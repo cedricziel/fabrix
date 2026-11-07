@@ -378,6 +378,14 @@ final class RecordingConnector: FactoryConnector {
     private(set) var cancelledWaits = 0
     private(set) var cancelledChallenges: [String] = []
 
+    func signInAgainToIdentityProvider(factoryID: Factory.ID, webAuthenticator _: any WebAuthenticator) async throws -> FactoryConnection {
+        identityProviderSignIns.append(factoryID)
+        guard let existing = saved[factoryID] else { throw PaperclipError.notFound(nil) }
+        let renewed = FactoryConnection(factory: existing.factory, service: renewedService, usesBoardKey: existing.usesBoardKey, usesOIDC: existing.usesOIDC)
+        saved[factoryID] = renewed
+        return renewed
+    }
+
     func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws {
         cancelledChallenges.append(challenge.id)
     }
@@ -390,8 +398,12 @@ final class RecordingConnector: FactoryConnector {
         return challenge(for: baseURL)
     }
 
-    func startReauthentication(factoryID: Factory.ID) async throws -> SignInChallenge {
+    private(set) var reauthenticators = 0
+    private(set) var identityProviderSignIns: [Factory.ID] = []
+
+    func startReauthentication(factoryID: Factory.ID, webAuthenticator: (any WebAuthenticator)?) async throws -> SignInChallenge {
         reauthenticated.append(factoryID)
+        if webAuthenticator != nil { reauthenticators += 1 }
         guard let factory = saved[factoryID]?.factory else { throw PaperclipError.notFound(nil) }
         return challenge(for: factory.baseURL)
     }

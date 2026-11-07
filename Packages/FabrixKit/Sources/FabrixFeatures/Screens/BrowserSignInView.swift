@@ -63,12 +63,11 @@ struct BrowserSignInView: View {
 /// Offers browser sign-in when the factory rejected its key or the key expires soon.
 struct SignInBanner: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
         if let message {
             NoticeBanner(systemImage: "key.fill", tint: Palette.signal, message: message) {
-                Button("Sign in again") { Task { await model.signInAgain(webAuthenticator: SessionAuthenticator(session: webAuthenticationSession)) } }
+                Button("Sign in again") { Task { await model.signInAgain() } }
                     .buttonStyle(.fabrixPrimary)
                     .disabled(model.browserSignIn != nil)
             }

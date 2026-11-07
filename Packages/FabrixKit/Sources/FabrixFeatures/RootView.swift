@@ -6,6 +6,7 @@ public struct RootView: View {
     @State private var model: AppModel
     @State private var navigator = Navigator()
     @State private var shutdownTask: UUID?
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
@@ -114,6 +115,7 @@ public struct RootView: View {
             }
         }
         .onAppear {
+            model.webAuthenticator = SessionAuthenticator(session: webAuthenticationSession)
             shutdownTask = ShutdownTasks.register { [model] in await model.commitStagedDecisions() }
         }
         .onDisappear {
