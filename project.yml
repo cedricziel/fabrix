@@ -75,6 +75,7 @@ targets:
         FabrixOTLPAPIKey: $(OTLP_API_KEY)
         FabrixOTLPTenantID: $(OTLP_TENANT_ID)
         FabrixOTLPDatasetID: $(OTLP_DATASET_ID)
+        NSFaceIDUsageDescription: Fabrix uses Face ID to unlock the app and confirm approvals.
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"
