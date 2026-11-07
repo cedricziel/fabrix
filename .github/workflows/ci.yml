@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: latest-stable
+      - name: Package tests
+        run: xcrun swift test --package-path Packages/FabrixKit
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build iOS and macOS apps
+        shell: bash
+        run: |
+          xcodegen generate
+          xcodebuild build -project Fabrix.xcodeproj -scheme FabrixiOS -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -n 30
+          xcodebuild build -project Fabrix.xcodeproj -scheme FabrixMac -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO | tail -n 30

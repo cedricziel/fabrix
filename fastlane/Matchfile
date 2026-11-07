@@ -1,0 +1,5 @@
+git_url(ENV["MATCH_GIT_URL"] || "git@github.com:cedricziel/certificates.git")
+storage_mode("git")
+type("appstore")
+app_identifier(["com.cedricziel.fabrix"])
+git_branch(ENV["MATCH_GIT_BRANCH"]) if ENV["MATCH_GIT_BRANCH"]
