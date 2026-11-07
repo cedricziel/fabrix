@@ -7,6 +7,7 @@ REPO="${REPO:-cedricziel/fabrix}"
 NAME="${REPO#*/}"
 CERTS_REPO="cedricziel/certificates"
 VAULT="Private"
+OTLP_ITEM="signaldb - apps / fabrix ingest"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -60,5 +61,9 @@ for k in REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE
   op item get "Fabrix: App Review contact" --vault "$VAULT" --fields "label=$k" --reveal | tr -d '\n' \
     | gh secret set "$k" -R "$REPO"
 done
+op item get "$OTLP_ITEM" --vault "$VAULT" --fields label=otlp_http | tr -d '\n' \
+  | gh secret set OTLP_ENDPOINT -R "$REPO"
+op item get "$OTLP_ITEM" --vault "$VAULT" --fields label=credential --reveal | tr -d '\n' \
+  | gh secret set OTLP_API_KEY -R "$REPO"
 
 gh secret list -R "$REPO"

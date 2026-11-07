@@ -1,0 +1,5 @@
+// fastlane writes the endpoint and key into Telemetry.secrets.xcconfig (gitignored) from
+// the OTLP_ENDPOINT and OTLP_API_KEY environment variables; never commit them.
+// Only Release reads it, so a leftover file never turns on telemetry in Debug builds.
+#include "Telemetry.xcconfig"
+#include? "Telemetry.secrets.xcconfig"

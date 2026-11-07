@@ -22,6 +22,14 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>FabrixOTLPAPIKey</key>
+	<string>$(OTLP_API_KEY)</string>
+	<key>FabrixOTLPDatasetID</key>
+	<string>$(OTLP_DATASET_ID)</string>
+	<key>FabrixOTLPEndpoint</key>
+	<string>$(OTLP_ENDPOINT)</string>
+	<key>FabrixOTLPTenantID</key>
+	<string>$(OTLP_TENANT_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>

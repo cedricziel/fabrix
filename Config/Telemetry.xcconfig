@@ -1,0 +1,7 @@
+// Telemetry export settings, expanded into the FabrixOTLP* Info.plist keys.
+// Builds without an endpoint and key run with telemetry off.
+// Release builds also read Telemetry.secrets.xcconfig (see Telemetry-Release.xcconfig).
+OTLP_ENDPOINT =
+OTLP_API_KEY =
+OTLP_TENANT_ID = apps
+OTLP_DATASET_ID = fabrix

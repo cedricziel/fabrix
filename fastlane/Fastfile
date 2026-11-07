@@ -8,6 +8,7 @@ TEAM_ID        = "WPW3QSLZ2F"
 PROJECT        = "Fabrix.xcodeproj"
 OUTPUT_DIR     = "build/fastlane"
 REPO_ROOT      = File.expand_path("..", __dir__)
+TELEMETRY_SECRETS = File.join(REPO_ROOT, "Config", "Telemetry.secrets.xcconfig")
 PUBLIC_BETA_GROUP = "Public beta"
 PRIVACY_URL    = "https://github.com/cedricziel/fabrix/blob/main/PRIVACY.md"
 
@@ -216,33 +217,39 @@ def build_target(key, options)
   match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
   sync_code_signing(**match_params)
 
-  # The project is generated, so signing settings go onto a fresh copy.
-  sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
+  begin
+    write_telemetry_secrets
 
-  update_code_signing_settings(
-    path: PROJECT,
-    targets: [t[:target]],
-    build_configurations: ["Release"],
-    use_automatic_signing: false,
-    team_id: TEAM_ID,
-    code_sign_identity: "Apple Distribution",
-    bundle_identifier: APP_IDENTIFIER,
-    profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
-  )
+    # The project is generated, so signing settings go onto a fresh copy.
+    sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
 
-  build_app(
-    project: PROJECT,
-    scheme: t[:target],
-    configuration: "Release",
-    destination: t[:destination],
-    export_method: "app-store",
-    export_team_id: TEAM_ID,
-    output_directory: OUTPUT_DIR,
-    output_name: APP_NAME,
-    clean: true,
-    include_symbols: true,
-    xcargs: "MARKETING_VERSION=#{version.shellescape} CURRENT_PROJECT_VERSION=#{build_number.shellescape}"
-  )
+    update_code_signing_settings(
+      path: PROJECT,
+      targets: [t[:target]],
+      build_configurations: ["Release"],
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: APP_IDENTIFIER,
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
+    )
+
+    build_app(
+      project: PROJECT,
+      scheme: t[:target],
+      configuration: "Release",
+      destination: t[:destination],
+      export_method: "app-store",
+      export_team_id: TEAM_ID,
+      output_directory: OUTPUT_DIR,
+      output_name: APP_NAME,
+      clean: true,
+      include_symbols: true,
+      xcargs: "MARKETING_VERSION=#{version.shellescape} CURRENT_PROJECT_VERSION=#{build_number.shellescape}"
+    )
+  ensure
+    File.delete(TELEMETRY_SECRETS) if File.exist?(TELEMETRY_SECRETS)
+  end
 
   { version: version, build_number: build_number }
 end
@@ -335,6 +342,27 @@ def public_beta_params
     notes: File.read(File.join(__dir__, "metadata", "beta", "review_notes.txt")).strip
   }
   params
+end
+
+# Bakes the SignalDB ingest key into Release builds via a gitignored xcconfig, so it never
+# shows up in xcodebuild arguments or logs. build_target deletes the file after the build.
+# Without both values the app runs with telemetry off.
+def write_telemetry_secrets
+  endpoint = ENV["OTLP_ENDPOINT"].to_s.strip
+  api_key = ENV["OTLP_API_KEY"].to_s.strip
+  if endpoint.empty? || api_key.empty?
+    File.delete(TELEMETRY_SECRETS) if File.exist?(TELEMETRY_SECRETS)
+    UI.important("OTLP_ENDPOINT or OTLP_API_KEY not set: building with telemetry off")
+    return
+  end
+  File.write(TELEMETRY_SECRETS, "OTLP_ENDPOINT = #{xcconfig_literal(endpoint)}\nOTLP_API_KEY = #{xcconfig_literal(api_key)}\n")
+  UI.message("Telemetry export enabled for this build")
+end
+
+# xcconfig expands $(...) and treats // as a comment start. Every slash gets an empty
+# expansion after it, so no run of slashes survives as a comment.
+def xcconfig_literal(value)
+  value.gsub("$", "$$").gsub("/", "/$()")
 end
 
 def load_app_store_connect_api_key

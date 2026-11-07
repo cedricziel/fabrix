@@ -18,3 +18,4 @@ vendor/
 *.pkg
 *.dSYM.zip
 .bundle/
+Config/Telemetry.secrets.xcconfig

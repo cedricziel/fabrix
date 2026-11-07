@@ -20,6 +20,8 @@ on:
       REVIEW_CONTACT_LAST_NAME: { required: false }
       REVIEW_CONTACT_PHONE: { required: false }
       REVIEW_CONTACT_EMAIL: { required: false }
+      OTLP_ENDPOINT: { required: false }
+      OTLP_API_KEY: { required: false }
 
 permissions:
   contents: read
@@ -72,6 +74,8 @@ jobs:
           REVIEW_CONTACT_LAST_NAME: ${{ secrets.REVIEW_CONTACT_LAST_NAME }}
           REVIEW_CONTACT_PHONE: ${{ secrets.REVIEW_CONTACT_PHONE }}
           REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
+          OTLP_ENDPOINT: ${{ secrets.OTLP_ENDPOINT }}
+          OTLP_API_KEY: ${{ secrets.OTLP_API_KEY }}
           FASTLANE_HIDE_CHANGELOG: "true"
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "5"

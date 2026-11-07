@@ -1,5 +1,6 @@
 import FabrixCore
 import FabrixFeatures
+import FabrixTelemetry
 import SwiftUI
 
 @main
@@ -8,6 +9,11 @@ struct FabrixApp: App {
     #if os(macOS)
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
     #endif
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        Telemetry.start(sensitiveValues: FactorySensitiveValues(store: factoryStore))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -20,6 +26,11 @@ struct FabrixApp: App {
         #if os(macOS)
         .defaultSize(width: 1280, height: 820)
         #endif
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                Telemetry.flush()
+            }
+        }
     }
 
     #if DEBUG
