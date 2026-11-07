@@ -50,7 +50,11 @@ public struct KeychainCredentialStore: CredentialStore {
         case errSecSuccess:
             return
         case errSecItemNotFound:
-            let status = SecItemAdd(baseQuery(factoryID).merging(attributes) { $1 } as CFDictionary, nil)
+            var status = SecItemAdd(baseQuery(factoryID).merging(attributes) { $1 } as CFDictionary, nil)
+            if status == errSecDuplicateItem {
+                // Another write added the item after our update missed it.
+                status = SecItemUpdate(baseQuery(factoryID) as CFDictionary, attributes as CFDictionary)
+            }
             guard status == errSecSuccess else { throw KeychainError(status: status) }
         default:
             throw KeychainError(status: updateStatus)
