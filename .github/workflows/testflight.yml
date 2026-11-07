@@ -3,6 +3,11 @@ name: TestFlight
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        description: Commit to build; defaults to the triggering ref
+        type: string
+        required: false
     secrets:
       ASC_KEY_ID: { required: true }
       ASC_ISSUER_ID: { required: true }
@@ -32,6 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
           persist-credentials: false
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
