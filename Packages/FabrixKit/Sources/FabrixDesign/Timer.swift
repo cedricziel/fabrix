@@ -20,9 +20,9 @@ public struct ElapsedText: View {
     }
 
     /// A stopped timer reads the time it showed when the data stopped arriving.
-    nonisolated static func frozenAccessibilityLabel(since: Date, frozenAt: Date) -> String {
+    nonisolated static func frozenAccessibilityLabel(since: Date, frozenAt: Date, locale: Locale = .current) -> String {
         Duration.seconds(max(0, frozenAt.timeIntervalSince(since)))
-            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide))
+            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide).locale(locale))
     }
 
     public var body: some View {

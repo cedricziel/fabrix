@@ -18,7 +18,7 @@ struct TimerTests {
 
     @Test func aFrozenTimerReadsTheTimeItStoppedAt() {
         let start = now.addingTimeInterval(-133)
-        #expect(ElapsedText.frozenAccessibilityLabel(since: start, frozenAt: now) == "2 minutes, 13 seconds")
+        #expect(ElapsedText.frozenAccessibilityLabel(since: start, frozenAt: now, locale: Locale(identifier: "en_US")) == "2 minutes, 13 seconds")
     }
 
     @Test func aStartInTheFutureCountsFromNow() {
