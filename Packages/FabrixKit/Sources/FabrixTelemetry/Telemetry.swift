@@ -26,13 +26,15 @@ public enum Telemetry {
     static func start(
         infoDictionary: [String: Any],
         sensitiveValues: any SensitiveValueSource = NoSensitiveValues(),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        installationIDStore: some InstallationIDStore = KeychainInstallationIDStore()
     ) -> Bool {
         guard let configuration = TelemetryConfiguration(infoDictionary: infoDictionary) else { return false }
+        let installationID = InstallationID.resolve(store: installationIDStore)
         return runtime.withLock { current in
             guard current == nil else { return true }
             let anonymizer = Anonymizer(salt: Anonymizer.installSalt(in: defaults))
-            let resource = Resource().merging(other: Resource(attributes: resourceAttributes(infoDictionary: infoDictionary, defaults: defaults)))
+            let resource = Resource().merging(other: Resource(attributes: resourceAttributes(infoDictionary: infoDictionary, installationID: installationID)))
             current = Runtime(configuration: configuration, anonymizer: anonymizer, sensitiveValues: sensitiveValues, resource: resource)
             return true
         }
@@ -52,13 +54,7 @@ public enum Telemetry {
         #endif
     }
 
-    static func resourceAttributes(infoDictionary: [String: Any], defaults: UserDefaults) -> [String: AttributeValue] {
-        let instanceKey = "fabrix.telemetry.instance-id"
-        let instanceID = defaults.string(forKey: instanceKey) ?? {
-            let id = UUID().uuidString
-            defaults.set(id, forKey: instanceKey)
-            return id
-        }()
+    static func resourceAttributes(infoDictionary: [String: Any], installationID: String) -> [String: AttributeValue] {
         #if DEBUG
             let environment = "development"
         #else
@@ -67,7 +63,8 @@ public enum Telemetry {
         var attributes = OSResourceProvider(source: OperatingSystemDataSource()).attributes
         attributes[SemanticConventions.Service.name.rawValue] = .string("fabrix")
         attributes[SemanticConventions.Service.version.rawValue] = .string(infoDictionary["CFBundleShortVersionString"] as? String ?? "unknown")
-        attributes[SemanticConventions.Service.instanceId.rawValue] = .string(instanceID)
+        attributes[SemanticConventions.Service.instanceId.rawValue] = .string(installationID)
+        attributes[SemanticConventions.App.installationId.rawValue] = .string(installationID)
         attributes[SemanticConventions.Deployment.environmentName.rawValue] = .string(environment)
         attributes[SemanticConventions.Device.modelIdentifier.rawValue] = DeviceDataSource().model.map(AttributeValue.string)
         attributes["app.build"] = .string(infoDictionary["CFBundleVersion"] as? String ?? "unknown")

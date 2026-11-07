@@ -11,10 +11,9 @@ struct TelemetryTests {
         #expect(Telemetry.isRunning == false)
     }
 
-    @Test func resourceDescribesTheAppWithoutIdentifyingTheMachine() throws {
-        let defaults = try #require(UserDefaults(suiteName: "TelemetryTests-\(UUID())"))
+    @Test func resourceDescribesTheAppWithoutIdentifyingTheMachine() {
         let info: [String: Any] = ["CFBundleShortVersionString": "1.2.3", "CFBundleVersion": "42"]
-        let attributes = Telemetry.resourceAttributes(infoDictionary: info, defaults: defaults)
+        let attributes = Telemetry.resourceAttributes(infoDictionary: info, installationID: UUID().uuidString)
 
         #expect(attributes["service.name"] == .string("fabrix"))
         #expect(attributes["service.version"] == .string("1.2.3"))
@@ -22,14 +21,6 @@ struct TelemetryTests {
         #expect(attributes["host.name"] == nil)
         #expect(attributes["device.id"] == nil)
         #expect(attributes["os.version"] != nil)
-    }
-
-    @Test func instanceIDIsStablePerInstall() throws {
-        let defaults = try #require(UserDefaults(suiteName: "TelemetryTests-\(UUID())"))
-        let first = Telemetry.resourceAttributes(infoDictionary: [:], defaults: defaults)["service.instance.id"]
-        let second = Telemetry.resourceAttributes(infoDictionary: [:], defaults: defaults)["service.instance.id"]
-        #expect(first != nil)
-        #expect(first == second)
     }
 }
 
