@@ -39,6 +39,10 @@ public final class StoreConnector: FactoryConnector {
         store.revision
     }
 
+    public func reconnectRequest(for factory: Factory, reason: String) -> ReconnectNeeded {
+        ReconnectNeeded(factory: factory, headerNames: store.customHeaderNames(for: factory), reason: reason, auth: store.auth(for: factory))
+    }
+
     public func restore(factoryID: Factory.ID) throws -> FactoryConnection? {
         guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return nil }
         do {

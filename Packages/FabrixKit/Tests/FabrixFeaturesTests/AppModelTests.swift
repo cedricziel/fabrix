@@ -367,6 +367,12 @@ final class RecordingConnector: FactoryConnector {
     }
 
     var restoreError: (any Error)?
+    var reconnectHeaderNames: [String] = []
+    var reconnectAuth = FactoryAuthConfiguration.boardKey
+
+    func reconnectRequest(for factory: Factory, reason: String) -> ReconnectNeeded {
+        ReconnectNeeded(factory: factory, headerNames: reconnectHeaderNames, reason: reason, auth: reconnectAuth)
+    }
 
     func restore(factoryID: Factory.ID) throws -> FactoryConnection? {
         if let restoreError { throw restoreError }

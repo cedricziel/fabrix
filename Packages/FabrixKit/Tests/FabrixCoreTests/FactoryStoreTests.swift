@@ -369,6 +369,7 @@ struct FactoryStoreTests {
 
         #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret")
         #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
+        #expect(store.customHeaderNames(for: factory) == ["X-Proxy-Token"])
         #expect(try credentials.credential(for: "\(factory.id).headers")?.contains("proxy-secret") == true)
         let record = try #require(defaults.data(forKey: "fabrix.factories"))
         #expect(String(decoding: record, as: UTF8.self).contains("X-Proxy-Token"))
