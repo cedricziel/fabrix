@@ -1,4 +1,5 @@
 @testable import FabrixFeatures
+import SwiftUI
 import Testing
 
 @MainActor
@@ -31,5 +32,19 @@ struct NavigatorTests {
         navigator.open(.activity)
         #expect(navigator.tab == .factory)
         #expect(navigator.tabPaths[.factory]?.count == 1)
+    }
+}
+
+struct ScenePolicyTests {
+    @Test func pollingContinuesWhileInactive() {
+        #expect(ScenePolicy.keepsPolling(.active))
+        #expect(ScenePolicy.keepsPolling(.inactive))
+        #expect(!ScenePolicy.keepsPolling(.background))
+    }
+
+    @Test func decisionsAreSentOnlyOnReachingTheBackground() {
+        #expect(!ScenePolicy.commitsDecisions(.active))
+        #expect(!ScenePolicy.commitsDecisions(.inactive))
+        #expect(ScenePolicy.commitsDecisions(.background))
     }
 }

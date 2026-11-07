@@ -1,3 +1,4 @@
+import FabrixCore
 import FabrixDesign
 import SwiftUI
 
@@ -11,6 +12,12 @@ public struct RootView: View {
 
     public init(model: AppModel = AppModel()) {
         _model = State(initialValue: model)
+    }
+
+    /// Connects and reopens factories through `factoryStore`. Pass the app's single store so
+    /// other parts of the app (telemetry scrubbing) see factories as soon as they are added.
+    public init(factoryStore: FactoryStore) {
+        _model = State(initialValue: AppModel(connector: StoreConnector(store: factoryStore)))
     }
 
     public var body: some View {
@@ -30,6 +37,7 @@ public struct RootView: View {
                         }
                     }
                     .safeAreaInset(edge: .top) { ErrorBanner() }
+                    .modifier(ErrorAnnouncer())
                 case .empty:
                     ContentUnavailableView {
                         Label("No companies yet", systemImage: "building.2")
@@ -59,12 +67,12 @@ public struct RootView: View {
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
-        .task(id: Polling(factoryID: model.factory?.id, isActive: scenePhase == .active)) {
-            guard model.factory != nil, scenePhase == .active else { return }
+        .task(id: Polling(factoryID: model.factory?.id, isActive: ScenePolicy.keepsPolling(scenePhase))) {
+            guard model.factory != nil, ScenePolicy.keepsPolling(scenePhase) else { return }
             await model.keepFresh()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
+            if ScenePolicy.commitsDecisions(phase) {
                 Task { await model.commitStagedDecisions() }
             }
         }
@@ -76,6 +84,18 @@ public struct RootView: View {
         #else
             false
         #endif
+    }
+}
+
+/// Inactive is brief (Control Center, an incoming call, the app switcher), so polling and
+/// undo windows keep running until the app actually reaches the background.
+enum ScenePolicy {
+    static func keepsPolling(_ phase: ScenePhase) -> Bool {
+        phase != .background
+    }
+
+    static func commitsDecisions(_ phase: ScenePhase) -> Bool {
+        phase == .background
     }
 }
 

@@ -11,6 +11,7 @@ actor GatedService: FactoryService {
     private var heldWaiters: [CheckedContinuation<Void, Never>] = []
     private let failingDecisions: Set<Approval.ID>
     private var failingSnapshots = false
+    private(set) var snapshotCalls = 0
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
         self.inner = inner
@@ -38,6 +39,7 @@ actor GatedService: FactoryService {
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
         try Task.checkCancellation()
+        snapshotCalls += 1
         if failingSnapshots { throw URLError(.notConnectedToInternet) }
         let snapshot = try await inner.snapshot(companyID: companyID)
         if holdNext {

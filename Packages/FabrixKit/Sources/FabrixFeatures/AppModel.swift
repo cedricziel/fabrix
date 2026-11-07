@@ -28,6 +28,8 @@ public final class AppModel {
 
     private var service: (any FactoryService)?
     private var generation = 0
+    private let clock = ContinuousClock()
+    private var lastRefresh: ContinuousClock.Instant?
     /// The company the user chose; requests for any other company are stale.
     private var selectedCompanyID: Company.ID?
     private var requestCount = 0
@@ -42,6 +44,7 @@ public final class AppModel {
     private var commitTimers: [Approval.ID: Task<Void, Never>] = [:]
 
     private static let demoKey = "fabrix.exploringDemo"
+    private static let factoryKey = "fabrix.currentFactoryID"
 
     /// - Parameters:
     ///   - connection: a factory restored from a previous launch; skips onboarding.
@@ -55,7 +58,7 @@ public final class AppModel {
         self.connector = connector
         self.defaults = defaults
         self.undoWindow = undoWindow
-        if let connection = connection ?? (defaults.bool(forKey: Self.demoKey) ? .demo() : nil) {
+        if let connection = connection ?? restoredConnection() {
             use(connection)
         }
     }
@@ -74,13 +77,20 @@ public final class AppModel {
         connector != nil
     }
 
+    /// The demo, or the factory connected at the last launch.
+    private func restoredConnection() -> FactoryConnection? {
+        if defaults.bool(forKey: Self.demoKey) { return .demo() }
+        return defaults.string(forKey: Self.factoryKey).flatMap { connector?.restore(factoryID: $0) }
+    }
+
     public func exploreDemo() async {
         defaults.set(true, forKey: Self.demoKey)
+        defaults.removeObject(forKey: Self.factoryKey)
         use(.demo())
         await refresh()
     }
 
-    func connect(_ form: ConnectForm) async {
+    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async {
         guard let connector else { return }
         let request: (baseURL: URL, auth: FactoryAuth)
         do {
@@ -92,7 +102,12 @@ public final class AppModel {
         isConnecting = true
         defer { isConnecting = false }
         do {
-            try use(await connector.connect(baseURL: request.baseURL, auth: request.auth))
+            let connection = try await connector.connect(
+                baseURL: request.baseURL, auth: request.auth, webAuthenticator: webAuthenticator
+            )
+            use(connection)
+            defaults.set(connection.factory.id, forKey: Self.factoryKey)
+            defaults.removeObject(forKey: Self.demoKey)
             connectError = nil
             await refresh()
         } catch {
@@ -104,8 +119,11 @@ public final class AppModel {
         lastError = nil
     }
 
+    /// Leaves the current factory. A connected factory stays saved, with its credentials,
+    /// in the connector's store; it just isn't reopened on the next launch.
     public func disconnect() {
         defaults.removeObject(forKey: Self.demoKey)
+        defaults.removeObject(forKey: Self.factoryKey)
         generation += 1
         commitTimers.values.forEach { $0.cancel() }
         commitTimers = [:]
@@ -121,6 +139,7 @@ public final class AppModel {
 
     private func use(_ connection: FactoryConnection) {
         generation += 1
+        lastRefresh = nil
         selectedCompanyID = nil
         factory = connection.factory
         service = connection.service
@@ -156,6 +175,8 @@ public final class AppModel {
             if fresh != snapshot {
                 snapshot = fresh
             }
+            desk.settle(with: fresh?.approvals ?? [])
+            lastRefresh = clock.now
             lastError = nil
             loadState = fresh == nil ? .empty : .loaded
         } catch {
@@ -177,9 +198,11 @@ public final class AppModel {
         return try await (companies, snapshot)
     }
 
-    /// Refreshes on a fixed interval until cancelled; loads right away unless already loaded.
-    public func keepFresh(every interval: Duration = .seconds(20)) async {
-        if loadState != .loaded {
+    /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
+    /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
+    public func keepFresh(every interval: Duration = .seconds(20), staleAfter: Duration? = nil) async {
+        let isStale = lastRefresh.map { $0.duration(to: clock.now) >= (staleAfter ?? interval) } ?? true
+        if loadState != .loaded || isStale {
             await refresh()
         }
         while !Task.isCancelled {
@@ -200,6 +223,7 @@ public final class AppModel {
             lastError = nil
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
+            selectedCompanyID = snapshot?.company.id
             lastError = error.localizedDescription
         }
     }
@@ -291,13 +315,12 @@ public final class AppModel {
             }
             return failures
         }
-        await refresh()
         guard session == generation else { return }
+        failures.keys.forEach { desk.finish($0) }
         decisionErrors.merge(failures) { _, new in new }
-        if let failure = failures.values.first {
-            lastError = failure
-        }
-        verdicts.forEach { desk.finish($0.0) }
+        await refresh()
+        guard session == generation, let failure = failures.values.first else { return }
+        lastError = failure
     }
 
     // MARK: Agents and company

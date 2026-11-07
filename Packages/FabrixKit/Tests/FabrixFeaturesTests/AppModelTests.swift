@@ -52,7 +52,7 @@ struct AppModelTests {
 
         await model.connect(ConnectForm(address: "factory.local:3100", apiKey: "secret"))
 
-        #expect(await connector.calls == [ConnectCall(url: "https://factory.local:3100", auth: .paperclip(apiKey: "secret"))])
+        #expect(connector.calls == [ConnectCall(url: "https://factory.local:3100", auth: .paperclip(apiKey: "secret"))])
         #expect(model.factory?.name == "factory.local")
         #expect(model.snapshot?.company.name == "Atlas")
         #expect(model.connectError == nil)
@@ -64,7 +64,7 @@ struct AppModelTests {
 
         await model.connect(ConnectForm(address: "ftp://nope", apiKey: "k"))
 
-        #expect(await connector.calls.isEmpty)
+        #expect(connector.calls.isEmpty)
         #expect(model.isOnboarding)
         #expect(model.connectError != nil)
     }
@@ -174,6 +174,89 @@ struct AppModelTests {
         #expect(model.loadState == .loaded)
     }
 
+    @Test func failedCompanySwitchCanBeRetried() async throws {
+        let service = GatedService(TwoCompanyFactory())
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let orbit = try #require(model.companies.first { $0.name == "Orbit" })
+
+        await service.failSnapshots(true)
+        await model.select(orbit)
+        #expect(model.snapshot?.company.name == "Atlas")
+        #expect(model.lastError != nil)
+
+        await service.failSnapshots(false)
+        await model.select(orbit)
+        #expect(model.snapshot?.company.name == "Orbit")
+    }
+
+    @Test func keepFreshReloadsRightAwayWhenDataIsStale() async {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let before = await service.snapshotCalls
+
+        let polling = Task { await model.keepFresh(every: .seconds(60), staleAfter: .zero) }
+        defer { polling.cancel() }
+        for _ in 0 ..< 1000 where await service.snapshotCalls == before {
+            await Task.yield()
+        }
+        #expect(await service.snapshotCalls > before)
+    }
+
+    @Test func keepFreshWaitsWhenDataIsRecent() async {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let before = await service.snapshotCalls
+
+        let polling = Task { await model.keepFresh(every: .seconds(60)) }
+        for _ in 0 ..< 200 { await Task.yield() }
+        polling.cancel()
+        #expect(await service.snapshotCalls == before)
+    }
+
+    @Test func connectedFactoryReopensOnNextLaunch() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", apiKey: "k"))
+
+        let relaunched = AppModel(connector: connector, defaults: defaults)
+
+        #expect(!relaunched.isOnboarding)
+        #expect(relaunched.factory?.name == "f.example")
+    }
+
+    @Test func forgottenFactoryFallsBackToOnboarding() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        await AppModel(connector: connector, defaults: defaults).connect(ConnectForm(address: "f.example", apiKey: "k"))
+        connector.saved = [:]
+
+        #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
+    }
+
+    @Test func connectingReplacesTheDemoOnRelaunch() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: defaults)
+        await model.exploreDemo()
+        model.disconnect()
+        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+
+        #expect(AppModel(connector: connector, defaults: defaults).factory?.name == "f.example")
+    }
+
+    @Test func leavingAConnectedFactoryShowsOnboardingNextLaunch() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: defaults)
+        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        model.disconnect()
+
+        #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)
@@ -203,19 +286,29 @@ struct ConnectCall: Equatable {
     var auth: FactoryAuth
 }
 
-actor RecordingConnector: FactoryConnector {
+@MainActor
+final class RecordingConnector: FactoryConnector {
     private(set) var calls: [ConnectCall] = []
+    private(set) var authenticators = 0
     private let failure: String?
+    var saved: [Factory.ID: FactoryConnection] = [:]
 
     init(failure: String? = nil) {
         self.failure = failure
     }
 
-    func connect(baseURL: URL, auth: FactoryAuth) async throws -> FactoryConnection {
+    func connect(baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?) async throws -> FactoryConnection {
         calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth))
+        if webAuthenticator != nil { authenticators += 1 }
         if let failure { throw ConnectFailure(message: failure) }
-        let factory = Factory(id: "f", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
-        return FactoryConnection(factory: factory, service: DemoFactoryService())
+        let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
+        let connection = FactoryConnection(factory: factory, service: DemoFactoryService())
+        saved[factory.id] = connection
+        return connection
+    }
+
+    func restore(factoryID: Factory.ID) -> FactoryConnection? {
+        saved[factoryID]
     }
 }
 

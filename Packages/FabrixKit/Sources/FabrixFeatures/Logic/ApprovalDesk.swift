@@ -54,4 +54,11 @@ struct ApprovalDesk {
     mutating func finish(_ id: Approval.ID) {
         entries[id] = nil
     }
+
+    /// Drops sent decisions once the factory shows them decided (or the approval is gone).
+    /// Until then they stay under Decided, even if the refresh after sending failed.
+    mutating func settle(with approvals: [Approval]) {
+        let pending = Set(approvals.filter { $0.state == .pending }.map(\.id))
+        entries = entries.filter { !$0.value.committing || pending.contains($0.key) }
+    }
 }

@@ -99,6 +99,29 @@ struct ApprovalFlowTests {
         #expect(model.decisionErrors.isEmpty)
     }
 
+    @Test func sentDecisionStaysDecidedWhenTheFollowUpRefreshFails() async throws {
+        let service = GatedService()
+        let model = AppModel(
+            connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service),
+            defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .seconds(60)
+        )
+        await model.refresh()
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        await service.failSnapshots(true)
+        await model.commitStagedDecisions()
+
+        #expect(!model.waitingApprovals.contains { $0.id == approval.id })
+        let decided = try #require(model.decidedApprovals.first { $0.id == approval.id })
+        #expect(decided.approved && !decided.canUndo)
+
+        await service.failSnapshots(false)
+        await model.refresh()
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.approved == true)
+        #expect(!model.waitingApprovals.contains { $0.id == approval.id })
+    }
+
     @Test func timerCommitIsNotCancelledByItsOwnTimer() async throws {
         let service = GatedService()
         let model = AppModel(
