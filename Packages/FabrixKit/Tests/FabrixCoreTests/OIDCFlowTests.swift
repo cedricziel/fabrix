@@ -229,4 +229,20 @@ struct OIDCFlowTests {
         await #expect(throws: PaperclipError.insecureConnection) { try await flow.refresh(current) }
         #expect(recorder.requests.isEmpty)
     }
+
+    @Test(arguments: ["authorization_endpoint", "token_endpoint"])
+    func refusesDiscoveredEndpointOverRemoteHTTP(field: String) async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder, dynamicRoutes: ["GET /.well-known/openid-configuration": { request in
+            let issuer = "https://\(request.url!.host()!)"
+            return .json(OIDCFixtures.discovery(issuer: URL(string: issuer)!)
+                .replacingOccurrences(of: #""\#(field)": "https://"#, with: #""\#(field)": "http://"#))
+        }])
+        let browser = FakeWebAuthenticator.approving()
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await flow.signIn(using: browser) }
+        #expect(browser.authorizeURL == nil)
+        #expect(recorder.last("POST", "/token") == nil)
+    }
 }

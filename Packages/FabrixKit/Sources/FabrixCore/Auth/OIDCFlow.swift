@@ -80,6 +80,10 @@ struct OIDCFlow: Sendable {
         guard response?.statusCode == 200,
               let discovery = try? JSONDecoder().decode(Discovery.self, from: data)
         else { throw OIDCError.discoveryFailed }
+        // Checked here, before the login page opens, not when the token request is finally sent.
+        guard PaperclipClient.allowsCredentials(to: discovery.authorization_endpoint),
+              PaperclipClient.allowsCredentials(to: discovery.token_endpoint)
+        else { throw PaperclipError.insecureConnection }
         return OIDCEndpoints(authorization: discovery.authorization_endpoint, token: discovery.token_endpoint)
     }
 

@@ -54,7 +54,7 @@ The app SHALL provide a factory service backed by a Paperclip server. It SHALL l
 #### Scenario: Approval changes status while the snapshot loads
 
 - **WHEN** an approval moves from `pending` to `revision_requested` between the two approval requests, so both answers contain it
-- **THEN** the snapshot lists it once
+- **THEN** the snapshot lists it once, as the copy the server updated most recently
 
 #### Scenario: Unknown agent or issue status from a newer server
 
