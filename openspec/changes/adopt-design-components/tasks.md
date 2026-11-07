@@ -3,7 +3,7 @@
 - [x] 1.1 Propose and validate this change (`openspec/changes/adopt-design-components`); no test, spec only
 - [x] 1.2 `SectionCard`, `EmptyRow`, `fabrixCard(selected:)` in FabrixDesign with previews; Features call sites renamed, `cardSurface`/`selectionOutline` removed (`FabrixDesign/Surfaces.swift`, `FabrixFeatures/Shell/Common.swift`, screens); no test, pure move
 - [x] 1.3 `FabrixTextFieldStyle` and `LabeledField` in FabrixDesign; onboarding uses them (`FabrixDesign/Fields.swift`, `FabrixFeatures/Screens/OnboardingView.swift`); no test, pure move
-- [ ] 1.4 Generic tone `Pill`; `StatusPill` and the task status capsule use it (`FabrixDesign/Pill.swift`, `FabrixDesign/Status.swift`, `FabrixFeatures/Screens/TasksView.swift`); test `PillTests` for the tone mapping
+- [x] 1.4 Generic tone `Pill`; `StatusPill` uses it, the task status capsule moves onto it with the tasks token slice (`FabrixDesign/Pill.swift`, `FabrixDesign/Status.swift`); test `ContrastTests.pillInkReadsOnItsTint` for every tone
 
 ## 2. Localized initializers, timer and motion (PR 2)
 

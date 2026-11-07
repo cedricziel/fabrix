@@ -6,7 +6,6 @@ public enum StatusStyle: CaseIterable, Sendable {
     case running, idle, paused, needsYou, blocked, done
 
     public enum Dot: Sendable { case filled, hollow }
-    enum Tone: Sendable { case run, neutral, signal, halt, done }
 
     public var label: String {
         switch self {
@@ -26,7 +25,7 @@ public enum StatusStyle: CaseIterable, Sendable {
         }
     }
 
-    var tone: Tone {
+    public var tone: Tone {
         switch self {
         case .running: .run
         case .idle, .paused: .neutral
@@ -41,38 +40,6 @@ public enum StatusStyle: CaseIterable, Sendable {
         case .idle: Palette.idle
         case .paused: Palette.muted
         default: tone.color
-        }
-    }
-}
-
-extension StatusStyle.Tone {
-    var color: Color {
-        switch self {
-        case .run: Palette.run
-        case .neutral: Palette.muted
-        case .signal: Palette.signal
-        case .halt: Palette.halt
-        case .done: Palette.done
-        }
-    }
-
-    var ink: Color {
-        switch self {
-        case .run: Palette.runInk
-        case .neutral: Palette.neutralInk
-        case .signal: Palette.signalInk
-        case .halt: Palette.haltInk
-        case .done: Palette.doneInk
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .run: Palette.runTint
-        case .neutral: Palette.neutralTint
-        case .signal: Palette.signalTint
-        case .halt: Palette.haltTint
-        case .done: Palette.doneTint
         }
     }
 }
@@ -110,17 +77,7 @@ public struct StatusPill: View {
     }
 
     public var body: some View {
-        HStack(spacing: 6) {
-            StatusDot(style)
-            Text(text).lineLimit(1)
-        }
-        .font(.fabrix(.label))
-        .foregroundStyle(style.tone.ink)
-        .padding(.horizontal, 10)
-        .frame(minHeight: 28)
-        .background(style.tone.tint, in: Capsule())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(text)
+        Pill(verbatim: text, tone: style.tone) { StatusDot(style) }
     }
 }
 
