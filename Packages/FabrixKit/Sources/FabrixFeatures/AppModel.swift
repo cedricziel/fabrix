@@ -359,7 +359,7 @@ public final class AppModel {
             restored = nil
         }
         guard let connection = restored else {
-            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.")
+            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.", bundle: .module)
             return
         }
         use(connection)

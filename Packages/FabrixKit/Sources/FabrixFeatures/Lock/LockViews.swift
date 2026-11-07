@@ -148,14 +148,14 @@ private struct LockScreen: View {
 
     var body: some View {
         BrandCover {
-            Text("Fabrix is locked")
+            Text("Fabrix is locked", bundle: .module)
                 .font(.fabrix(.body))
                 .foregroundStyle(Palette.steel)
                 .accessibilityAddTraits(.isHeader)
             Button {
                 Task { await lock.unlock() }
             } label: {
-                Label("Unlock", systemImage: lock.biometry.systemImage)
+                Label(.features("Unlock"), systemImage: lock.biometry.systemImage)
             }
             .buttonStyle(.fabrixPrimary)
             .controlSize(.large)
@@ -184,7 +184,7 @@ struct LockOfferSheet: View {
             Text(title)
                 .font(.fabrix(.title))
                 .multilineTextAlignment(.center)
-            Text("Fabrix will ask for \(lock.factorName) when you open it, so nobody else can approve or pause your agents. You can change this in Settings.")
+            Text("Fabrix will ask for \(lock.factorName) when you open it, so nobody else can approve or pause your agents. You can change this in Settings.", bundle: .module)
                 .font(.fabrix(.body))
                 .foregroundStyle(Palette.steel)
                 .multilineTextAlignment(.center)
@@ -195,14 +195,14 @@ struct LockOfferSheet: View {
                         dismiss()
                     }
                 } label: {
-                    Text("Turn On").frame(maxWidth: .infinity)
+                    Text("Turn On", bundle: .module).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.fabrixPrimary)
                 .disabled(lock.isAuthenticating)
                 Button {
                     dismiss()
                 } label: {
-                    Text("Not Now").frame(maxWidth: .infinity)
+                    Text("Not Now", bundle: .module).frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.fabrixSecondary)
             }
@@ -216,9 +216,9 @@ struct LockOfferSheet: View {
 
     private var title: String {
         if let name = lock.biometry.name {
-            String(localized: "Lock Fabrix with \(name)?")
+            String(localized: "Lock Fabrix with \(name)?", bundle: .module)
         } else {
-            String(localized: "Lock Fabrix with your \(AppLock.secretName)?")
+            String(localized: "Lock Fabrix with your \(AppLock.secretName)?", bundle: .module)
         }
     }
 }

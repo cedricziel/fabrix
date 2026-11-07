@@ -4,6 +4,22 @@
     "%@ couldn't be opened. Remove it and add it again." : {
 
     },
+    "%@ no longer accepts Fabrix's key." : {
+
+    },
+    "%@ only" : {
+
+    },
+    "%@ or %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ or %2$@"
+          }
+        }
+      }
+    },
     "%@ used" : {
 
     },
@@ -37,6 +53,15 @@
     "Advanced" : {
 
     },
+    "After 1 minute" : {
+
+    },
+    "After 15 minutes" : {
+
+    },
+    "After 5 minutes" : {
+
+    },
     "Agent not found" : {
 
     },
@@ -61,10 +86,19 @@
     "Approve" : {
 
     },
+    "Approve Fabrix in your browser" : {
+
+    },
+    "Approve the request from %@ on Paperclip's page, and Fabrix connects on its own. Signed in somewhere else? Copy the link and open it there." : {
+
+    },
     "Approved" : {
 
     },
     "Assignee" : {
+
+    },
+    "Back" : {
 
     },
     "Backlog" : {
@@ -97,6 +131,12 @@
     "Company spend · %@" : {
 
     },
+    "Confirm approvals with %@" : {
+
+    },
+    "Confirm your decision" : {
+
+    },
     "Connect" : {
 
     },
@@ -106,7 +146,16 @@
     "Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime." : {
 
     },
+    "Copied" : {
+
+    },
+    "Copy link" : {
+
+    },
     "Create" : {
+
+    },
+    "Create one with `paperclipai token board create` on a signed-in machine." : {
 
     },
     "Creating tasks from Fabrix arrives in an upcoming build. Until then, create them on your Paperclip board." : {
@@ -142,7 +191,19 @@
     "Fabrix" : {
 
     },
+    "Fabrix also hides its content in the app switcher while the lock is on. Background refreshes and decisions you already made keep going while it's locked." : {
+
+    },
     "Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected." : {
+
+    },
+    "Fabrix is locked" : {
+
+    },
+    "Fabrix will ask for %@ when you open it, so nobody else can approve or pause your agents. You can change this in Settings." : {
+
+    },
+    "Fabrix's key for this factory expires %@." : {
 
     },
     "Factories" : {
@@ -160,6 +221,9 @@
     "Hire" : {
 
     },
+    "Immediately" : {
+
+    },
     "In progress" : {
 
     },
@@ -167,6 +231,18 @@
 
     },
     "Live runs" : {
+
+    },
+    "Lock" : {
+
+    },
+    "Lock Fabrix" : {
+
+    },
+    "Lock Fabrix with %@?" : {
+
+    },
+    "Lock Fabrix with your %@?" : {
 
     },
     "Mission: %@" : {
@@ -206,6 +282,9 @@
 
     },
     "No monthly cap" : {
+
+    },
+    "Not Now" : {
 
     },
     "Nothing is waiting on you." : {
@@ -292,19 +371,37 @@
     "Search tasks, agents" : {
 
     },
+    "Security" : {
+
+    },
     "Sent with every request to this factory, e.g. a proxy access token." : {
+
+    },
+    "Set a %@ on this device to use the lock." : {
+
+    },
+    "Settings" : {
 
     },
     "Show" : {
 
     },
+    "Sign in again" : {
+
+    },
     "Sign in with" : {
+
+    },
+    "Sign in with browser" : {
 
     },
     "Single sign-on (OIDC)" : {
 
     },
     "Single sign-on + Paperclip key" : {
+
+    },
+    "Single sign-on + browser sign-in" : {
 
     },
     "Spend this month" : {
@@ -322,7 +419,13 @@
     "Tasks" : {
 
     },
+    "The request expires at %@." : {
+
+    },
     "This factory has no companies." : {
+
+    },
+    "This factory no longer accepts Fabrix's key." : {
 
     },
     "Title" : {
@@ -334,10 +437,31 @@
     "Try again" : {
 
     },
+    "Turn On" : {
+
+    },
+    "Turn off the Fabrix lock" : {
+
+    },
+    "Turn on the Fabrix lock" : {
+
+    },
     "Unassigned" : {
 
     },
     "Undo" : {
+
+    },
+    "Unlock" : {
+
+    },
+    "Unlock Fabrix" : {
+
+    },
+    "Unlock Fabrix to change settings." : {
+
+    },
+    "Unlock with" : {
 
     },
     "Updated" : {
@@ -374,6 +498,9 @@
 
     },
     "heartbeat every %lld min" : {
+
+    },
+    "password" : {
 
     },
     "running" : {

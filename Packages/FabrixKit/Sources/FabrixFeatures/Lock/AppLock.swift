@@ -89,8 +89,8 @@ public final class AppLock {
     public func label(for method: UnlockMethod) -> String {
         guard let name = biometry.name else { return Self.secretName.capitalized }
         return switch method {
-        case .biometricsOrPasscode: String(localized: "\(name) or \(Self.secretName)")
-        case .biometricsOnly: String(localized: "\(name) only")
+        case .biometricsOrPasscode: String(localized: "\(name) or \(Self.secretName)", bundle: .module)
+        case .biometricsOnly: String(localized: "\(name) only", bundle: .module)
         }
     }
 
@@ -101,9 +101,9 @@ public final class AppLock {
 
     static var secretName: String {
         #if os(macOS)
-            String(localized: "password")
+            String(localized: "password", bundle: .module)
         #else
-            String(localized: "passcode")
+            String(localized: "passcode", bundle: .module)
         #endif
     }
 
@@ -114,7 +114,7 @@ public final class AppLock {
         if enabled, !canAuthenticate {
             return false
         }
-        let reason = enabled ? String(localized: "Turn on the Fabrix lock") : String(localized: "Turn off the Fabrix lock")
+        let reason = enabled ? String(localized: "Turn on the Fabrix lock", bundle: .module) : String(localized: "Turn off the Fabrix lock", bundle: .module)
         let result = await authenticate(reason: reason)
         guard result == .success || (!enabled && result == .unavailable) else { return false }
         settings.isEnabled = enabled
@@ -175,7 +175,7 @@ public final class AppLock {
     @discardableResult
     public func unlock() async -> Bool {
         guard isLocked else { return true }
-        let result = await authenticate(reason: String(localized: "Unlock Fabrix"))
+        let result = await authenticate(reason: String(localized: "Unlock Fabrix", bundle: .module))
         guard result == .success || result == .unavailable else { return false }
         isLocked = false
         backgroundedAt = nil
@@ -185,7 +185,7 @@ public final class AppLock {
     /// Re-authenticates before an approval decision when the user asked for it.
     public func confirmDecision() async -> Bool {
         guard settings.confirmsApprovals else { return true }
-        let result = await authenticate(reason: String(localized: "Confirm your decision"))
+        let result = await authenticate(reason: String(localized: "Confirm your decision", bundle: .module))
         return result == .success || result == .unavailable
     }
 

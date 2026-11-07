@@ -53,14 +53,14 @@ struct ConnectFactoryForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Connect a factory").font(.headline)
+            Text("Connect a factory", bundle: .module).font(.headline)
             if let reconnect = model.reconnect {
                 Label(reconnect.reason, systemImage: "key.fill")
                     .font(.callout)
                     .foregroundStyle(Palette.steel)
             }
-            LabeledField("Factory address") {
-                TextField("https://factory.example.com", text: $form.address)
+            LabeledField(.features("Factory address")) {
+                TextField(Self.addressExample, text: $form.address)
                     .urlEntry()
             }
             Picker(.features("Sign in with"), selection: $form.method) {
@@ -80,7 +80,7 @@ struct ConnectFactoryForm: View {
                     SecureField(.features("Paste the key from your Paperclip board"), text: $form.apiKey)
                         .textContentType(.password)
                 }
-                Text("Create one with `paperclipai token board create` on a signed-in machine.")
+                Text("Create one with `paperclipai token board create` on a signed-in machine.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
                     .textSelection(.enabled)
@@ -98,7 +98,7 @@ struct ConnectFactoryForm: View {
                     connect()
                 } label: {
                     Group {
-                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect", bundle: .module) }
                     }
                     .frame(maxWidth: .infinity)
                 }

@@ -20,18 +20,18 @@ struct BrowserSignInView: View {
                     .font(.callout)
                     .foregroundStyle(Palette.halt)
                 HStack {
-                    Button("Try again") { Task { await model.retryBrowserSignIn() } }.buttonStyle(.fabrixPrimary)
-                    Button("Back") { model.cancelBrowserSignIn() }
+                    Button(.features("Try again")) { Task { await model.retryBrowserSignIn() } }.buttonStyle(.fabrixPrimary)
+                    Button(.features("Back")) { model.cancelBrowserSignIn() }
                 }
             } else {
                 HStack(spacing: Spacing.s) {
                     ProgressView().controlSize(.small)
-                    Text("Approve Fabrix in your browser").font(.headline)
+                    Text("Approve Fabrix in your browser", bundle: .module).font(.headline)
                 }
-                Text("Approve the request from \(StoreConnector.clientName) on Paperclip's page, and Fabrix connects on its own. Signed in somewhere else? Copy the link and open it there.")
+                Text("Approve the request from \(StoreConnector.clientName) on Paperclip's page, and Fabrix connects on its own. Signed in somewhere else? Copy the link and open it there.", bundle: .module)
                     .foregroundStyle(Palette.steel)
                 if let expiresAt = state.expiresAt {
-                    Text("The request expires at \(expiresAt, format: .dateTime.hour().minute()).")
+                    Text("The request expires at \(expiresAt, format: .dateTime.hour().minute()).", bundle: .module)
                         .font(.footnote)
                         .foregroundStyle(Palette.muted)
                 }
@@ -42,7 +42,7 @@ struct BrowserSignInView: View {
                             copied = true
                         }
                         Spacer()
-                        Button("Cancel", role: .cancel) { model.cancelBrowserSignIn() }
+                        Button(.features("Cancel"), role: .cancel) { model.cancelBrowserSignIn() }
                     }
                 }
             }
@@ -68,7 +68,7 @@ struct SignInBanner: View {
     var body: some View {
         if let message {
             NoticeBanner(systemImage: "key.fill", tint: Palette.signal, message: message) {
-                Button("Sign in again") { Task { await model.signInAgain(webAuthenticator: SessionAuthenticator(session: webAuthenticationSession)) } }
+                Button(.features("Sign in again")) { Task { await model.signInAgain(webAuthenticator: SessionAuthenticator(session: webAuthenticationSession)) } }
                     .buttonStyle(.fabrixPrimary)
                     .disabled(model.browserSignIn != nil)
             }
@@ -77,10 +77,10 @@ struct SignInBanner: View {
 
     private var message: String? {
         if model.needsSignIn {
-            return String(localized: "This factory no longer accepts Fabrix's key.")
+            return String(localized: "This factory no longer accepts Fabrix's key.", bundle: .module)
         }
         if let expiry = model.keyExpiry {
-            return String(localized: "Fabrix's key for this factory expires \(expiry.formatted(.relative(presentation: .named))).")
+            return String(localized: "Fabrix's key for this factory expires \(expiry.formatted(.relative(presentation: .named))).", bundle: .module)
         }
         return nil
     }

@@ -32,12 +32,12 @@ public struct RootView: View {
                 OnboardingView()
             } else if model.needsSignIn, model.loadState != .loaded {
                 ContentUnavailableView {
-                    Label("Sign in again", systemImage: "key")
+                    Label(.features("Sign in again"), systemImage: "key")
                 } description: {
                     Text("\(model.factory?.name ?? "This factory") no longer accepts Fabrix's key.")
                 } actions: {
                     SignInBanner()
-                    Button("Choose another factory") { model.disconnect() }
+                    Button(.features("Choose another factory")) { model.disconnect() }
                 }
             } else {
                 switch model.loadState {

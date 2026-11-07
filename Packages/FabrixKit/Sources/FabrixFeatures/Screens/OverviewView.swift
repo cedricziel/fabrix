@@ -202,7 +202,7 @@ private struct DecisionsCard: View {
                     }
                     Text(approval.title).fontWeight(.semibold)
                     HStack(spacing: 8) {
-                        Button("Approve") { Task { await model.decide(approval, approve: true, confirmingWith: lock) } }
+                        Button(.features("Approve")) { Task { await model.decide(approval, approve: true, confirmingWith: lock) } }
                             .buttonStyle(.fabrixPrimary)
                         Button(.features("Open")) { navigator.open(.approvals) }
                             .buttonStyle(.fabrixSecondary)
