@@ -31,7 +31,8 @@
   - every waiter gets the `invalid_grant` mapping;
   - stale providers don't overwrite a newer sign-in (compare-and-swap);
   - a proxy 401 is recognized by `WWW-Authenticate`;
-  - a failed save after a refresh still returns the fresh tokens.
+  - a failed save after a refresh still returns the fresh tokens;
+  - no provider credential travels over plain HTTP to a remote host (`PaperclipClientTests.refusesAnyProviderCredentialOverRemoteHTTP`).
 
   Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`, `OIDCAuthProviderTests.concurrentRequestsAllSeeRejectedRefreshAsUnauthorized`, `refreshAfterRemovalDoesNotRecreateTokens`, `refreshAfterReconnectKeepsTheNewSignIn`, `jsonProxy401StillRefreshes`.
 

@@ -164,6 +164,10 @@ public struct PaperclipClient: Sendable {
         }
 
         let authorized = try await auth.authorize(request)
+        // Any header the provider added is a credential; keep it off untrusted plain-HTTP hops.
+        if authorized.allHTTPHeaderFields != request.allHTTPHeaderFields, !Self.allowsCredentials(to: baseURL) {
+            throw PaperclipError.insecureConnection
+        }
         var (data, response) = try await load(authorized)
         if response?.statusCode == 401,
            try await auth.refreshAfterUnauthorized(UnauthorizedResponse(request: authorized, response: response, body: data)) {

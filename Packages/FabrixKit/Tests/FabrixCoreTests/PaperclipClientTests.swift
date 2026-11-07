@@ -277,4 +277,20 @@ struct PaperclipClientTests {
         await #expect(throws: PaperclipError.unauthorized("expired")) { try await client.boardSession() }
         #expect(recorder.requests.count == 2)
     }
+
+    @Test func refusesAnyProviderCredentialOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let auth = RotatingTokenAuth(header: "X-Forwarded-Access-Token", tokens: ["Bearer oidc"])
+        let client = try PaperclipClient(baseURL: #require(URL(string: "http://paperclip.example.com")), auth: auth, session: server.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await client.boardSession() }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func allowsUnauthenticatedRequestsOverRemoteHTTP() async throws {
+        let client = try PaperclipClient(baseURL: #require(URL(string: "http://unregistered.paperclip.test")), auth: ChainedAuth([]), session: StubURLProtocol.session)
+
+        await #expect(throws: PaperclipError.transport(.cannotFindHost)) { try await client.boardSession() }
+    }
 }
