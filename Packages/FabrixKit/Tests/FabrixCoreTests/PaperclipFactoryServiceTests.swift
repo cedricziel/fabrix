@@ -16,8 +16,19 @@ struct PaperclipFactoryServiceTests {
         ]
     }
 
+    /// Paperclip filters approvals by one exact `status`; serve the fixture the same way.
     private func service(_ routes: [String: StubURLProtocol.Response], recorder: RequestRecorder? = nil) -> PaperclipFactoryService {
-        let server = FakeServer(routes: routes, recorder: recorder)
+        let approvalsKey = "GET /api/companies/\(companyID)/approvals"
+        var dynamicRoutes: [String: StubURLProtocol.Handler] = [:]
+        if let approvals = routes[approvalsKey], approvals.status == 200 {
+            dynamicRoutes[approvalsKey] = { request in
+                let status = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "status" }?.value
+                let all = try JSONSerialization.jsonObject(with: approvals.body) as? [[String: Any]] ?? []
+                let matching = all.filter { status == nil || $0["status"] as? String == status }
+                return StubURLProtocol.Response(status: 200, body: try JSONSerialization.data(withJSONObject: matching))
+            }
+        }
+        let server = FakeServer(routes: routes, recorder: recorder, dynamicRoutes: dynamicRoutes)
         return PaperclipFactoryService(client: PaperclipClient(baseURL: server.baseURL, credential: "k", session: server.session))
     }
 
@@ -103,7 +114,8 @@ struct PaperclipFactoryServiceTests {
         let recorder = RequestRecorder()
         _ = try await service(snapshotRoutes, recorder: recorder).snapshot(companyID: companyID)
 
-        #expect(recorder.last("GET", "/api/companies/\(companyID)/approvals")?.url?.query() == "status=pending")
+        let approvalQueries = recorder.requests.filter { $0.url?.path() == "/api/companies/\(companyID)/approvals" }.compactMap { $0.url?.query() }
+        #expect(Set(approvalQueries) == ["status=pending", "status=revision_requested"])
         #expect(recorder.last("GET", "/api/companies/\(companyID)/issues")?.url?.query() == "limit=500")
         #expect(recorder.last("GET", "/api/companies/\(companyID)/heartbeat-runs")?.url?.query() == "limit=50")
         #expect(recorder.last("GET", "/api/companies/\(companyID)/activity")?.url?.query() == "limit=50")
@@ -116,7 +128,6 @@ struct PaperclipFactoryServiceTests {
             Approval(id: "ap-hire", kind: .hire, requestedBy: "CEO", title: "Hire Designer", detail: "Product Designer · claude_local · UI and brand", createdAt: date("2026-11-07T09:48:00Z")),
             Approval(id: "ap-plan", kind: .strategy, requestedBy: "CEO", title: "Q4 plan", detail: "Retention over new features.", createdAt: date("2026-11-07T09:00:00Z")),
             Approval(id: "ap-budget", kind: .budget, requestedBy: "Board", title: "Budget override for CTO", detail: "Raise the cap or pause the agent.", createdAt: date("2026-11-07T08:00:00Z")),
-            Approval(id: "ap-other", kind: .other, requestedBy: "Board", title: "Board approval", detail: "", createdAt: date("2026-11-07T07:00:00Z"), state: .rejected),
         ])
     }
 

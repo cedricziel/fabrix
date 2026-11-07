@@ -18,7 +18,9 @@ public struct PaperclipFactoryService: FactoryService {
         async let companyDTO: CompanyDTO = client.get(base)
         async let agentDTOs: [AgentDTO] = client.get("\(base)/agents")
         async let issueDTOs: [IssueDTO] = client.get("\(base)/issues", query: ["limit": "500"])
-        async let approvalDTOs: [ApprovalDTO] = client.get("\(base)/approvals", query: ["status": "pending"])
+        // Paperclip filters on one exact status; both of these still wait for the board.
+        async let pendingDTOs: [ApprovalDTO] = client.get("\(base)/approvals", query: ["status": "pending"])
+        async let revisionDTOs: [ApprovalDTO] = client.get("\(base)/approvals", query: ["status": "revision_requested"])
         async let runDTOs = runs(base: base)
         async let activityDTOs: [ActivityDTO] = client.get("\(base)/activity", query: ["limit": "50"])
 
@@ -32,7 +34,7 @@ public struct PaperclipFactoryService: FactoryService {
             company: Company(paperclip: company),
             agents: agents,
             tasks: tasks,
-            approvals: approvalDTOs.map { Approval(paperclip: $0, agents: agentsByID) },
+            approvals: (pendingDTOs + revisionDTOs).sorted { $0.createdAt > $1.createdAt }.map { Approval(paperclip: $0, agents: agentsByID) },
             runs: runDTOs.map { Run(paperclip: $0, issues: tasksByID, agents: agentsByID) },
             activity: activityDTOs.map { ActivityEvent(paperclip: $0, issues: tasksByID, agents: agentsByID) },
             spentMonthlyCents: company.spentMonthlyCents ?? 0,

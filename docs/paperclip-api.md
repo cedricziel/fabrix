@@ -35,7 +35,7 @@ There are two ways to get a board API key:
 | `GET`  | `/api/companies/{companyId}/agents`                   | `[Agent]`. Terminated agents are dropped.                                                  |
 | `GET`  | `/api/agents/{agentId}`                               | Used by `wake` to check whether the agent is paused.                                       |
 | `GET`  | `/api/companies/{companyId}/issues?limit=500`         | `[WorkItem]`.                                                                              |
-| `GET`  | `/api/companies/{companyId}/approvals?status=pending` | `[Approval]`.                                                                              |
+| `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status. |
 | `GET`  | `/api/companies/{companyId}/heartbeat-runs?limit=50`  | `[Run]`. A `403` (run telemetry hidden from this user) yields no runs instead of an error. |
 | `GET`  | `/api/companies/{companyId}/activity?limit=50`        | `[ActivityEvent]`.                                                                         |
 
