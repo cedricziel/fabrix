@@ -40,22 +40,29 @@ public struct RootView: View {
                     .safeAreaInset(edge: .top) { ErrorBanner() }
                     .modifier(ErrorAnnouncer())
                 case .empty:
-                    ContentUnavailableView {
-                        Label("No companies yet", systemImage: "building.2")
-                    } description: {
-                        Text("This factory has no companies.")
-                    } actions: {
-                        Button("Choose another factory") { model.disconnect() }
+                    // The title menu stays reachable so another factory can be opened or this one removed.
+                    NavigationStack {
+                        ContentUnavailableView {
+                            Label("No companies yet", systemImage: "building.2")
+                        } description: {
+                            Text("This factory has no companies.")
+                        } actions: {
+                            Button("Choose another factory") { model.disconnect() }
+                        }
+                        .factoryTitle()
                     }
                 case let .failed(message):
-                    ContentUnavailableView {
-                        Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(message)
-                    } actions: {
-                        Button("Try again") { Task { await model.refresh() } }
-                            .buttonStyle(.fabrixPrimary)
-                        Button("Choose another factory") { model.disconnect() }
+                    NavigationStack {
+                        ContentUnavailableView {
+                            Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            Text(message)
+                        } actions: {
+                            Button("Try again") { Task { await model.refresh() } }
+                                .buttonStyle(.fabrixPrimary)
+                            Button("Choose another factory") { model.disconnect() }
+                        }
+                        .factoryTitle()
                     }
                 }
             }
@@ -90,6 +97,9 @@ public struct RootView: View {
         .onDisappear {
             shutdownTask.map(ShutdownTasks.unregister)
         }
+        .onChange(of: SwitchContext(factoryID: model.factory?.id, companyID: model.snapshot?.company.id)) {
+            navigator.resetPaths()
+        }
         .onChange(of: model.factoryMenu.factories.map(\.id)) {
             Task { await model.leaveIfRemoved() }
         }
@@ -118,6 +128,11 @@ enum ScenePolicy {
     static func commitsDecisions(_ phase: ScenePhase) -> Bool {
         phase == .background
     }
+}
+
+private struct SwitchContext: Equatable {
+    var factoryID: String?
+    var companyID: String?
 }
 
 private struct Polling: Equatable {

@@ -74,6 +74,12 @@ final class Navigator {
     var showingAddFactory = false
     var isCompact = false
 
+    /// A new factory or company starts every stack at its root.
+    func resetPaths() {
+        path = NavigationPath()
+        tabPaths = [:]
+    }
+
     func open(_ section: AppSection) {
         guard isCompact else {
             self.section = section

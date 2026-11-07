@@ -27,6 +27,7 @@ private struct TabStack: View {
         @Bindable var model = model
         NavigationStack(path: path) {
             SectionScreen(section: tab.root)
+                .id(model.snapshot?.company.id)
                 .factoryTitle(tab == .factory ? nil : tab.title)
                 .fabrixDestinations()
                 .toolbar {
