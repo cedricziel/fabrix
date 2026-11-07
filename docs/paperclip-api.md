@@ -68,7 +68,7 @@ The proxy must accept bearer tokens, for example oauth2-proxy with `--skip-jwt-b
 | ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET`  | `/api/companies?scope=accessible`                                                      | `[Company]`: companies the user can open.                                                                                                                                                                  |
 | `GET`  | `/api/companies/{companyId}`                                                           | `Company`, plus `spentMonthlyCents` and `budgetMonthlyCents` for the snapshot.                                                                                                                             |
-| `GET`  | `/api/companies/{companyId}/agents`                                                    | `[Agent]`. Terminated agents are dropped.                                                                                                                                                                  |
+| `GET`  | `/api/companies/{companyId}/agents`                                                    | `[Agent]`. Terminated agents are dropped; their IDs stay in `formerAgentIDs`.                                                                                                                              |
 | `GET`  | `/api/agents/{agentId}`                                                                | Used by `wake` to check whether the agent is paused.                                                                                                                                                       |
 | `GET`  | `/api/companies/{companyId}/issues?limit=500`                                          | `[WorkItem]`.                                                                                                                                                                                              |
 | `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status; an approval in both answers is listed once.                                                                         |
@@ -102,7 +102,9 @@ Each workspace maps by `sourceType`. `isPrimary` is kept in every case.
 | `local_path`, `non_git_path`     | `.folder`, `name` is `cwd`.                                                                                                               |
 | anything else (`remote_managed`) | `.other`                                                                                                                                  |
 
-Fabrix ignores `budget`, `urlKey` and `taskCount`. `taskCount` counts every task including done ones; Fabrix counts open, blocked and done tasks from the snapshot's issues instead.
+Fabrix ignores `budget` and `urlKey`. It counts open, blocked and done tasks from the snapshot's issues, which are capped at 500. `taskCount` counts every task, done and cancelled included; Fabrix keeps it as `Project.taskCount` and, when it is larger than the project's loaded tasks, says how many older tasks weren't counted.
+
+A row that can't be decoded is skipped, so one malformed project or workspace doesn't fail the list. Only `http` and `https` repository URLs are kept as links.
 
 A project belongs to one company. Paperclip refuses issues, assignees and goals from another company, but accepts a `leadAgentId` from another company. Fabrix shows such a lead as "Lead outside this company", without agent actions.
 
@@ -153,9 +155,9 @@ Issue `status` values (`backlog`, `todo`, `in_progress`, `in_review`, `blocked`,
 | `in_progress`              | `.inProgress`   |
 | `completed`                | `.completed`    |
 | `cancelled`                | `.cancelled`    |
-| anything else              | `.backlog`      |
+| anything else              | `.other`        |
 
-`.backlog`, `.planned` and `.inProgress` count as active. The app lists the others under Completed.
+`.backlog`, `.planned` and `.inProgress` count as active. The app lists the others, `.other` included, under Completed.
 
 A heartbeat run is live (`Run.finishedAt == nil`) while its status is `queued`, `scheduled_retry` or `running`.
 
