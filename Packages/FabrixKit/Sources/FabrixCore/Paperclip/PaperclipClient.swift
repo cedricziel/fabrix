@@ -105,7 +105,11 @@ public struct PaperclipClient: Sendable {
         if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
         if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") { return host.contains(":") }
         let labels = host.split(separator: ".", omittingEmptySubsequences: false)
-        let octets = labels.compactMap { UInt8($0) }
+        // Resolvers read a leading zero as octal (010 is 8), so only plain decimal octets count.
+        let octets = labels.compactMap { label -> UInt8? in
+            guard label.allSatisfy(\.isASCII), label.allSatisfy(\.isNumber), label == "0" || !label.hasPrefix("0") else { return nil }
+            return UInt8(label)
+        }
         guard labels.count == 4, octets.count == 4 else { return false }
         switch (octets[0], octets[1]) {
         case (127, _), (10, _), (192, 168), (169, 254): return true

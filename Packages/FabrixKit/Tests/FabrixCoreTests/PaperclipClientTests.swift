@@ -167,6 +167,9 @@ struct PaperclipClientTests {
         ("http://192.168.attacker.1.1.example.com", false),
         ("http://10.0.0.5.example.com", false),
         ("http://192.168.1", false),
+        ("http://010.8.8.8", false),
+        ("http://10.0.0.010", false),
+        ("http://192.168.01.1", false),
     ])
     func allowsCredentialsOnlyOverHTTPSOrLocalNetworks(url: String, allowed: Bool) throws {
         #expect(PaperclipClient.allowsCredentials(to: try #require(URL(string: url))) == allowed)
