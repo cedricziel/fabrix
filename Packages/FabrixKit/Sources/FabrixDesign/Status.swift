@@ -71,7 +71,20 @@ public struct StatusPill: View {
     private let style: StatusStyle
     private let text: String
 
-    public init(_ style: StatusStyle, detail: String? = nil) {
+    public init(_ style: StatusStyle) {
+        self.init(style, verbatim: nil)
+    }
+
+    public init(_ style: StatusStyle, detail: LocalizedStringResource) {
+        self.init(style, verbatim: String(localized: detail))
+    }
+
+    @_disfavoredOverload
+    public init(_ style: StatusStyle, detail: String?) {
+        self.init(style, verbatim: detail)
+    }
+
+    private init(_ style: StatusStyle, verbatim detail: String?) {
         self.style = style
         text = [style.label, detail].compactMap(\.self).joined(separator: " · ")
     }

@@ -31,35 +31,42 @@ public struct AvatarBadge: View {
 public enum DecisionKind: CaseIterable, Sendable {
     case hire, strategy, budget
 
-    public var title: String {
+    public var title: LocalizedStringResource {
         switch self {
-        case .hire: String(localized: "Hire", bundle: .module)
-        case .strategy: String(localized: "Strategy", bundle: .module)
-        case .budget: String(localized: "Budget", bundle: .module)
+        case .hire: LocalizedStringResource("Hire", bundle: .module)
+        case .strategy: LocalizedStringResource("Strategy", bundle: .module)
+        case .budget: LocalizedStringResource("Budget", bundle: .module)
         }
     }
 }
 
 /// The small orange-tinted tag on a decision: HIRE, STRATEGY, BUDGET.
 public struct KindTag: View {
-    private let title: String
+    let title: Text
 
     public init(_ kind: DecisionKind) {
-        title = kind.title.uppercased()
+        title = Text(kind.title)
     }
 
+    public init(title: LocalizedStringResource) {
+        self.title = Text(title)
+    }
+
+    @_disfavoredOverload
     public init(title: String) {
-        self.title = title.uppercased()
+        self.title = Text(verbatim: title)
     }
 
     public var body: some View {
-        Text(title)
+        title
+            .textCase(.uppercase)
             .font(.fabrix(.tag))
             .tracking(0.5)
             .foregroundStyle(Palette.signalInk)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
             .background(Palette.signalTint, in: RoundedRectangle(cornerRadius: Radius.tag, style: .continuous))
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(title)
     }
 }

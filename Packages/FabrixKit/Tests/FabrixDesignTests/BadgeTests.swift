@@ -18,6 +18,6 @@ struct BadgeTests {
         (.budget, "Budget"),
     ])
     func kindTitles(kind: DecisionKind, expected: String) {
-        #expect(kind.title == expected)
+        #expect(String(localized: kind.title) == expected)
     }
 }

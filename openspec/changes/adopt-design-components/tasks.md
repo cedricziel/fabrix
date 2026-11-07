@@ -7,7 +7,7 @@
 
 ## 2. Localized initializers, timer and motion (PR 2)
 
-- [ ] 2.1 `LocalizedStringResource` overloads on `SectionHeader`, `MetricCard`, `KindTag`, `StatusPill`; `.textCase(.uppercase)` (`FabrixDesign/Containers.swift`, `Badges.swift`, `Status.swift`); test `LocalizedInitTests`, the tag keeps a natural-case accessibility label
+- [x] 2.1 `LocalizedStringResource` overloads on `SectionHeader`, `MetricCard`, `KindTag`, `StatusPill`; `.textCase(.uppercase)` (`FabrixDesign/Containers.swift`, `Badges.swift`, `Status.swift`); test `LocalizedInitTests`, the tag keeps a natural-case accessibility label
 - [ ] 2.2 `ElapsedText` on `Text(timerInterval:)` in FabrixDesign; Features call sites renamed (`FabrixDesign/Timer.swift`); test `ElapsedTextTests` for the interval
 - [ ] 2.3 `fabrixTransition` helper respecting Reduce Motion; banner and approvals use it (`FabrixDesign/Motion.swift`); test `MotionTests`
 
