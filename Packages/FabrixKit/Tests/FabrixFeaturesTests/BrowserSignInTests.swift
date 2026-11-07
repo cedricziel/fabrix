@@ -21,6 +21,31 @@ private final class RejectingService: FactoryService {
     func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
 }
 
+/// Atlas loads; switching to Orbit is refused because the key expired.
+private final class ExpiresOnSwitchService: FactoryService {
+    let base = DemoFactoryService()
+    let projectCalls = Mutex(0)
+
+    func companies() async throws -> [Company] {
+        try await base.companies() + [Company(id: "orbit", name: "Orbit")]
+    }
+
+    func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
+        if companyID == "orbit" { throw PaperclipError.unauthorized("Board authentication required") }
+        return try await base.snapshot(companyID: companyID)
+    }
+
+    func projects(companyID: Company.ID) async throws -> [Project] {
+        projectCalls.withLock { $0 += 1 }
+        return try await base.projects(companyID: companyID)
+    }
+
+    func decide(approvalID _: Approval.ID, approve _: Bool) async throws {}
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
+}
+
 private struct ExpiringService: FactoryService {
     let base = DemoFactoryService()
     let expiry: Date
@@ -219,6 +244,18 @@ struct BrowserSignInTests {
         let callsAfterRejection = rejecting.calls.withLock { $0 }
         await model.refresh()
         #expect(rejecting.calls.withLock { $0 } == callsAfterRejection)
+    }
+
+    @Test func expiredKeyOnCompanySwitchSkipsTheProjectsReload() async throws {
+        let service = ExpiresOnSwitchService()
+        let model = await relaunched(RecordingConnector(), service: service)
+        let callsBefore = service.projectCalls.withLock { $0 }
+
+        try await model.select(#require(model.companies.first { $0.id == "orbit" }))
+
+        #expect(model.needsSignIn)
+        #expect(service.projectCalls.withLock { $0 } == callsBefore)
+        #expect(model.projectsFailure == nil)
     }
 
     @Test func rejectedTokenWithoutABoardKeyIsAnError() async {
