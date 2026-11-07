@@ -48,4 +48,34 @@ struct ShutdownTasksTests {
 
         #expect(model.snapshot?.approvals.first { $0.id == approval.id }?.state == .approved)
     }
+
+    @Test func returnsByTheDeadlineEvenIfATaskIgnoresCancellation() async {
+        let id = ShutdownTasks.register {
+            let end = ContinuousClock.now + .seconds(2)
+            while ContinuousClock.now < end { await Task.yield() }
+        }
+        defer { ShutdownTasks.unregister(id) }
+        let start = ContinuousClock.now
+
+        await ShutdownTasks.run(timeout: .milliseconds(50))
+
+        #expect(ContinuousClock.now - start < .seconds(1))
+    }
+
+    @Test func backgroundingOneWindowLeavesTheOtherWindowsDecisionsStaged() async throws {
+        let windowA = AppModel(defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .seconds(60))
+        let windowB = AppModel(defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .seconds(60))
+        await windowA.exploreDemo()
+        await windowB.exploreDemo()
+        let first = try #require(windowA.waitingApprovals.first)
+        windowA.decide(first, approve: true)
+        windowB.decide(try #require(windowB.waitingApprovals.first), approve: false)
+        let ids = [windowA, windowB].map { model in ShutdownTasks.register { await model.commitStagedDecisions() } }
+        defer { ids.forEach(ShutdownTasks.unregister) }
+
+        await ShutdownTasks.runInBackground { await windowA.commitStagedDecisions() }.value
+
+        #expect(windowA.snapshot?.approvals.first { $0.id == first.id }?.state == .approved)
+        #expect(windowB.decidedApprovals.first?.canUndo == true)
+    }
 }

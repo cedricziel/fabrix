@@ -81,7 +81,7 @@ public struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if ScenePolicy.commitsDecisions(phase) {
-                ShutdownTasks.runInBackground()
+                ShutdownTasks.runInBackground { [model] in await model.commitStagedDecisions() }
             }
         }
         .onAppear {

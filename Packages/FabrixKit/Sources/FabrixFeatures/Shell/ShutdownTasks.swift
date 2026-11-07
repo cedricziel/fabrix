@@ -19,35 +19,55 @@ public enum ShutdownTasks {
         handlers[id] = nil
     }
 
-    /// Runs every registered task, giving up after `timeout` so quitting never hangs on the network.
+    /// Runs every registered task when the app quits. Returns by `timeout` even if a task
+    /// ignores cancellation, so quitting never hangs on the network.
     public static func run(timeout: Duration = .seconds(5)) async {
         let pending = Array(handlers.values)
         guard !pending.isEmpty else { return }
-        let work = Task { @MainActor in
-            for handler in pending { await handler() }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let finish = ResumeOnce(continuation)
+            let work = Task { @MainActor in
+                for handler in pending { await handler() }
+                finish.resume()
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: timeout)
+                work.cancel()
+                finish.resume()
+            }
         }
-        let deadline = Task {
-            try await Task.sleep(for: timeout)
-            work.cancel()
-        }
-        await work.value
-        deadline.cancel()
     }
 
-    /// Runs the tasks while iOS keeps the app alive in the background a little longer.
-    static func runInBackground() {
+    /// Runs one window's work while iOS keeps the app alive in the background a little longer.
+    @discardableResult
+    static func runInBackground(_ work: @escaping @MainActor @Sendable () async -> Void) -> Task<Void, Never> {
         #if os(iOS)
         var taskID = UIBackgroundTaskIdentifier.invalid
         taskID = UIApplication.shared.beginBackgroundTask(withName: "Send decisions") {
             UIApplication.shared.endBackgroundTask(taskID)
             taskID = .invalid
         }
-        Task {
-            await run()
+        return Task {
+            await work()
             if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) }
         }
         #else
-        Task { await run() }
+        return Task { await work() }
         #endif
+    }
+}
+
+/// Resumes a continuation on the first call and ignores later ones.
+@MainActor
+private final class ResumeOnce {
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(_ continuation: CheckedContinuation<Void, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume() {
+        continuation?.resume()
+        continuation = nil
     }
 }
