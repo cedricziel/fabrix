@@ -1,0 +1,176 @@
+import Foundation
+
+/// The board user a credential belongs to.
+public struct BoardSession: Hashable, Sendable {
+    public var userID: String
+    public var userName: String?
+    public var companyIDs: [String]
+    public var isInstanceAdmin: Bool
+
+    public init(userID: String, userName: String?, companyIDs: [String], isInstanceAdmin: Bool) {
+        self.userID = userID
+        self.userName = userName
+        self.companyIDs = companyIDs
+        self.isInstanceAdmin = isInstanceAdmin
+    }
+}
+
+/// A pending browser sign-in. Open `approvalURL` in a browser; once the user approves,
+/// `boardAPIToken` becomes a valid credential.
+public struct SignInChallenge: Hashable, Sendable {
+    public enum Status: String, Sendable {
+        case pending, approved, cancelled, expired
+    }
+
+    /// Server root the challenge belongs to.
+    public var serverURL: URL
+    public var id: String
+    public var token: String
+    public var boardAPIToken: String
+    public var approvalURL: URL
+    public var pollInterval: Duration
+
+    public init(serverURL: URL, id: String, token: String, boardAPIToken: String, approvalURL: URL, pollInterval: Duration) {
+        self.serverURL = serverURL
+        self.id = id
+        self.token = token
+        self.boardAPIToken = boardAPIToken
+        self.approvalURL = approvalURL
+        self.pollInterval = pollInterval
+    }
+}
+
+/// HTTP client for one Paperclip server, acting as a board user.
+public struct PaperclipClient: Sendable {
+    /// Server root, without the `/api` suffix.
+    public let baseURL: URL
+    private let credential: String?
+    private let session: URLSession
+
+    public init(baseURL: URL, credential: String? = nil, session: URLSession = .shared) {
+        self.baseURL = baseURL
+        self.credential = credential
+        self.session = session
+    }
+
+    /// Turns user input like `paperclip.example.com` or `http://host:3100/api/` into a server root URL.
+    public static func normalizedServerURL(_ input: String) -> URL? {
+        var text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if !text.contains("://") {
+            text = "https://" + text
+        }
+        guard var components = URLComponents(string: text),
+              let scheme = components.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = components.host, !host.isEmpty
+        else { return nil }
+        var path = components.path
+        while path.hasSuffix("/") {
+            path.removeLast()
+        }
+        if path.hasSuffix("/api") {
+            path.removeLast(4)
+        }
+        components.path = path
+        components.query = nil
+        components.fragment = nil
+        return components.url
+    }
+
+    /// `normalizedServerURL`, throwing `PaperclipError.invalidServerURL` for unusable input.
+    public static func serverURL(_ url: URL) throws -> URL {
+        guard let serverURL = normalizedServerURL(url.absoluteString) else { throw PaperclipError.invalidServerURL }
+        return serverURL
+    }
+
+    public func boardSession() async throws -> BoardSession {
+        let me: BoardMeDTO = try await get("cli-auth/me")
+        return BoardSession(userID: me.userId, userName: me.user?.name, companyIDs: me.companyIds ?? [], isInstanceAdmin: me.isInstanceAdmin ?? false)
+    }
+
+    public func startSignIn(clientName: String) async throws -> SignInChallenge {
+        let created: SignInChallengeCreatedDTO = try await send("POST", "cli-auth/challenges", body: ["command": "fabrix connect", "clientName": clientName])
+        let approvalURL = created.approvalUrl.flatMap(URL.init(string:))
+            ?? URL(string: baseURL.absoluteString + created.approvalPath)
+        guard let approvalURL else { throw PaperclipError.decoding("Invalid approval path \(created.approvalPath)") }
+        return SignInChallenge(
+            serverURL: baseURL, id: created.id, token: created.token, boardAPIToken: created.boardApiToken,
+            approvalURL: approvalURL, pollInterval: .milliseconds(created.suggestedPollIntervalMs ?? 1000)
+        )
+    }
+
+    public func signInStatus(_ challenge: SignInChallenge) async throws -> SignInChallenge.Status {
+        let status: SignInChallengeStatusDTO = try await get("cli-auth/challenges/\(challenge.id)", query: ["token": challenge.token])
+        return SignInChallenge.Status(rawValue: status.status) ?? .pending
+    }
+
+    // MARK: - Requests
+
+    func get<Response: Decodable>(_ path: String, query: KeyValuePairs<String, String> = [:]) async throws -> Response {
+        try await decode(perform("GET", path, query: query, body: nil))
+    }
+
+    func send<Response: Decodable>(_ method: String, _ path: String, body: some Encodable) async throws -> Response {
+        try await decode(perform(method, path, query: [:], body: Self.encoder.encode(body)))
+    }
+
+    /// Sends a request whose response body Fabrix doesn't need.
+    func send(_ method: String, _ path: String, body: some Encodable = [String: String]()) async throws {
+        _ = try await perform(method, path, query: [:], body: Self.encoder.encode(body))
+    }
+
+    private func perform(_ method: String, _ path: String, query: KeyValuePairs<String, String>, body: Data?) async throws -> Data {
+        var url = baseURL.appending(path: "api").appending(path: path)
+        if !query.isEmpty {
+            url.append(queryItems: query.map { URLQueryItem(name: $0.key, value: $0.value) })
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let credential {
+            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
+        }
+        if let body {
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200 ..< 300).contains(status) else {
+            let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
+            throw PaperclipError(status: status, message: message)
+        }
+        return data
+    }
+
+    private func decode<Response: Decodable>(_ data: Data) throws -> Response {
+        do {
+            return try Self.decoder.decode(Response.self, from: data)
+        } catch {
+            throw PaperclipError.decoding(String(describing: error))
+        }
+    }
+
+    private static let encoder = JSONEncoder()
+    private static let fractionalDates = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    private static let wholeSecondDates = Date.ISO8601FormatStyle()
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let text = try decoder.singleValueContainer().decode(String.self)
+            if let date = (try? Date(text, strategy: fractionalDates)) ?? (try? Date(text, strategy: wholeSecondDates)) {
+                return date
+            }
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Not an ISO 8601 date: \(text)"))
+        }
+        return decoder
+    }()
+}
