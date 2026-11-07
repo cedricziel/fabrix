@@ -26,7 +26,7 @@
 
 ## 5. Agents and org chart (PR 5)
 
-- [ ] 5.1 Build the org tree from reporting lines (`Logic/OrgTree.swift`); tests `OrgTreeTests`
-- [ ] 5.2 Agent list and detail with pause and wake (`Screens/AgentsView.swift`); covered by `AppModelTests`, visual otherwise
-- [ ] 5.3 Org chart with inspector (`Screens/OrgChartView.swift`); no test, visual only
-- [ ] 5.4 Archive the change and sync specs
+- [x] 5.1 Build the org tree from reporting lines (`Logic/OrgTree.swift`); tests `OrgTreeTests`
+- [x] 5.2 Agent list and detail with pause and wake (`Screens/AgentsView.swift`); covered by `AppModelTests`, visual otherwise
+- [x] 5.3 Org chart with inspector (`Screens/OrgChartView.swift`); no test, visual only
+- [x] 5.4 Archive the change and sync specs
