@@ -2,58 +2,139 @@ import FabrixDesign
 import SwiftUI
 #if os(macOS)
     import AppKit
+#else
+    import UIKit
 #endif
 
 extension View {
-    /// Swaps the content for the lock screen while locked and covers it while inactive.
+    /// Swaps the content for the lock screen while locked and covers every window while inactive.
     /// Modifiers outside this one (polling, committing decisions) keep running while locked.
     func appLock(_ lock: AppLock) -> some View {
         modifier(AppLockGate(lock: lock))
     }
 }
 
+/// The lock is app-wide, so it follows app activation rather than each scene's phase:
+/// closing one iPad window must not cover another.
 private struct AppLockGate: ViewModifier {
     let lock: AppLock
-    @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
         ZStack {
             if lock.isLocked {
                 LockScreen()
             } else {
-                content
-                if lock.isCovered {
-                    BrandCover().transition(.opacity)
-                }
+                content.accessibilityHidden(lock.isCovered)
             }
         }
         .environment(lock)
         #if os(macOS)
-            // The window toolbar sits outside the cover and shows the company name.
+            // The window toolbar sits outside the content view and shows the company name.
             .toolbar(lock.isCovered ? .hidden : .automatic, for: .windowToolbar)
-            // A Mac window's scene phase doesn't follow app activation.
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
                 lock.sceneWillResignActive()
                 lock.sceneDidEnterBackground(at: .now)
+                WindowShield.update(covered: lock.isCovered)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 lock.sceneDidBecomeActive(at: .now)
+                WindowShield.update(covered: lock.isCovered)
                 Task { await lock.promptIfNeeded() }
             }
         #else
-            .onChange(of: scenePhase, initial: true) { _, phase in
-                switch phase {
-                case .inactive: lock.sceneWillResignActive()
-                case .background: lock.sceneDidEnterBackground(at: .now)
-                case .active:
-                    lock.sceneDidBecomeActive(at: .now)
-                    Task { await lock.promptIfNeeded() }
-                @unknown default: break
-                }
+            .background { ShieldWindowHost(lock: lock, covered: lock.isCovered) }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                lock.sceneWillResignActive()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                lock.sceneDidEnterBackground(at: .now)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                lock.sceneDidBecomeActive(at: .now)
+                Task { await lock.promptIfNeeded() }
             }
         #endif
     }
 }
+
+#if os(macOS)
+    /// Covers every app window, including sheets and Settings, which sit outside the SwiftUI tree.
+    @MainActor
+    enum WindowShield {
+        private static let identifier = NSUserInterfaceItemIdentifier("fabrix.shield")
+
+        static func update(covered: Bool) {
+            for window in NSApp.windows {
+                // The frame view, not the hosting view: SwiftUI owns the content view's subviews.
+                guard let frameView = window.contentView?.superview else { continue }
+                let shield = frameView.subviews.first { $0.identifier == identifier }
+                if covered, shield == nil {
+                    let cover = NSHostingView(rootView: BrandCover())
+                    cover.identifier = identifier
+                    cover.frame = frameView.bounds
+                    cover.autoresizingMask = [.width, .height]
+                    frameView.addSubview(cover, positioned: .above, relativeTo: nil)
+                } else if !covered {
+                    shield?.removeFromSuperview()
+                }
+            }
+        }
+    }
+#else
+    /// Puts the cover in a window above this scene's sheets and alerts, so app-switcher
+    /// snapshots never show factory data.
+    private struct ShieldWindowHost: UIViewRepresentable {
+        let lock: AppLock
+        let covered: Bool
+
+        func makeUIView(context: Context) -> SceneProbe {
+            SceneProbe(lock: lock)
+        }
+
+        func updateUIView(_ probe: SceneProbe, context: Context) {
+            probe.setCovered(covered)
+        }
+    }
+
+    final class SceneProbe: UIView {
+        private let lock: AppLock
+        private var shield: UIWindow?
+
+        init(lock: AppLock) {
+            self.lock = lock
+            super.init(frame: .zero)
+            isUserInteractionEnabled = false
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) is not supported")
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard shield == nil, let scene = window?.windowScene else { return }
+            let shield = UIWindow(windowScene: scene)
+            shield.windowLevel = .alert + 1
+            shield.rootViewController = UIHostingController(rootView: BrandCover())
+            shield.isHidden = true
+            self.shield = shield
+            // SwiftUI updates on the next pass; show the cover before the system takes its snapshot.
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(sceneWillDeactivate), name: UIScene.willDeactivateNotification, object: scene
+            )
+        }
+
+        @objc private func sceneWillDeactivate() {
+            guard lock.settings.isEnabled, !lock.isAuthenticating else { return }
+            setCovered(true)
+        }
+
+        func setCovered(_ covered: Bool) {
+            shield?.isHidden = !covered
+        }
+    }
+#endif
 
 private struct LockScreen: View {
     @Environment(AppLock.self) private var lock
