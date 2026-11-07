@@ -9,6 +9,7 @@ public final class FactoryStore {
     public private(set) var factories: [Factory]
 
     @ObservationIgnored private var authConfigurations: [Factory.ID: FactoryAuthConfiguration]
+    @ObservationIgnored private var headerNames: [Factory.ID: [String]]
     /// One provider per factory, so concurrent services share a single token refresh.
     @ObservationIgnored private var oidcProviders: [Factory.ID: OIDCAuthProvider] = [:]
     @ObservationIgnored private let defaults: UserDefaults
@@ -19,6 +20,8 @@ public final class FactoryStore {
     private struct StoredFactory: Codable {
         var factory: Factory
         var auth: FactoryAuthConfiguration
+        /// Custom header names; their values are in the credential store. Missing in records from older versions.
+        var headerNames: [String]?
     }
 
     public init(defaults: UserDefaults = .standard, credentials: any CredentialStore = KeychainCredentialStore(), session: URLSession = .shared) {
@@ -29,13 +32,14 @@ public final class FactoryStore {
             .flatMap { try? JSONDecoder().decode([StoredFactory].self, from: $0) } ?? []
         factories = stored.map(\.factory)
         authConfigurations = Dictionary(stored.map { ($0.factory.id, $0.auth) }, uniquingKeysWith: { _, last in last })
+        headerNames = Dictionary(stored.map { ($0.factory.id, $0.headerNames ?? []) }, uniquingKeysWith: { _, last in last })
     }
 
     /// Connects with a board API key, or without credentials when `credential` is nil or blank.
     @discardableResult
-    public func connect(url: URL, credential: String?, name: String? = nil) async throws -> Factory {
+    public func connect(url: URL, credential: String?, name: String? = nil, headers: [CustomHeader] = []) async throws -> Factory {
         let key = Self.trimmed(credential)
-        return try await connect(url: url, auth: key == nil ? .none : .boardKey, boardKey: key, name: name, webAuthenticator: nil)
+        return try await connect(url: url, auth: key == nil ? .none : .boardKey, boardKey: key, name: name, headers: headers, webAuthenticator: nil)
     }
 
     /// Signs in as `auth` describes, checks the result against the server, then saves the factory.
@@ -45,17 +49,19 @@ public final class FactoryStore {
     ///   - auth: Which layers to use. OIDC sign-in runs first when `auth.oidc` is set.
     ///   - boardKey: The Paperclip board API key; required when `auth.usesBoardKey`, ignored otherwise.
     ///   - name: Display name. Defaults to the server's host, or the saved name when reconnecting.
+    ///   - headers: Extra headers sent with every request to this server, checked with `CustomHeader.validated(_:for:)`.
     ///   - webAuthenticator: Shows the OIDC login page; required when `auth.oidc` is set.
     /// - Returns: The saved factory. Connecting to a server that is already saved updates it in place.
     /// - Throws: `PaperclipError` (`.invalidServerURL`, `.invalidAuthConfiguration`, `.unauthorized`, …),
     ///   `OIDCError` from the identity provider, or `KeychainError`. Nothing is saved when it throws.
     @discardableResult
     public func connect(
-        url: URL, auth: FactoryAuthConfiguration, boardKey: String?, name: String? = nil,
+        url: URL, auth: FactoryAuthConfiguration, boardKey: String?, name: String? = nil, headers: [CustomHeader] = [],
         webAuthenticator: (any WebAuthenticator)?
     ) async throws -> Factory {
         let baseURL = try PaperclipClient.serverURL(url)
         try auth.validate()
+        let headers = try CustomHeader.validated(headers, for: auth)
         let key = auth.usesBoardKey ? Self.trimmed(boardKey) : nil
         if auth.usesBoardKey, key == nil {
             throw PaperclipError.invalidAuthConfiguration("Enter a board API key.")
@@ -67,7 +73,7 @@ public final class FactoryStore {
             guard PaperclipClient.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
             oidcTokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
         }
-        return try await validateAndSave(baseURL: baseURL, auth: auth, boardKey: key, oidcTokens: oidcTokens, name: name)
+        return try await validateAndSave(baseURL: baseURL, auth: auth, boardKey: key, headers: headers, oidcTokens: oidcTokens, name: name)
     }
 
     /// Starts a browser sign-in. Show `approvalURL` to the user, then call `completeSignIn`.
@@ -75,21 +81,26 @@ public final class FactoryStore {
     /// - Parameters:
     ///   - frontDoor: OIDC settings for a reverse proxy in front of Paperclip. Its `tokenHeader` must not be
     ///     `Authorization`, because the issued board key goes there. Sign-in to the identity provider runs first.
+    ///   - headers: Extra headers sent with the sign-in requests and saved with the factory.
     ///   - webAuthenticator: Shows the OIDC login page; required with `frontDoor`.
     public func startSignIn(
-        url: URL, clientName: String, frontDoor: OIDCSettings? = nil, webAuthenticator: (any WebAuthenticator)? = nil
+        url: URL, clientName: String, frontDoor: OIDCSettings? = nil, headers: [CustomHeader] = [],
+        webAuthenticator: (any WebAuthenticator)? = nil
     ) async throws -> SignInChallenge {
         let baseURL = try PaperclipClient.serverURL(url)
         guard PaperclipClient.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
+        let auth = FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true)
+        try auth.validate()
+        let headers = try CustomHeader.validated(headers, for: auth)
         var oidcTokens: OIDCTokens?
         if let frontDoor {
-            try FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true).validate()
             oidcTokens = try await signInToIdentityProvider(frontDoor, webAuthenticator: webAuthenticator)
         }
         let staged = try stage(frontDoor, oidcTokens)
-        var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil), session: session)
+        var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: headers), session: session)
             .startSignIn(clientName: clientName)
         challenge.frontDoor = frontDoor
+        challenge.customHeaders = headers
         challenge.oidcTokens = try staged?.store.load()
         return challenge
     }
@@ -101,13 +112,15 @@ public final class FactoryStore {
     @discardableResult
     public func completeSignIn(_ challenge: SignInChallenge, name: String? = nil) async throws -> Factory {
         let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
-        let client = PaperclipClient(baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil), session: session)
+        let client = PaperclipClient(
+            baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: challenge.customHeaders), session: session
+        )
         while true {
             switch try await client.signInStatus(challenge) {
             case .approved:
                 return try await validateAndSave(
                     baseURL: challenge.serverURL, auth: FactoryAuthConfiguration(oidc: challenge.frontDoor, usesBoardKey: true),
-                    boardKey: challenge.boardAPIToken, oidcTokens: staged?.store.load(), name: name
+                    boardKey: challenge.boardAPIToken, headers: challenge.customHeaders, oidcTokens: staged?.store.load(), name: name
                 )
             case .cancelled: throw PaperclipError.signInCancelled
             case .expired: throw PaperclipError.signInExpired
@@ -133,10 +146,10 @@ public final class FactoryStore {
 
     /// Checks the credentials against the server, then writes secrets and the record. Nothing is saved when it throws.
     private func validateAndSave(
-        baseURL: URL, auth: FactoryAuthConfiguration, boardKey: String?, oidcTokens: OIDCTokens?, name: String?
+        baseURL: URL, auth: FactoryAuthConfiguration, boardKey: String?, headers: [CustomHeader], oidcTokens: OIDCTokens?, name: String?
     ) async throws -> Factory {
         let staged = try stage(auth.oidc, oidcTokens)
-        _ = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: boardKey), session: session)
+        _ = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: boardKey, headers: headers), session: session)
             .boardSession()
         // Validation may have refreshed (and rotated) the tokens; keep the latest ones.
         let tokensToSave = try staged?.store.load()
@@ -149,15 +162,19 @@ public final class FactoryStore {
             isOnline: true
         )
         let previousKey = try credentials.credential(for: factory.id)
+        let previousHeaderValues = try credentials.credential(for: Self.headersAccount(factory.id))
         try credentials.setCredential(boardKey, for: factory.id)
         do {
+            try credentials.setCredential(Self.encodedValues(headers), for: Self.headersAccount(factory.id))
             try oidcTokenStore(factory.id).save(tokensToSave)
         } catch {
             try? credentials.setCredential(previousKey, for: factory.id)
+            try? credentials.setCredential(previousHeaderValues, for: Self.headersAccount(factory.id))
             throw error
         }
         oidcProviders[factory.id] = nil
         authConfigurations[factory.id] = auth
+        headerNames[factory.id] = headers.map(\.name)
         if let existing {
             factories[existing] = factory
         } else {
@@ -172,12 +189,22 @@ public final class FactoryStore {
         authConfigurations[factory.id] ?? .none
     }
 
-    /// Forgets the factory and deletes its board key and OIDC tokens.
+    /// The saved custom headers, with their values read from the credential store.
+    public func customHeaders(for factory: Factory) throws -> [CustomHeader] {
+        let names = headerNames[factory.id] ?? []
+        guard !names.isEmpty, let stored = try credentials.credential(for: Self.headersAccount(factory.id)) else { return [] }
+        let values = try JSONDecoder().decode([String: String].self, from: Data(stored.utf8))
+        return names.compactMap { name in values[name].map { CustomHeader(name: name, value: $0) } }
+    }
+
+    /// Forgets the factory and deletes its board key, custom header values and OIDC tokens.
     public func remove(_ factory: Factory) throws {
         try credentials.setCredential(nil, for: factory.id)
+        try credentials.setCredential(nil, for: Self.headersAccount(factory.id))
         try oidcTokenStore(factory.id).save(nil)
         oidcProviders[factory.id] = nil
         authConfigurations[factory.id] = nil
+        headerNames[factory.id] = nil
         factories.removeAll { $0.id == factory.id }
         save()
     }
@@ -186,7 +213,11 @@ public final class FactoryStore {
     public func service(for factory: Factory) throws -> PaperclipFactoryService {
         let auth = auth(for: factory)
         let key = auth.usesBoardKey ? try credentials.credential(for: factory.id) : nil
-        let client = PaperclipClient(baseURL: factory.baseURL, auth: Self.chain(oidc: oidcProvider(for: factory, settings: auth.oidc), boardKey: key), session: session)
+        let client = PaperclipClient(
+            baseURL: factory.baseURL,
+            auth: Self.chain(oidc: oidcProvider(for: factory, settings: auth.oidc), boardKey: key, headers: try customHeaders(for: factory)),
+            session: session
+        )
         return PaperclipFactoryService(client: client)
     }
 
@@ -200,13 +231,26 @@ public final class FactoryStore {
         return provider
     }
 
-    private static func chain(oidc: OIDCAuthProvider?, boardKey: String?) -> any AuthProvider {
-        let layers: [(any AuthProvider)?] = [oidc, boardKey.map { BearerTokenAuth(token: $0) }]
+    private static func chain(oidc: OIDCAuthProvider?, boardKey: String?, headers: [CustomHeader] = []) -> any AuthProvider {
+        let layers: [(any AuthProvider)?] = [
+            headers.isEmpty ? nil : CustomHeadersAuth(headers: headers), oidc, boardKey.map { BearerTokenAuth(token: $0) },
+        ]
         return ChainedAuth(layers.compactMap(\.self))
     }
 
     private func oidcTokenStore(_ factoryID: Factory.ID) -> OIDCTokenStore {
         OIDCTokenStore(credentials: credentials, account: "\(factoryID).oidc")
+    }
+
+    private static func headersAccount(_ factoryID: Factory.ID) -> String {
+        "\(factoryID).headers"
+    }
+
+    /// Header values as a JSON object keyed by name, or nil when there are none.
+    private static func encodedValues(_ headers: [CustomHeader]) throws -> String? {
+        guard !headers.isEmpty else { return nil }
+        let values = Dictionary(headers.map { ($0.name, $0.value) }, uniquingKeysWith: { _, last in last })
+        return try String(decoding: JSONEncoder().encode(values), as: UTF8.self)
     }
 
     private static func trimmed(_ secret: String?) -> String? {
@@ -215,7 +259,7 @@ public final class FactoryStore {
     }
 
     private func save() {
-        let stored = factories.map { StoredFactory(factory: $0, auth: auth(for: $0)) }
+        let stored = factories.map { StoredFactory(factory: $0, auth: auth(for: $0), headerNames: headerNames[$0.id]) }
         defaults.set(try? JSONEncoder().encode(stored), forKey: Self.defaultsKey)
     }
 }

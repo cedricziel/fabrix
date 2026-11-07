@@ -32,6 +32,7 @@ public struct SignInChallenge: Hashable, Sendable {
     /// The OIDC front door the challenge was started behind, if any.
     public var frontDoor: OIDCSettings?
     var oidcTokens: OIDCTokens?
+    var customHeaders: [CustomHeader] = []
 
     public init(serverURL: URL, id: String, token: String, boardAPIToken: String, approvalURL: URL, pollInterval: Duration) {
         self.serverURL = serverURL
