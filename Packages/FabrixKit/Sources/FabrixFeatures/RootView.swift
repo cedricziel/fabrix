@@ -92,6 +92,8 @@ private struct AppRoot: View {
                             .disabled(model.isRefreshing)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Palette.paper)
                         .factoryTitle()
                     }
                 case let .failed(message):
@@ -110,6 +112,8 @@ private struct AppRoot: View {
                             .disabled(model.isRetrying)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Palette.paper)
                         .factoryTitle()
                     }
                 }

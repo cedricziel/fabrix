@@ -32,12 +32,13 @@ struct SplitShell: View {
                 .id(model.snapshot?.company.id)
                 .statusInsets()
                     .factoryTitle()
+                    // On the content column: iPad shows nothing attached to the split view itself.
+                    .toolbar { CompanyToolbar() }
                     .fabrixDestinations()
             }
             .refreshable { await model.refresh() }
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: .features("Search tasks, agents"))
-        .toolbar { CompanyToolbar() }
     }
 }
 
