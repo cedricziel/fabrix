@@ -17,8 +17,15 @@ let package = Package(
     ],
     targets: [
         .target(name: "FabrixCore"),
-        .target(name: "FabrixDesign", resources: [.copy("Resources/Fonts")]),
-        .target(name: "FabrixFeatures", dependencies: ["FabrixCore", "FabrixDesign"]),
+        .target(
+            name: "FabrixDesign",
+            resources: [.copy("Resources/Fonts"), .process("Resources/Localizable.xcstrings")]
+        ),
+        .target(
+            name: "FabrixFeatures",
+            dependencies: ["FabrixCore", "FabrixDesign"],
+            resources: [.process("Resources/Localizable.xcstrings")]
+        ),
         .target(
             name: "FabrixTelemetry",
             dependencies: [

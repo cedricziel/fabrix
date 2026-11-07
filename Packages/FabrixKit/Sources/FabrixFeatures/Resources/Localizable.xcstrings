@@ -1,0 +1,425 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    " · %@" : {
+
+    },
+    "%@ couldn't be opened. Remove it and add it again." : {
+
+    },
+    "%@ used" : {
+
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%lld" : {
+
+    },
+    "%lld blocked" : {
+
+    },
+    "%lld idle" : {
+
+    },
+    "%lld in review" : {
+
+    },
+    "%lld paused" : {
+
+    },
+    "**%@** %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "**%1$@** %2$@"
+          }
+        }
+      }
+    },
+    "A control room for your Paperclip factories. Agents report, you decide." : {
+
+    },
+    "Activity" : {
+
+    },
+    "Add Factory" : {
+
+    },
+    "Add Factory…" : {
+
+    },
+    "Add header" : {
+
+    },
+    "Advanced" : {
+
+    },
+    "Agent not found" : {
+
+    },
+    "Agents" : {
+
+    },
+    "Agents working" : {
+
+    },
+    "All activity" : {
+
+    },
+    "All clear" : {
+
+    },
+    "Approvals" : {
+
+    },
+    "Approvals you decide show up here." : {
+
+    },
+    "Approve" : {
+
+    },
+    "Approved" : {
+
+    },
+    "Assignee" : {
+
+    },
+    "Backlog" : {
+
+    },
+    "Blocked" : {
+
+    },
+    "Budget" : {
+
+    },
+    "Budget this month" : {
+
+    },
+    "Can't reach the factory" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancelled" : {
+
+    },
+    "Choose another factory" : {
+
+    },
+    "Client ID" : {
+
+    },
+    "Company spend · %@" : {
+
+    },
+    "Connect" : {
+
+    },
+    "Connect a factory" : {
+
+    },
+    "Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime." : {
+
+    },
+    "Create" : {
+
+    },
+    "Creating tasks from Fabrix arrives in an upcoming build. Until then, create them on your Paperclip board." : {
+
+    },
+    "Current run" : {
+
+    },
+    "Custom headers" : {
+
+    },
+    "Decided · %lld" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Done" : {
+
+    },
+    "Enter the OIDC client ID." : {
+
+    },
+    "Enter the OIDC issuer URL." : {
+
+    },
+    "Enter the factory address, like https://factory.example.com." : {
+
+    },
+    "Explore the demo" : {
+
+    },
+    "Fabrix" : {
+
+    },
+    "Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected." : {
+
+    },
+    "Factories" : {
+
+    },
+    "Factory" : {
+
+    },
+    "Factory address" : {
+
+    },
+    "Header name" : {
+
+    },
+    "Hire" : {
+
+    },
+    "In progress" : {
+
+    },
+    "In review" : {
+
+    },
+    "Live runs" : {
+
+    },
+    "Mission: %@" : {
+
+    },
+    "More" : {
+
+    },
+    "Near cap: agent pauses automatically at 100%" : {
+
+    },
+    "Needs your decision" : {
+
+    },
+    "New task" : {
+
+    },
+    "No activity yet." : {
+
+    },
+    "No agent is running right now." : {
+
+    },
+    "No companies yet" : {
+
+    },
+    "No company cap" : {
+
+    },
+    "No decisions yet" : {
+
+    },
+    "No factory yet?" : {
+
+    },
+    "No finished runs yet." : {
+
+    },
+    "No monthly cap" : {
+
+    },
+    "Nothing is waiting on you." : {
+
+    },
+    "Nothing waiting" : {
+
+    },
+    "OIDC issuer" : {
+
+    },
+    "Open" : {
+
+    },
+    "Open agent" : {
+
+    },
+    "Open tasks" : {
+
+    },
+    "Org chart" : {
+
+    },
+    "Other" : {
+
+    },
+    "Overview" : {
+
+    },
+    "Paperclip API key" : {
+
+    },
+    "Paste the Paperclip API key for this factory." : {
+
+    },
+    "Paste the key from your Paperclip board" : {
+
+    },
+    "Pause" : {
+
+    },
+    "Pause company" : {
+
+    },
+    "Pause every agent in %@" : {
+
+    },
+    "Pending hires" : {
+
+    },
+    "Recent runs" : {
+
+    },
+    "Reject" : {
+
+    },
+    "Rejected" : {
+
+    },
+    "Remove %@?" : {
+
+    },
+    "Remove Factory" : {
+
+    },
+    "Remove Factory…" : {
+
+    },
+    "Remove header" : {
+
+    },
+    "Resume company" : {
+
+    },
+    "Resume every agent in %@" : {
+
+    },
+    "Running for" : {
+
+    },
+    "Search" : {
+
+    },
+    "Search tasks, agents" : {
+
+    },
+    "Sent with every request to this factory, e.g. a proxy access token." : {
+
+    },
+    "Show" : {
+
+    },
+    "Sign in with" : {
+
+    },
+    "Single sign-on (OIDC)" : {
+
+    },
+    "Single sign-on + Paperclip key" : {
+
+    },
+    "Spend this month" : {
+
+    },
+    "Strategy" : {
+
+    },
+    "Task not found" : {
+
+    },
+    "Tasks" : {
+
+    },
+    "This factory has no companies." : {
+
+    },
+    "Title" : {
+
+    },
+    "Todo" : {
+
+    },
+    "Try again" : {
+
+    },
+    "Unassigned" : {
+
+    },
+    "Undo" : {
+
+    },
+    "Updated" : {
+
+    },
+    "Value" : {
+
+    },
+    "Waiting on you" : {
+
+    },
+    "Waiting · %lld" : {
+
+    },
+    "Wake agent" : {
+
+    },
+    "Wake now" : {
+
+    },
+    "Walk through a sample company with seven agents, live runs and approvals waiting on you." : {
+
+    },
+    "Working now" : {
+
+    },
+    "Your agents will ping you here." : {
+
+    },
+    "Your decision wasn't sent: %@" : {
+
+    },
+    "fabrix" : {
+
+    },
+    "from %@" : {
+
+    },
+    "heartbeat every %lld min" : {
+
+    },
+    "https://auth.example.com" : {
+
+    },
+    "https://factory.example.com" : {
+
+    },
+    "running" : {
+
+    },
+    "the board" : {
+
+    },
+    "this factory" : {
+
+    },
+    "· reports to %@" : {
+
+    }
+  },
+  "version" : "1.0"
+}
