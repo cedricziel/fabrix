@@ -1,5 +1,7 @@
 opt_out_usage
 
+require File.join(__dir__, "lib", "changelog")
+
 APP_IDENTIFIER = "com.cedricziel.fabrix"
 APP_NAME       = "Fabrix"
 TEAM_ID        = "WPW3QSLZ2F"
@@ -38,6 +40,20 @@ def marketing_version(options)
   return explicit unless explicit.empty?
 
   File.read(File.join(REPO_ROOT, "project.yml"))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+end
+
+# What to Test text: FABRIX_CHANGELOG, else the version's CHANGELOG.md section,
+# else the feat/fix commits since the last tag (a manual build between releases).
+def testflight_changelog(version = marketing_version({}))
+  last_tag = sh("git describe --tags --abbrev=0 2>/dev/null || true", log: false).strip
+  range = last_tag.empty? ? "HEAD" : "#{last_tag}..HEAD"
+  subjects = sh("git log --no-merges --pretty=%s #{range}", log: false).lines
+  Changelog.for_release(
+    markdown: File.read(File.join(REPO_ROOT, "CHANGELOG.md")),
+    version: version,
+    subjects: subjects,
+    since: last_tag.empty? ? nil : last_tag
+  )
 end
 
 before_all do |_lane, _options|
@@ -204,8 +220,7 @@ end
 def release_target(key, options)
   t = TARGETS.fetch(key)
   built = build_target(key, options)
-  notes_file = ENV["RELEASE_NOTES_FILE"].to_s
-  notes = File.read(notes_file).strip if !notes_file.empty? && File.exist?(notes_file)
+  notes = testflight_changelog(built[:version])
 
   api_key = load_app_store_connect_api_key
   public_beta_group
@@ -217,7 +232,8 @@ def release_target(key, options)
     app_platform: t[:upload_platform],
     # Distributing to an external group needs the build processed first.
     skip_waiting_for_build_processing: beta.empty?,
-    changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes
+    # External distribution requires What to Test, so it is never sent empty.
+    changelog: notes.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes
   )
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
 
