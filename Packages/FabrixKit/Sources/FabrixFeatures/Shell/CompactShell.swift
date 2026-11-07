@@ -12,6 +12,7 @@ struct CompactShell: View {
                 Tab(tab.title, systemImage: tab.root.systemImage, value: tab) {
                     TabStack(tab: tab)
                 }
+                .badge(tab == .approvals ? model.waitingCount : 0)
             }
         }
     }

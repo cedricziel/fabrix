@@ -10,9 +10,9 @@
 
 ## 2. Approvals (PR 2)
 
-- [ ] 2.1 Stage decisions with undo (`Logic/ApprovalDesk.swift`); tests `ApprovalDeskTests`
-- [ ] 2.2 AppModel decide, undo and commit after the window or on background (`AppModel.swift`, `RootView.swift`); tests `ApprovalFlowTests`
-- [ ] 2.3 Approvals screen and badges (`Screens/ApprovalsView.swift`, `Shell/`); no test, visual only
+- [x] 2.1 Stage decisions with undo (`Logic/ApprovalDesk.swift`); tests `ApprovalDeskTests`
+- [x] 2.2 AppModel decide, undo and commit after the window or on background (`AppModel.swift`, `RootView.swift`); tests `ApprovalFlowTests`
+- [x] 2.3 Approvals screen and badges (`Screens/ApprovalsView.swift`, `Shell/`); no test, visual only
 
 ## 3. Overview (PR 3)
 

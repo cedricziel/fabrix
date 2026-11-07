@@ -34,7 +34,7 @@ struct SectionScreen: View {
         case .tasks: SectionPlaceholder(section: section)
         case .agents: SectionPlaceholder(section: section)
         case .orgChart: SectionPlaceholder(section: section)
-        case .approvals: SectionPlaceholder(section: section)
+        case .approvals: ApprovalsView()
         case .activity: ActivityView()
         }
     }
@@ -85,6 +85,7 @@ private struct Sidebar: View {
 
     private func badge(for section: AppSection) -> Int {
         switch section {
+        case .approvals: model.waitingCount
         case .tasks: model.snapshot?.tasks.count(where: \.status.isOpen) ?? 0
         default: 0
         }
