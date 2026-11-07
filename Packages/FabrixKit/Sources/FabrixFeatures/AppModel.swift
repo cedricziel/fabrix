@@ -72,7 +72,8 @@ public final class AppModel {
     private(set) var lastRefreshedAt: Date?
     /// Why the user's last action failed. Polls never clear it; Dismiss or retrying does.
     private(set) var actionError: String?
-    private var dismissedIssue: ConnectionIssue?
+    /// True while a refresh is in flight, for Retry and the Mac toolbar's Refresh.
+    private(set) var isRefreshing = false
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -530,14 +531,10 @@ public final class AppModel {
         actionError = nil
     }
 
-    /// The connection problem unless the user dismissed this kind of problem already.
-    var visibleConnectionProblem: ConnectionProblem? {
-        connectionProblem.flatMap { $0.issue == dismissedIssue ? nil : $0 }
-    }
-
-    /// Hides the current connection problem until a different kind of problem appears.
-    func dismissConnectionProblem() {
-        dismissedIssue = connectionProblem?.issue
+    /// While the factory can't be refreshed, live timers stop at the last good update instead
+    /// of counting on as if the shown runs were current.
+    var dataFrozenAt: Date? {
+        connectionProblem == nil ? nil : lastRefreshedAt
     }
 
     /// Leaves the current factory. A connected factory stays saved, with its credentials,
@@ -610,6 +607,8 @@ public final class AppModel {
 
     public func refresh() async {
         guard let service, !needsSignIn else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         let request = beginRequest()
         let wanted = selectedCompanyID
         // Projects for an already shown company load in parallel with the snapshot.

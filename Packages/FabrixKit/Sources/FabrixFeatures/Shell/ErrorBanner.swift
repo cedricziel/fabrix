@@ -1,22 +1,15 @@
 import FabrixDesign
 import SwiftUI
 
-/// Shows why the last action failed, or why the factory can't be refreshed, while older data
-/// stays on screen.
+/// Shows why the user's last action failed. Connection problems go to the status strip.
 struct ErrorBanner: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let message = model.actionError ?? model.visibleConnectionProblem?.detail {
+        if let message = model.actionError {
             NoticeBanner(systemImage: "exclamationmark.triangle.fill", tint: Palette.halt, message: message) {
                 Button {
-                    withAnimation {
-                        if model.actionError != nil {
-                            model.dismissActionError()
-                        } else {
-                            model.dismissConnectionProblem()
-                        }
-                    }
+                    withAnimation { model.dismissActionError() }
                 } label: {
                     Image(systemName: "xmark")
                         .frame(minWidth: NoticeBanner<EmptyView>.hitSize, minHeight: NoticeBanner<EmptyView>.hitSize)

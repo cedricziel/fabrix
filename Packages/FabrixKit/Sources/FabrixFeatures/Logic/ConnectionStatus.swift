@@ -1,0 +1,71 @@
+import FabrixDesign
+import Foundation
+
+/// What the status strip says about a connection problem.
+struct ConnectionStatus: Equatable {
+    enum Action: Equatable {
+        case retry
+        case signIn
+    }
+
+    var tone: StatusStrip.Tone
+    var title: String
+    var detail: String?
+    var action: Action?
+
+    init?(
+        _ problem: ConnectionProblem?, factory: String, company: String?, lastRefreshedAt: Date?,
+        canSignIn: Bool = true, now: Date = .now, locale: Locale = .current
+    ) {
+        guard let problem else { return nil }
+        switch problem.issue {
+        case .unreachable:
+            tone = .stale
+            title = String(localized: "Can't reach \(factory)", bundle: .module)
+            action = .retry
+        case .signedOut:
+            tone = .blocking
+            title = String(localized: "Signed out of \(factory)", bundle: .module)
+            action = canSignIn ? .signIn : .retry
+        case .noAccess:
+            tone = .blocking
+            title = String(localized: "No access to \(company ?? factory)", bundle: .module)
+            action = .retry
+        case let .serverProblem(status):
+            tone = .warning
+            title = status.map { String(localized: "\(factory) had a problem (\($0))", bundle: .module) }
+                ?? String(localized: "\(factory) had a problem", bundle: .module)
+            action = .retry
+        case .unsupported:
+            tone = .warning
+            title = String(localized: "This server's version isn't supported yet", bundle: .module)
+            action = nil
+        }
+        detail = Self.updated(lastRefreshedAt, now: now, locale: locale)
+    }
+
+    /// The board key still works but runs out soon; signing in again now avoids a lockout.
+    init(keyExpiresAt expiry: Date, factory: String, now: Date = .now, locale: Locale = .current) {
+        tone = .stale
+        title = String(localized: "Fabrix's key for \(factory) expires \(Self.relative(expiry, to: now, locale: locale))", bundle: .module)
+        detail = nil
+        action = .signIn
+    }
+
+    private static func relative(_ date: Date, to now: Date, locale: Locale) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = locale
+        formatter.unitsStyle = .full
+        formatter.dateTimeStyle = .named
+        return formatter.localizedString(for: date, relativeTo: now)
+    }
+
+    private static func updated(_ lastRefreshedAt: Date?, now: Date, locale: Locale) -> String? {
+        lastRefreshedAt.map { date in
+            let formatter = RelativeDateTimeFormatter()
+            formatter.locale = locale
+            formatter.unitsStyle = .full
+            return String(localized: "Updated \(formatter.localizedString(for: min(date, now), relativeTo: now))", bundle: .module)
+        }
+    }
+}

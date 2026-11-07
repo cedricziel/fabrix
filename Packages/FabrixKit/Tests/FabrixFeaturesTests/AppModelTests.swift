@@ -158,11 +158,6 @@ struct AppModelTests {
         #expect(model.connectionProblem?.issue == .unreachable)
         #expect(model.actionError == nil)
 
-        model.dismissConnectionProblem()
-        #expect(model.visibleConnectionProblem == nil)
-        await model.refresh()
-        #expect(model.visibleConnectionProblem == nil)
-
         await service.failSnapshots(false)
         await model.refresh()
         #expect(model.connectionProblem == nil)

@@ -16,6 +16,11 @@ struct TimerTests {
         #expect(ElapsedText.accessibilityLabel(since: start) == Text(start, style: .relative))
     }
 
+    @Test func aFrozenTimerReadsTheTimeItStoppedAt() {
+        let start = now.addingTimeInterval(-133)
+        #expect(ElapsedText.frozenAccessibilityLabel(since: start, frozenAt: now) == "2 minutes, 13 seconds")
+    }
+
     @Test func aStartInTheFutureCountsFromNow() {
         #expect(ElapsedText.interval(since: now.addingTimeInterval(30), now: now).lowerBound == now)
     }

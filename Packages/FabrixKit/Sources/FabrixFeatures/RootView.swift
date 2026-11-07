@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixCore
 import FabrixDesign
 import SwiftUI
@@ -53,7 +54,11 @@ private struct AppRoot: View {
                 } description: {
                     Text((model.signedOutReason ?? .boardKeyRejected).message(for: model.factory?.name))
                 } actions: {
-                    SignInBanner()
+                    Button(.features("Sign in again")) {
+                        Task { await model.signInAgain() }
+                    }
+                    .buttonStyle(.fabrixPrimary)
+                    .disabled(model.browserSignIn != nil)
                     Button(.features("Choose another factory")) { model.disconnect() }
                 }
             } else {
@@ -70,10 +75,11 @@ private struct AppRoot: View {
                     }
                     .safeAreaInset(edge: .top) {
                         VStack(spacing: 0) {
-                            SignInBanner()
+                            ConnectionStatusBar()
                             ErrorBanner()
                         }
                     }
+                    .environment(\.timersFrozenAt, model.dataFrozenAt)
                     .modifier(ErrorAnnouncer())
                 case .empty:
                     // The title menu stays reachable so another factory can be opened or this one removed.

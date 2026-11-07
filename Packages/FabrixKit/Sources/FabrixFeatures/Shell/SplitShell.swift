@@ -103,6 +103,8 @@ struct CompanyToolbar: ToolbarContent {
         #if os(macOS)
         // The leading edge belongs to navigation and the title menu.
         ToolbarItem(placement: .secondaryAction) { pauseButton }
+        // Pull to refresh doesn't exist on macOS.
+        ToolbarItem(placement: .automatic) { refreshButton }
         ToolbarItem(placement: .automatic) { newTaskButton }
         #else
         ToolbarItemGroup(placement: .primaryAction) {
@@ -125,6 +127,22 @@ struct CompanyToolbar: ToolbarContent {
                 : .features("Pause every agent in \(company.name)"))
         }
     }
+
+    #if os(macOS)
+    private var refreshButton: some View {
+        Button {
+            Task { await model.refresh() }
+        } label: {
+            if model.isRefreshing {
+                ProgressView().controlSize(.small)
+            } else {
+                Label(.features("Refresh"), systemImage: "arrow.clockwise")
+            }
+        }
+        .disabled(model.isRefreshing)
+        .help(Text("Refresh (⌘R)", bundle: .module))
+    }
+    #endif
 
     private var newTaskButton: some View {
         Button {

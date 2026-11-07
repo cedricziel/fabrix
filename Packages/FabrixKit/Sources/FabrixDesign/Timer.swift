@@ -4,6 +4,7 @@ import SwiftUI
 /// re-rendering the view. VoiceOver reads it as words: "2 minutes, 13 seconds".
 public struct ElapsedText: View {
     private let since: Date
+    @Environment(\.timersFrozenAt) private var frozenAt
 
     public init(since: Date) {
         self.since = since
@@ -18,11 +19,26 @@ public struct ElapsedText: View {
         Text(since, style: .relative)
     }
 
-    public var body: some View {
-        Text(timerInterval: Self.interval(since: since, now: .now), countsDown: false)
-            .monospacedDigit()
-            .accessibilityLabel(Self.accessibilityLabel(since: since))
+    /// A stopped timer reads the time it showed when the data stopped arriving.
+    nonisolated static func frozenAccessibilityLabel(since: Date, frozenAt: Date) -> String {
+        Duration.seconds(max(0, frozenAt.timeIntervalSince(since)))
+            .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .wide))
     }
+
+    public var body: some View {
+        Text(timerInterval: Self.interval(since: since, now: frozenAt ?? .now), pauseTime: frozenAt, countsDown: false)
+            .monospacedDigit()
+            .opacity(frozenAt == nil ? 1 : 0.5)
+            .accessibilityLabel(
+                frozenAt.map { Text(verbatim: Self.frozenAccessibilityLabel(since: since, frozenAt: $0)) }
+                    ?? Self.accessibilityLabel(since: since)
+            )
+    }
+}
+
+public extension EnvironmentValues {
+    /// Set while the shown data is stale: every `ElapsedText` below stops at this time.
+    @Entry var timersFrozenAt: Date?
 }
 
 private struct TimerPreview: View {
