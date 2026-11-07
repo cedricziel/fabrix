@@ -373,4 +373,22 @@ struct AppLockTests {
         #expect(await lock.setConfirmsApprovals(false))
         #expect(!lock.confirmsApprovals)
     }
+
+    @Test func reactivatedSceneUncoversWhileTheAppStaysActive() async {
+        let lock = await enabledLock()
+        // iPad: window A deactivates while window B keeps the app active.
+        #expect(lock.shieldsScene(isActive: false))
+        #expect(!lock.shieldsScene(isActive: true))
+
+        // The whole app goes inactive: a reactivating scene keeps its cover until the app is active.
+        lock.sceneWillResignActive()
+        #expect(lock.shieldsScene(isActive: true))
+        lock.sceneDidBecomeActive(at: start)
+        #expect(!lock.shieldsScene(isActive: true))
+    }
+
+    @Test func scenesStayUncoveredWhileTheLockIsOff() {
+        let lock = AppLock(defaults: freshDefaults(), authenticator: StubAuthenticator())
+        #expect(!lock.shieldsScene(isActive: false))
+    }
 }

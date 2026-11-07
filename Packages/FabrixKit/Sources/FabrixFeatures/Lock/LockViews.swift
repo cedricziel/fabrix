@@ -123,11 +123,17 @@ private struct AppLockGate: ViewModifier {
             NotificationCenter.default.addObserver(
                 self, selector: #selector(sceneWillDeactivate), name: UIScene.willDeactivateNotification, object: scene
             )
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(sceneDidActivate), name: UIScene.didActivateNotification, object: scene
+            )
         }
 
         @objc private func sceneWillDeactivate() {
-            guard lock.settings.isEnabled, !lock.isAuthenticating else { return }
-            setCovered(true)
+            if lock.shieldsScene(isActive: false) { setCovered(true) }
+        }
+
+        @objc private func sceneDidActivate() {
+            setCovered(lock.shieldsScene(isActive: true))
         }
 
         func setCovered(_ covered: Bool) {
