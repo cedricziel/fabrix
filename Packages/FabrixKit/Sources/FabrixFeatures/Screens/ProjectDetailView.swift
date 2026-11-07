@@ -36,6 +36,7 @@ struct ProjectDetailView: View {
 
 private struct ProjectDetailContent: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.isCompact) private var isCompact
     let project: Project
     let board: ProjectBoard
 
@@ -46,6 +47,10 @@ private struct ProjectDetailContent: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 10) {
                         ProjectSwatch(colorHex: project.colorHex, size: 14)
+                        // The Mac and iPad toolbar title is the company menu, so the name goes here.
+                        if !isCompact {
+                            Text(project.name).font(.fabrix(.title)).accessibilityAddTraits(.isHeader)
+                        }
                         ProjectStatusPill(project.status.style)
                     }
                     if let summary = project.summary {
