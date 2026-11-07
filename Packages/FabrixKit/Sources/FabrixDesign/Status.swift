@@ -89,6 +89,12 @@ public struct StatusPill: View {
         text = [style.label, detail].compactMap(\.self).joined(separator: " · ")
     }
 
+    /// The style's look with another label, for statuses of other things (projects).
+    public init(_ style: StatusStyle, title: String) {
+        self.style = style
+        text = title
+    }
+
     public var body: some View {
         Pill(verbatim: text, tone: style.tone) { StatusDot(style) }
     }

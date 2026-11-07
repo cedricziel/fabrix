@@ -60,9 +60,9 @@ public struct ProjectChip: View {
     }
 }
 
-/// How a project status looks. Features map their project model onto this.
+/// How a project status looks: a `StatusPill` style with the project's own label.
 public enum ProjectStatusStyle: CaseIterable, Sendable {
-    case backlog, planned, inProgress, completed, cancelled
+    case backlog, planned, inProgress, completed, cancelled, other
 
     public var label: String {
         switch self {
@@ -71,45 +71,22 @@ public enum ProjectStatusStyle: CaseIterable, Sendable {
         case .inProgress: String(localized: "In progress", bundle: .module)
         case .completed: String(localized: "Completed", bundle: .module)
         case .cancelled: String(localized: "Cancelled", bundle: .module)
+        case .other: String(localized: "Other", bundle: .module)
         }
     }
 
-    var tone: StatusStyle.Tone {
+    public var statusStyle: StatusStyle {
         switch self {
-        case .backlog, .planned, .cancelled: .neutral
-        case .inProgress: .run
+        case .backlog, .planned, .cancelled, .other: .idle
+        case .inProgress: .running
         case .completed: .done
-        }
-    }
-
-    var dotColor: Color {
-        switch self {
-        case .backlog, .cancelled: Palette.idle
-        case .planned: Palette.steel
-        case .inProgress, .completed: tone.color
         }
     }
 }
 
-public struct ProjectStatusPill: View {
-    private let style: ProjectStatusStyle
-
-    public init(_ style: ProjectStatusStyle) {
-        self.style = style
-    }
-
-    public var body: some View {
-        HStack(spacing: 6) {
-            Circle().fill(style.dotColor).frame(width: 7, height: 7).accessibilityHidden(true)
-            Text(style.label).lineLimit(1)
-        }
-        .font(.fabrix(.label))
-        .foregroundStyle(style.tone.ink)
-        .padding(.horizontal, 10)
-        .frame(minHeight: 28)
-        .background(style.tone.tint, in: Capsule())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(style.label)
+extension StatusPill {
+    public init(_ project: ProjectStatusStyle) {
+        self.init(project.statusStyle, title: project.label)
     }
 }
 
@@ -169,7 +146,7 @@ public struct TaskCountsBar: View {
             ProjectChip(name: "Platform", colorHex: "#7C3AED")
             ProjectChip(name: "Billing", colorHex: nil)
         }
-        HStack { ForEach(ProjectStatusStyle.allCases, id: \.self) { ProjectStatusPill($0) } }
+        HStack { ForEach(ProjectStatusStyle.allCases, id: \.self) { StatusPill($0) } }
         TaskCountsBar(open: 7, blocked: 1, done: 4).frame(width: 260)
     }
     .padding()

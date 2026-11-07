@@ -24,14 +24,15 @@ struct ProjectComponentTests {
     }
 
     @Test(arguments: [
-        (ProjectStatusStyle.backlog, StatusStyle.Tone.neutral, "Backlog"),
-        (.planned, .neutral, "Planned"),
-        (.inProgress, .run, "In progress"),
+        (ProjectStatusStyle.backlog, StatusStyle.idle, "Backlog"),
+        (.planned, .idle, "Planned"),
+        (.inProgress, .running, "In progress"),
         (.completed, .done, "Completed"),
-        (.cancelled, .neutral, "Cancelled"),
+        (.cancelled, .idle, "Cancelled"),
+        (.other, .idle, "Other"),
     ])
-    func statusStyle(style: ProjectStatusStyle, tone: StatusStyle.Tone, label: String) {
-        #expect(style.tone == tone)
+    func statusStyle(style: ProjectStatusStyle, status: StatusStyle, label: String) {
+        #expect(style.statusStyle == status)
         #expect(style.label == label)
     }
 }
