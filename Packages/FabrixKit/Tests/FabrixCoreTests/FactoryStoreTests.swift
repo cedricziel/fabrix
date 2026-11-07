@@ -64,6 +64,22 @@ struct FactoryStoreTests {
         }
     }
 
+    @Test func everySaveOrRemovalChangesTheRevision() async throws {
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = FactoryStore(defaults: defaults, credentials: credentials, session: paperclip.session)
+        let start = store.revision
+
+        let factory = try await store.connect(url: paperclip.baseURL, credential: "old")
+        let afterConnect = store.revision
+        try await store.connect(url: paperclip.baseURL, credential: "new")
+        let afterReconnect = store.revision
+        store.remove(factory)
+
+        #expect(afterConnect > start)
+        #expect(afterReconnect > afterConnect)
+        #expect(store.revision > afterReconnect)
+    }
+
     @Test func reconnectingSameServerReplacesCredentialAndKeepsID() async throws {
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
         let store = store(server)

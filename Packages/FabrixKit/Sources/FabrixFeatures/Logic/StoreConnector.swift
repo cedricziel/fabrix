@@ -31,6 +31,10 @@ public final class StoreConnector: FactoryConnector {
         store.factories
     }
 
+    public var revision: Int {
+        store.revision
+    }
+
     public func restore(factoryID: Factory.ID) -> FactoryConnection? {
         guard let factory = store.factories.first(where: { $0.id == factoryID }),
               let service = try? store.service(for: factory)

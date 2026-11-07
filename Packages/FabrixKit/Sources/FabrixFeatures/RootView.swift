@@ -100,8 +100,8 @@ public struct RootView: View {
         .onChange(of: SwitchContext(factoryID: model.factory?.id, companyID: model.snapshot?.company.id)) {
             navigator.resetPaths()
         }
-        .onChange(of: model.factoryMenu.factories.map(\.id)) {
-            Task { await model.leaveIfRemoved() }
+        .onChange(of: model.storeRevision) {
+            Task { await model.followStoreChanges() }
         }
         // Last, so sheets, dialogs and popovers presented above inherit the same environment.
         .environment(model)
