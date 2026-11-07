@@ -359,4 +359,18 @@ struct AppLockTests {
         #expect(!model.waitingApprovals.contains { $0.id == approval.id })
         #expect(model.decidedApprovals.contains { $0.id == approval.id && $0.canUndo })
     }
+
+    @Test func turningOffApprovalConfirmationNeedsTheOwner() async {
+        let authenticator = StubAuthenticator(results: [.cancelled])
+        let lock = AppLock(defaults: freshDefaults(), authenticator: authenticator)
+        #expect(await lock.setConfirmsApprovals(true))
+        #expect(authenticator.calls.isEmpty)
+
+        #expect(await !lock.setConfirmsApprovals(false))
+        #expect(lock.confirmsApprovals)
+
+        authenticator.results = [.success]
+        #expect(await lock.setConfirmsApprovals(false))
+        #expect(!lock.confirmsApprovals)
+    }
 }

@@ -58,9 +58,19 @@ public final class AppLock {
         set { settings.timeout = newValue }
     }
 
-    public var confirmsApprovals: Bool {
+    /// Set through `setConfirmsApprovals(_:)` so turning it off needs the owner.
+    public internal(set) var confirmsApprovals: Bool {
         get { settings.confirmsApprovals }
         set { settings.confirmsApprovals = newValue }
+    }
+
+    @discardableResult
+    public func setConfirmsApprovals(_ confirms: Bool) async -> Bool {
+        if !confirms, settings.confirmsApprovals {
+            guard await confirmDecision() else { return false }
+        }
+        settings.confirmsApprovals = confirms
+        return true
     }
 
     public var biometry: Biometry {
@@ -89,7 +99,7 @@ public final class AppLock {
         biometry.name ?? Self.secretName
     }
 
-    private static var secretName: String {
+    static var secretName: String {
         #if os(macOS)
             String(localized: "password")
         #else
