@@ -41,7 +41,7 @@ The app SHALL accept a server address with or without a scheme and with or witho
 
 ### Requirement: Credentials only over trusted transport
 
-The app SHALL send a board key or OIDC token, and SHALL run browser sign-in, only over HTTPS or over plain HTTP to this machine or a private network. Private networks are loopback, `.local` and `.localhost` names, RFC 1918 addresses, `100.64.0.0/10` (Tailscale), link-local, and IPv6 unique-local addresses.
+The app SHALL send a board key or OIDC token, and SHALL run browser sign-in (including polling the sign-in request), only over HTTPS or over plain HTTP to this machine or a private network. Private networks are loopback, `.local` and `.localhost` names, literal RFC 1918 IPv4 addresses (exactly four numeric parts, so `192.168.1.1.example.com` is not one), `100.64.0.0/10` (Tailscale), link-local, and IPv6 unique-local addresses.
 
 #### Scenario: Board key to a remote server over HTTP
 

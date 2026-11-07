@@ -96,8 +96,9 @@ public struct PaperclipClient: Sendable {
         guard let host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) else { return false }
         if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
         if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") { return host.contains(":") }
-        let octets = host.split(separator: ".").compactMap { UInt8($0) }
-        guard octets.count == 4 else { return false }
+        let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        let octets = labels.compactMap { UInt8($0) }
+        guard labels.count == 4, octets.count == 4 else { return false }
         switch (octets[0], octets[1]) {
         case (127, _), (10, _), (192, 168), (169, 254): return true
         case (172, 16 ... 31): return true
@@ -119,7 +120,9 @@ public struct PaperclipClient: Sendable {
         )
     }
 
+    /// The poll sends the challenge token, so it follows the same transport rule as sign-in.
     public func signInStatus(_ challenge: SignInChallenge) async throws -> SignInChallenge.Status {
+        guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         let status: SignInChallengeStatusDTO = try await get("cli-auth/challenges/\(challenge.id)", query: ["token": challenge.token])
         return SignInChallenge.Status(rawValue: status.status) ?? .pending
     }

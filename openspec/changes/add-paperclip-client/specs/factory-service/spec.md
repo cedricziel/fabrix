@@ -10,11 +10,20 @@ The app SHALL provide a factory service backed by a Paperclip server. It SHALL l
 - **THEN** the snapshot contains its agents without terminated ones, its issues as tasks, its pending approvals, its recent runs and its recent activity
 - **AND** monthly spend and budget come from the company, with a zero budget shown as no budget
 
-#### Scenario: Unknown status from a newer server
+#### Scenario: Unknown agent or issue status from a newer server
 
-- **WHEN** the server sends an agent status, issue status, approval type or approval status this version of Fabrix does not know
-- **THEN** the snapshot still loads
-- **AND** the agent is shown as idle, the issue as backlog, the approval's kind as other, and its state as pending
+- **WHEN** the server sends an agent or issue status this version of Fabrix does not know
+- **THEN** the snapshot still loads, with the agent shown as idle or the issue as backlog
+
+#### Scenario: Unknown approval type
+
+- **WHEN** the server sends an approval type this version of Fabrix does not know
+- **THEN** the approval's kind is other, and its state still follows its status
+
+#### Scenario: Unknown approval status
+
+- **WHEN** the server sends an approval status this version of Fabrix does not know
+- **THEN** the approval's state is pending, and its kind still follows its type
 
 ### Requirement: Paperclip status mapping
 

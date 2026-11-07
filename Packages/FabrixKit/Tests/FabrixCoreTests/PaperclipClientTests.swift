@@ -164,6 +164,9 @@ struct PaperclipClientTests {
         ("http://8.8.8.8", false),
         ("http://172.32.0.1", false),
         ("http://100.128.0.1", false),
+        ("http://192.168.attacker.1.1.example.com", false),
+        ("http://10.0.0.5.example.com", false),
+        ("http://192.168.1", false),
     ])
     func allowsCredentialsOnlyOverHTTPSOrLocalNetworks(url: String, allowed: Bool) throws {
         #expect(PaperclipClient.allowsCredentials(to: try #require(URL(string: url))) == allowed)
@@ -175,6 +178,17 @@ struct PaperclipClientTests {
         let client = try PaperclipClient(baseURL: #require(URL(string: "http://paperclip.example.com")), credential: "pcp_board_secret", session: server.session)
 
         await #expect(throws: PaperclipError.insecureConnection) { try await client.boardSession() }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func refusesSignInPollingOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let remote = try #require(URL(string: "http://paperclip.example.com"))
+        let client = PaperclipClient(baseURL: remote, session: server.session)
+        let challenge = SignInChallenge(serverURL: remote, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: remote, pollInterval: .zero)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await client.signInStatus(challenge) }
         #expect(recorder.requests.isEmpty)
     }
 
