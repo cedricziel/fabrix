@@ -216,6 +216,8 @@ def build_target(key, options)
   match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
   sync_code_signing(**match_params)
 
+  write_telemetry_secrets
+
   # The project is generated, so signing settings go onto a fresh copy.
   sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
 
@@ -335,6 +337,22 @@ def public_beta_params
     notes: File.read(File.join(__dir__, "metadata", "beta", "review_notes.txt")).strip
   }
   params
+end
+
+# Bakes the SignalDB ingest key into the build via a gitignored xcconfig, so it never
+# shows up in xcodebuild arguments or logs. Without both values the app runs with telemetry off.
+def write_telemetry_secrets
+  path = File.join(REPO_ROOT, "Config", "Telemetry.secrets.xcconfig")
+  endpoint = ENV["OTLP_ENDPOINT"].to_s.strip
+  api_key = ENV["OTLP_API_KEY"].to_s.strip
+  if endpoint.empty? || api_key.empty?
+    File.delete(path) if File.exist?(path)
+    UI.important("OTLP_ENDPOINT or OTLP_API_KEY not set: building with telemetry off")
+    return
+  end
+  # xcconfig treats // as a comment, so split it with an empty variable expansion.
+  File.write(path, "OTLP_ENDPOINT = #{endpoint.gsub("//", "/$()/")}\nOTLP_API_KEY = #{api_key}\n")
+  UI.message("Telemetry export enabled for this build")
 end
 
 def load_app_store_connect_api_key
