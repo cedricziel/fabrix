@@ -76,6 +76,10 @@ struct FactoryStoreTests {
         }
     }
 
+    @Test func aSilentServerTimesOutWithinFifteenSeconds() {
+        #expect(FactoryStore.defaultSession.configuration.timeoutIntervalForRequest == 15)
+    }
+
     @Test func everySaveOrRemovalChangesTheRevision() async throws {
         let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
         let store = FactoryStore(defaults: defaults, credentials: credentials, session: paperclip.session)
