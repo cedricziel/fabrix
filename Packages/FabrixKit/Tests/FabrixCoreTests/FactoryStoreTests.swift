@@ -286,31 +286,32 @@ struct FactoryStoreTests {
         #expect(try credentials.credential(for: "\(factory.id).oidc") != nil)
     }
 
-    @Test func browserSignInChecksTransportBeforeOIDCSignIn() async throws {
+    /// Runs `connect` against a remote plain-HTTP server and checks it fails before the identity provider is involved.
+    private func expectInsecureBeforeOIDCLogin(
+        _ connect: (FactoryStore, OIDCSettings, FakeWebAuthenticator) async throws -> Void
+    ) async {
         let idpRequests = RequestRecorder()
         let idp = identityProvider(recorder: idpRequests)
         let browser = FakeWebAuthenticator.approving()
         let store = FactoryStore(defaults: defaults, credentials: credentials, session: idp.session)
-        let frontDoor = OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token")
 
         await #expect(throws: PaperclipError.insecureConnection) {
-            try await store.startSignIn(url: URL(string: "http://paperclip.example.com")!, clientName: "Fabrix", frontDoor: frontDoor, webAuthenticator: browser)
+            try await connect(store, OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token"), browser)
         }
         #expect(browser.authorizeURL == nil)
         #expect(idpRequests.requests.isEmpty)
     }
 
-    @Test func oidcConnectChecksTransportBeforeOIDCSignIn() async throws {
-        let idpRequests = RequestRecorder()
-        let idp = identityProvider(recorder: idpRequests)
-        let browser = FakeWebAuthenticator.approving()
-        let store = FactoryStore(defaults: defaults, credentials: credentials, session: idp.session)
-        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL), usesBoardKey: false)
-
-        await #expect(throws: PaperclipError.insecureConnection) {
-            try await store.connect(url: URL(string: "http://paperclip.example.com")!, auth: auth, boardKey: nil, webAuthenticator: browser)
+    @Test func browserSignInChecksTransportBeforeOIDCSignIn() async {
+        await expectInsecureBeforeOIDCLogin { store, frontDoor, browser in
+            _ = try await store.startSignIn(url: URL(string: "http://paperclip.example.com")!, clientName: "Fabrix", frontDoor: frontDoor, webAuthenticator: browser)
         }
-        #expect(browser.authorizeURL == nil)
-        #expect(idpRequests.requests.isEmpty)
+    }
+
+    @Test func oidcConnectChecksTransportBeforeOIDCSignIn() async {
+        await expectInsecureBeforeOIDCLogin { store, oidc, browser in
+            let auth = FactoryAuthConfiguration(oidc: oidc, usesBoardKey: true)
+            try await store.connect(url: URL(string: "http://paperclip.example.com")!, auth: auth, boardKey: "pcp_board_secret", webAuthenticator: browser)
+        }
     }
 }

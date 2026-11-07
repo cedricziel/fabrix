@@ -187,7 +187,7 @@ struct PaperclipClientTests {
     @Test func doesNotFollowRedirectsToAnotherOrigin() async throws {
         let attacker = RequestRecorder()
         let evil = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: attacker)
-        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let downgraded = evil.httpBaseURL
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: downgraded.appending(path: "api/cli-auth/me"))])
         let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
 
@@ -202,7 +202,7 @@ struct PaperclipClientTests {
     @Test func signInPollingDoesNotFollowRedirectsToAnotherOrigin() async throws {
         let attacker = RequestRecorder()
         let evil = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#)], recorder: attacker)
-        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let downgraded = evil.httpBaseURL
         let server = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .redirect(to: downgraded.appending(path: "api/cli-auth/challenges/ch-1"))])
         let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
         let challenge = SignInChallenge(serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero)

@@ -91,6 +91,10 @@ private extension Data {
 /// A fake Paperclip server on its own host. Routes are "METHOD /path" without the query.
 struct FakeServer {
     let baseURL: URL
+    /// `baseURL` over plain HTTP; the stub serves both schemes for the host.
+    var httpBaseURL: URL {
+        URL(string: "http://\(baseURL.host()!)")!
+    }
     let session: URLSession
 
     init(routes: [String: StubURLProtocol.Response], recorder: RequestRecorder? = nil, dynamicRoutes: [String: StubURLProtocol.Handler] = [:]) {

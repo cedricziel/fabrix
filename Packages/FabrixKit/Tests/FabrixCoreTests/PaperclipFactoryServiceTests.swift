@@ -132,7 +132,7 @@ struct PaperclipFactoryServiceTests {
     }
 
     @Test func snapshotListsAnApprovalOnceWhenBothStatusQueriesReturnIt() async throws {
-        // An approval can move from pending to revision_requested between the two parallel requests.
+        // This route ignores the status filter, so every approval comes back from both queries.
         let server = FakeServer(routes: snapshotRoutes)
         let service = PaperclipFactoryService(client: PaperclipClient(baseURL: server.baseURL, credential: "k", session: server.session))
 

@@ -203,7 +203,7 @@ struct OIDCFlowTests {
     @Test func refusesIssuerOverRemoteHTTP() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: [:], recorder: recorder)
-        let issuer = try #require(URL(string: server.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let issuer = server.httpBaseURL
         let browser = FakeWebAuthenticator.approving()
         let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: issuer), session: server.session)
 
@@ -222,7 +222,7 @@ struct OIDCFlowTests {
     @Test func refusesTokenEndpointOverRemoteHTTP() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: [:], recorder: recorder)
-        let endpoint = try #require(URL(string: server.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://") + "/token"))
+        let endpoint = server.httpBaseURL.appending(path: "token")
         let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
         let current = OIDCTokens(accessToken: "a", refreshToken: "refresh-1", expiresAt: nil, tokenEndpoint: endpoint)
 
