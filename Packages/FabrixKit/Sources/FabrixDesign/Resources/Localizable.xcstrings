@@ -30,18 +30,6 @@
     },
     "Strategy" : {
 
-    },
-    "fabrix.catalog.probe" : {
-      "comment" : "Not shown. Lets tests tell a lookup in this bundle from a fallback to the key.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "FabrixDesign catalog"
-          }
-        }
-      }
     }
   },
   "version" : "1.0"
