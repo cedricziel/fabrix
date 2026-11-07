@@ -38,6 +38,7 @@ None of it is linked to your identity. Fabrix does not send an advertising ID, t
 - URL scheme and server port.
 - URL path, with identifiers replaced by `{id}`, for example `/api/companies/{id}/agents`.
 - Request and response body sizes, in bytes.
+- On iPhone and iPad, the connection type: `wifi`, `cell` or `unavailable`. The cellular technology and your carrier's name and country and network codes are removed.
 
 The server host name is never sent in readable form (see below). Query strings, fragments, and user names and passwords in URLs are removed.
 
