@@ -36,7 +36,8 @@
   - the replaced-check runs before refreshing, inside a serialized `OIDCTokenStore`;
   - a failed Keychain read keeps the fresh tokens (`keepsFreshTokensWhenKeychainReadFailsAfterRefresh`);
   - a rejected refresh token is not retried (`rejectedRefreshIsNotRetried`);
-  - a corrupt blob is reported as unreadable (`corruptStoredTokensAreReportedAsUnreadable`).
+  - a corrupt blob is reported as unreadable (`corruptStoredTokensAreReportedAsUnreadable`);
+  - redirects are followed only within the same origin, for Paperclip and IdP requests (`PaperclipClientTests.doesNotFollowRedirectsToAnotherOrigin`, `OIDCFlowTests.refreshDoesNotFollowRedirectsToAnotherOrigin`).
 
   Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`, `OIDCAuthProviderTests.concurrentRequestsAllSeeRejectedRefreshAsUnauthorized`, `refreshAfterRemovalDoesNotRecreateTokens`, `refreshAfterReconnectKeepsTheNewSignIn`, `jsonProxy401StillRefreshes`.
 

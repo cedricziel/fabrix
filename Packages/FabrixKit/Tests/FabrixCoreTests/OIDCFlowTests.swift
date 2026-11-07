@@ -178,4 +178,15 @@ struct OIDCFlowTests {
 
         await #expect(throws: PaperclipError.transport(.cannotFindHost)) { try await flow.discover() }
     }
+
+    @Test func refreshDoesNotFollowRedirectsToAnotherOrigin() async throws {
+        let attacker = RequestRecorder()
+        let evil = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens())], recorder: attacker)
+        let server = FakeServer(routes: ["POST /token": .redirect(to: evil.baseURL.appending(path: "token"))])
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
+        let current = OIDCTokens(accessToken: "a", refreshToken: "refresh-1", expiresAt: nil, tokenEndpoint: server.baseURL.appending(path: "token"))
+
+        await #expect(throws: OIDCError.self) { try await flow.refresh(current) }
+        #expect(attacker.requests.isEmpty)
+    }
 }

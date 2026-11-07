@@ -174,6 +174,9 @@ public struct PaperclipClient: Sendable {
             (data, response) = try await load(auth.authorize(request))
         }
         let status = response?.statusCode ?? 0
+        if (300 ..< 400).contains(status), let location = response?.value(forHTTPHeaderField: "Location") {
+            throw PaperclipError.server(status: status, message: "The server redirected to \(location). Connect to that address instead.")
+        }
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
             throw PaperclipError(status: status, message: message)
@@ -183,7 +186,7 @@ public struct PaperclipClient: Sendable {
 
     private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
             return (data, response as? HTTPURLResponse)
         } catch let error as URLError {
             throw PaperclipError.transport(error.code)

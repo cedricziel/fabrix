@@ -54,6 +54,11 @@ The app SHALL send a board key or OIDC token, and SHALL run browser sign-in (inc
 - **WHEN** the user connects to `http://paperclip.example.com` with a board key
 - **THEN** connecting fails with an insecure-connection error before any request is sent
 
+#### Scenario: Redirect to another address
+
+- **WHEN** the server or the identity provider answers a credential-bearing request with a redirect to a different scheme, host or port
+- **THEN** the app does not follow it and reports the new address, so no credential or sign-in token reaches that address
+
 #### Scenario: Board key to a server on the local network
 
 - **WHEN** the user connects to `http://192.168.1.20:3100` with a board key

@@ -77,7 +77,7 @@ struct OIDCFlow: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(from: url)
+            (data, response) = try await session.data(from: url, delegate: SameOriginRedirects.shared)
         } catch let error as URLError {
             throw PaperclipError.transport(error.code)
         }
@@ -157,7 +157,7 @@ struct OIDCFlow: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
         } catch let error as URLError {
             throw PaperclipError.transport(error.code)
         }
