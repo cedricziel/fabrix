@@ -63,7 +63,7 @@ public final class FactoryStore {
 
         var oidcTokens: OIDCTokens?
         if let oidc = auth.oidc {
-            oidcTokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
+            oidcTokens = try await signInToIdentityProvider(oidc, for: baseURL, webAuthenticator: webAuthenticator)
         }
         return try await validateAndSave(baseURL: baseURL, auth: auth, boardKey: key, oidcTokens: oidcTokens, name: name)
     }
@@ -81,7 +81,7 @@ public final class FactoryStore {
         var oidcTokens: OIDCTokens?
         if let frontDoor {
             try FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true).validate()
-            oidcTokens = try await signInToIdentityProvider(frontDoor, webAuthenticator: webAuthenticator)
+            oidcTokens = try await signInToIdentityProvider(frontDoor, for: baseURL, webAuthenticator: webAuthenticator)
         }
         let staged = try stage(frontDoor, oidcTokens)
         var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil), session: session)
@@ -113,7 +113,11 @@ public final class FactoryStore {
         }
     }
 
-    private func signInToIdentityProvider(_ settings: OIDCSettings, webAuthenticator: (any WebAuthenticator)?) async throws -> OIDCTokens {
+    /// Checks the Paperclip transport first, so the user isn't sent through a login that can't be used.
+    private func signInToIdentityProvider(
+        _ settings: OIDCSettings, for baseURL: URL, webAuthenticator: (any WebAuthenticator)?
+    ) async throws -> OIDCTokens {
+        guard PaperclipClient.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         guard let webAuthenticator else {
             throw PaperclipError.invalidAuthConfiguration("OIDC sign-in needs a web authenticator.")
         }
