@@ -45,5 +45,5 @@
 
 - [x] 5.1 Add `scripts/paperclip-sandbox-seed.sh`: bootstrap a board user, create a board key, a company, agents, issues and an approval, and print `FABRIX_SANDBOX_URL`/`FABRIX_SANDBOX_KEY`. Files: `scripts/`. No Swift test: it is exercised by 5.2.
 - [x] 5.2 Add sandbox-gated contract tests that skip unless `FABRIX_SANDBOX_URL` is set: connect, snapshot, approve, pause and wake against the seeded server. Files: `FabrixCoreTests/SandboxContractTests.swift`. Test: `SandboxContractTests` (red against a stale client, green against the sandbox).
-- [ ] 5.3 Update the seed section of the `validate` skill to match the script. Files: `.claude/skills/validate/SKILL.md`. No test: documentation.
+- [x] 5.3 Update the seed section of the `validate` skill to match the script. Files: `.claude/skills/validate/SKILL.md`. No test: documentation.
 - [ ] 5.4 Run the validate loop end to end, then archive this change as the last commit. Files: `openspec/`. No test: process.
