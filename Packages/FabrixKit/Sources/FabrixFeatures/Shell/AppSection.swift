@@ -52,6 +52,11 @@ enum CompactTab: Hashable, CaseIterable {
     }
 
     var title: LocalizedStringKey { self == .factory ? "Factory" : root.title }
+
+    /// Sections reached from inside this tab rather than from a tab of their own.
+    var nestedSections: [AppSection] {
+        AppSection.allCases.filter { $0 != root && CompactTab(containing: $0) == self }
+    }
 }
 
 /// Where the user is. Screens call `open(_:)`; each shell decides how to get there.

@@ -19,6 +19,11 @@ struct NavigatorTests {
         #expect(navigator.tabPaths[.approvals]?.isEmpty == true)
     }
 
+    @Test func factoryTabOffersTheSectionsWithoutATab() {
+        #expect(CompactTab.factory.nestedSections == [.orgChart, .activity])
+        #expect(CompactTab.tasks.nestedSections.isEmpty)
+    }
+
     @Test func compactLayoutPushesSectionsWithoutATabOntoFactory() {
         let navigator = Navigator()
         navigator.isCompact = true

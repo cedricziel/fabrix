@@ -29,6 +29,19 @@ private struct TabStack: View {
                 .fabrixDestinations()
                 .toolbar {
                     if tab == .factory { CompanyToolbar() }
+                    if !tab.nestedSections.isEmpty {
+                        ToolbarItem(placement: .navigation) {
+                            Menu {
+                                ForEach(tab.nestedSections) { section in
+                                    Button { navigator.open(section) } label: {
+                                        Label(section.title, systemImage: section.systemImage)
+                                    }
+                                }
+                            } label: {
+                                Label("More", systemImage: "ellipsis.circle")
+                            }
+                        }
+                    }
                 }
                 .modifier(SearchField(enabled: tab == .tasks || tab == .agents, text: $model.searchText))
         }
