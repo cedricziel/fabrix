@@ -660,7 +660,7 @@ public final class AppModel {
             if isGone {
                 forgetDecisions(keeping: Set(fresh?.approvals.map(\.id) ?? []))
                 if let gone = snapshot?.company.name {
-                    actionError = String(localized: "\(gone) is no longer available.")
+                    actionError = String(localized: "\(gone) is no longer available.", bundle: .module)
                 }
             }
             selectedCompanyID = fresh?.company.id
