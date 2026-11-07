@@ -29,6 +29,11 @@ struct ApprovalsView: View {
                     }
                     ForEach(waiting) { approval in
                         ApprovalCard(approval: approval) {
+                            if let error = model.decisionErrors[approval.id] {
+                                Label("Your decision wasn't sent: \(error)", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.footnote)
+                                    .foregroundStyle(Palette.halt)
+                            }
                             HStack(spacing: 10) {
                                 Button("Approve") { decide(approval, true) }
                                     .buttonStyle(FabrixButtonStyle(role: .primary, fullWidth: true))
