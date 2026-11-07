@@ -267,17 +267,27 @@ public final class AppModel {
             return desk.beginCommit(id).map { (id, $0) }
         }
         guard !verdicts.isEmpty else { return }
-        do {
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for (id, approve) in verdicts {
-                    group.addTask { try await service.decide(approvalID: id, approve: approve) }
+        let failures = await withTaskGroup(of: String?.self) { group in
+            for (id, approve) in verdicts {
+                group.addTask {
+                    do {
+                        try await service.decide(approvalID: id, approve: approve)
+                        return nil
+                    } catch {
+                        return error.localizedDescription
+                    }
                 }
-                try await group.waitForAll()
             }
-        } catch {
-            lastError = error.localizedDescription
+            var failures: [String] = []
+            for await failure in group {
+                if let failure { failures.append(failure) }
+            }
+            return failures
         }
         await refresh()
+        if let failure = failures.first {
+            lastError = failure
+        }
         verdicts.forEach { desk.finish($0.0) }
     }
 

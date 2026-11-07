@@ -56,4 +56,41 @@ struct ApprovalFlowTests {
         #expect(model.snapshot?.pendingApprovals.isEmpty == true)
         #expect(model.decidedApprovals.allSatisfy { !$0.canUndo })
     }
+
+    @Test func slowPollCannotBringBackADecidedApproval() async throws {
+        let service = GatedService()
+        let model = AppModel(
+            connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service),
+            defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .seconds(60)
+        )
+        await model.refresh()
+        let approval = try #require(model.waitingApprovals.first)
+
+        await service.holdNextSnapshot()
+        let poll = Task { await model.refresh() }
+        await service.waitUntilHolding()
+        model.decide(approval, approve: true)
+        await model.commitStagedDecisions()
+        await service.release()
+        await poll.value
+
+        #expect(!model.waitingApprovals.contains { $0.id == approval.id })
+        #expect(model.snapshot?.approvals.first { $0.id == approval.id }?.state == .approved)
+    }
+
+    @Test func oneFailedDecisionDoesNotStopTheOthers() async throws {
+        let service = GatedService(failingDecisions: ["h1"])
+        let model = AppModel(
+            connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service),
+            defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .seconds(60)
+        )
+        await model.refresh()
+        model.waitingApprovals.forEach { model.decide($0, approve: true) }
+
+        await model.commitStagedDecisions()
+
+        #expect(model.waitingApprovals.map(\.id) == ["h1"])
+        #expect(model.snapshot?.approvals.filter { $0.state == .approved }.map(\.id).sorted() == ["b1", "s1"])
+        #expect(model.lastError != nil)
+    }
 }
