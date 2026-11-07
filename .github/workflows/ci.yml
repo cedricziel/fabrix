@@ -33,6 +33,8 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           xcode-version: latest-stable
+      - name: Feature strings name their bundle
+        run: scripts/check-feature-strings.sh
       - name: Package tests
         run: xcrun swift test --package-path Packages/FabrixKit
       - name: Install XcodeGen
