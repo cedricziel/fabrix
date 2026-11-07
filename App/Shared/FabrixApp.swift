@@ -1,13 +1,14 @@
+import FabrixCore
 import FabrixFeatures
 import SwiftUI
 
 @main
 struct FabrixApp: App {
-    @State private var model = AppModel(connector: StoreConnector())
+    private let factoryStore = FactoryStore()
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
+            RootView(factoryStore: factoryStore)
         }
         #if os(macOS)
         .defaultSize(width: 1280, height: 820)

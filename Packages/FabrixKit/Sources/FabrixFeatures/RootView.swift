@@ -1,3 +1,4 @@
+import FabrixCore
 import FabrixDesign
 import SwiftUI
 
@@ -11,6 +12,12 @@ public struct RootView: View {
 
     public init(model: AppModel = AppModel()) {
         _model = State(initialValue: model)
+    }
+
+    /// Connects and reopens factories through `factoryStore`. Pass the app's single store so
+    /// other parts of the app (telemetry scrubbing) see factories as soon as they are added.
+    public init(factoryStore: FactoryStore) {
+        _model = State(initialValue: AppModel(connector: StoreConnector(store: factoryStore)))
     }
 
     public var body: some View {
