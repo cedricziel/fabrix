@@ -102,11 +102,13 @@ struct BrowserSignInTests {
     }
 
     /// Connects with a pasted key, then relaunches with the saved factory answering through `service`.
-    private func relaunched(_ connector: RecordingConnector, service: any FactoryService, usesBoardKey: Bool = true) async -> AppModel {
+    private func relaunched(
+        _ connector: RecordingConnector, service: any FactoryService, usesBoardKey: Bool = true, usesOIDC: Bool = false
+    ) async -> AppModel {
         let first = model(connector)
         await first.connect(ConnectForm(address: "factory.example", method: .paperclip, apiKey: "old"))
         let factory = first.factory!
-        connector.saved[factory.id] = FactoryConnection(factory: factory, service: service, usesBoardKey: usesBoardKey)
+        connector.saved[factory.id] = FactoryConnection(factory: factory, service: service, usesBoardKey: usesBoardKey, usesOIDC: usesOIDC)
         let model = model(connector)
         await model.refresh()
         return model
@@ -240,6 +242,7 @@ struct BrowserSignInTests {
         let (model, _, rejecting) = await rejectedModel()
 
         #expect(model.needsSignIn)
+        #expect(model.signedOutReason == .boardKeyRejected)
         #expect(model.lastError == nil)
         let callsAfterRejection = rejecting.calls.withLock { $0 }
         await model.refresh()
@@ -430,6 +433,104 @@ struct BrowserSignInTests {
 
         #expect(renewed.decided.withLock { $0 } == [approval.id])
     }
+
+    // MARK: - Follow-ups
+
+    @Test func publicSignInAgainUsesTheAuthenticatorTheViewsProvide() async {
+        let (model, connector, _) = await rejectedModel()
+        let sheet = ApprovalSheet()
+        connector.beforeCompleting = { await sheet.waitUntilOpened() }
+        model.webAuthenticator = sheet
+
+        await model.signInAgain()
+
+        #expect(connector.reauthenticators == 1)
+        #expect(sheet.opened.count == 1)
+        #expect(!model.needsSignIn)
+    }
+
+    @Test func oidcOnlyFactorySignsInAgainThroughTheIdentityProvider() async {
+        let connector = RecordingConnector()
+        let model = await relaunched(connector, service: ProxySignedOut(), usesBoardKey: false, usesOIDC: true)
+        #expect(model.needsSignIn)
+        model.webAuthenticator = ApprovalSheet()
+
+        await model.signInAgain()
+
+        #expect(connector.identityProviderSignIns == [model.factory?.id])
+        #expect(connector.reauthenticated.isEmpty)
+        #expect(!model.needsSignIn)
+        #expect(model.snapshot?.company.name == "Atlas")
+    }
+
+    @Test func failedIdentityProviderSignInShowsWhyAndCanBeRetried() async {
+        let connector = RecordingConnector()
+        connector.identityProviderError = OIDCError.provider(code: "access_denied", description: "User said no")
+        let model = await relaunched(connector, service: ProxySignedOut(), usesBoardKey: false, usesOIDC: true)
+        model.webAuthenticator = ApprovalSheet()
+
+        await model.signInAgain()
+
+        #expect(model.browserSignIn?.failure == "User said no")
+        #expect(model.needsSignIn)
+        connector.identityProviderError = nil
+        await model.retryBrowserSignIn()
+        #expect(connector.identityProviderSignIns.count == 2)
+        #expect(!model.needsSignIn)
+        #expect(model.browserSignIn == nil)
+    }
+
+    @Test func signedOutTextNamesWhatEnded() {
+        #expect(SignedOutReason.boardKeyRejected.message(for: "Atlas") == "Atlas no longer accepts Fabrix's key.")
+        #expect(SignedOutReason.identityProviderSessionEnded.message(for: "Atlas") == "Your single sign-on session for Atlas ended.")
+    }
+
+    @Test func cancelBeatsALateIdentityProviderFailure() async {
+        let connector = RecordingConnector()
+        connector.identityProviderError = OIDCError.provider(code: "access_denied", description: "User said no")
+        let model = await relaunched(connector, service: ProxySignedOut(), usesBoardKey: false, usesOIDC: true)
+        model.webAuthenticator = ApprovalSheet()
+        connector.beforeIdentityProvider = { await MainActor.run { model.cancelBrowserSignIn() } }
+
+        await model.signInAgain()
+
+        #expect(model.browserSignIn == nil)
+        #expect(model.needsSignIn)
+    }
+
+    @Test func expiredProxySessionOnABoardKeyFactoryAsksToSignInAgain() async {
+        let model = await relaunched(RecordingConnector(), service: ProxySignedOut(), usesBoardKey: true, usesOIDC: true)
+
+        #expect(model.needsSignIn)
+        #expect(model.signedOutReason == .identityProviderSessionEnded)
+        #expect(model.lastError == nil)
+    }
+
+    @Test(arguments: [(true, ConnectForm.Method.oidcWithBrowser), (false, .oidc)])
+    func reconnectFormKeepsTheSingleSignOnSettings(usesBoardKey: Bool, method: ConnectForm.Method) {
+        let oidc = OIDCSettings(issuer: URL(string: "https://auth.example")!, clientID: "fabrix", redirectURI: StoreConnector.redirectURI)
+        let request = ReconnectNeeded(
+            factory: Factory(id: "f", name: "F", baseURL: URL(string: "https://f.example")!, isOnline: true),
+            headerNames: ["X-Proxy-Token"], reason: "gone", auth: FactoryAuthConfiguration(oidc: oidc, usesBoardKey: usesBoardKey)
+        )
+
+        let form = ConnectForm(reconnecting: request)
+
+        #expect(form.method == method)
+        #expect(form.issuer == "https://auth.example")
+        #expect(form.clientID == "fabrix")
+        #expect(form.headers.map(\.name) == ["X-Proxy-Token"])
+    }
+}
+
+/// Loads nothing because the proxy session in front of Paperclip ended.
+private struct ProxySignedOut: FactoryService {
+    func companies() async throws -> [Company] { throw PaperclipError.signInRequired("Session expired") }
+    func snapshot(companyID _: Company.ID) async throws -> CompanySnapshot { throw PaperclipError.signInRequired(nil) }
+    func decide(approvalID _: Approval.ID, approve _: Bool) async throws {}
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
 }
 
 /// Loads like the demo but rejects decisions, as a factory does once the key is revoked.

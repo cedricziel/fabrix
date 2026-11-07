@@ -6,6 +6,7 @@ public struct RootView: View {
     @State private var model: AppModel
     @State private var navigator = Navigator()
     @State private var shutdownTask: UUID?
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @State private var offeringLock = false
     @State private var lockOfferIsDue = false
     private let lock: AppLock
@@ -34,7 +35,7 @@ public struct RootView: View {
                 ContentUnavailableView {
                     Label(.features("Sign in again"), systemImage: "key")
                 } description: {
-                    Text("\(model.factory?.name ?? "This factory") no longer accepts Fabrix's key.")
+                    Text((model.signedOutReason ?? .boardKeyRejected).message(for: model.factory?.name))
                 } actions: {
                     SignInBanner()
                     Button(.features("Choose another factory")) { model.disconnect() }
@@ -128,6 +129,7 @@ public struct RootView: View {
             }
         }
         .onAppear {
+            model.webAuthenticator = SessionAuthenticator(session: webAuthenticationSession)
             shutdownTask = ShutdownTasks.register { [model] in await model.commitStagedDecisions() }
         }
         .onDisappear {

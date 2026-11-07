@@ -103,19 +103,52 @@ public final class FactoryStore {
     }
 
     /// Starts a browser sign-in that replaces the board key of a saved factory, for example after it expired.
-    /// The factory's custom headers and saved OIDC tokens are reused, so there is no second OIDC login.
+    /// The factory's custom headers are reused. Behind an OIDC front door the saved session is tried first;
+    /// only when the identity provider needs a new login does `webAuthenticator` show its login page.
     /// `completeSignIn` then keeps the factory's ID, name and settings.
     ///
-    /// - Throws: `PaperclipError.invalidAuthConfiguration` when the factory doesn't use a board key.
-    public func startReauthentication(of factory: Factory, clientName: String) async throws -> SignInChallenge {
+    /// - Throws: `PaperclipError.invalidAuthConfiguration` when the factory doesn't use a board key, or
+    ///   `.signInRequired` when the identity provider needs a login and there is no `webAuthenticator`.
+    public func startReauthentication(
+        of factory: Factory, clientName: String, webAuthenticator: (any WebAuthenticator)? = nil
+    ) async throws -> SignInChallenge {
         let auth = auth(for: factory)
         guard auth.usesBoardKey else {
             throw PaperclipError.invalidAuthConfiguration("This factory doesn't use a Paperclip key, so there is nothing to sign in again for.")
         }
         guard PaperclipClient.allowsCredentials(to: factory.baseURL) else { throw PaperclipError.insecureConnection }
-        let tokens = auth.oidc == nil ? nil : try oidcTokenStore(factory.id).load()
-        return try await createChallenge(
-            baseURL: factory.baseURL, clientName: clientName, frontDoor: auth.oidc, oidcTokens: tokens, headers: customHeaders(for: factory)
+        let headers = try customHeaders(for: factory)
+        func challenge(with tokens: OIDCTokens?) async throws -> SignInChallenge {
+            try await createChallenge(baseURL: factory.baseURL, clientName: clientName, frontDoor: auth.oidc, oidcTokens: tokens, headers: headers)
+        }
+        guard let oidc = auth.oidc else { return try await challenge(with: nil) }
+        do {
+            guard let saved = try oidcTokenStore(factory.id).load() else { throw PaperclipError.signInRequired(nil) }
+            return try await challenge(with: saved)
+        } catch let PaperclipError.signInRequired(reason) {
+            guard let webAuthenticator else { throw PaperclipError.signInRequired(reason) }
+            return try await challenge(with: signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator))
+        }
+    }
+
+    /// Logs in to the identity provider in front of a saved factory again, keeping its board key,
+    /// custom headers, ID and name. For when the proxy session ended, not the Paperclip key.
+    ///
+    /// - Throws: `PaperclipError.invalidAuthConfiguration` when the factory doesn't use OIDC.
+    @discardableResult
+    public func signInAgainToIdentityProvider(of factory: Factory, webAuthenticator: any WebAuthenticator) async throws -> Factory {
+        let auth = auth(for: factory)
+        guard let oidc = auth.oidc else {
+            throw PaperclipError.invalidAuthConfiguration("This factory doesn't use single sign-on.")
+        }
+        guard PaperclipClient.allowsCredentials(to: factory.baseURL) else { throw PaperclipError.insecureConnection }
+        let key = auth.usesBoardKey ? try credentials.credential(for: factory.id) : nil
+        if auth.usesBoardKey, key == nil {
+            throw PaperclipError.invalidAuthConfiguration("Enter a board API key.")
+        }
+        let tokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
+        return try await validateAndSave(
+            baseURL: factory.baseURL, auth: auth, boardKey: key, headers: customHeaders(for: factory), oidcTokens: tokens, name: factory.name
         )
     }
 

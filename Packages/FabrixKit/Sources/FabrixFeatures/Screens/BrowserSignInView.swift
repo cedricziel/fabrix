@@ -63,12 +63,11 @@ struct BrowserSignInView: View {
 /// Offers browser sign-in when the factory rejected its key or the key expires soon.
 struct SignInBanner: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
         if let message {
             NoticeBanner(systemImage: "key.fill", tint: Palette.signal, message: message) {
-                Button(.features("Sign in again")) { Task { await model.signInAgain(webAuthenticator: SessionAuthenticator(session: webAuthenticationSession)) } }
+                Button(.features("Sign in again")) { Task { await model.signInAgain() } }
                     .buttonStyle(.fabrixPrimary)
                     .disabled(model.browserSignIn != nil)
             }
@@ -76,12 +75,23 @@ struct SignInBanner: View {
     }
 
     private var message: String? {
-        if model.needsSignIn {
-            return String(localized: "This factory no longer accepts Fabrix's key.", bundle: .module)
+        if let reason = model.signedOutReason {
+            return reason.message(for: nil)
         }
         if let expiry = model.keyExpiry {
             return String(localized: "Fabrix's key for this factory expires \(expiry.formatted(.relative(presentation: .named))).", bundle: .module)
         }
         return nil
+    }
+}
+
+extension SignedOutReason {
+    /// Says what ended: the Paperclip key, or the single sign-on session in front of it.
+    func message(for factoryName: String?) -> String {
+        let factory = factoryName ?? String(localized: "This factory", bundle: .module)
+        return switch self {
+        case .boardKeyRejected: String(localized: "\(factory) no longer accepts Fabrix's key.", bundle: .module)
+        case .identityProviderSessionEnded: String(localized: "Your single sign-on session for \(factory) ended.", bundle: .module)
+        }
     }
 }

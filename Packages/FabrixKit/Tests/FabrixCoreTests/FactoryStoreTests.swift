@@ -574,4 +574,108 @@ struct FactoryStoreTests {
 
         #expect(recorder.last("POST", "/api/cli-auth/challenges/ch-1/cancel") != nil)
     }
+
+    // MARK: - Signing in to the identity provider again
+
+    /// An identity provider that rejects the refresh token "dead" and accepts everything else.
+    private func identityProviderRejectingDeadRefresh(recorder: RequestRecorder) -> FakeServer {
+        FakeServer(routes: [:], recorder: recorder, dynamicRoutes: [
+            "GET /.well-known/openid-configuration": { request in
+                .json(OIDCFixtures.discovery(issuer: URL(string: "https://\(request.url!.host()!)")!))
+            },
+            "POST /token": { request in
+                formFields(request)["refresh_token"] == "dead"
+                    ? .json(#"{"error":"invalid_grant","error_description":"Session ended"}"#, status: 400)
+                    : .json(OIDCFixtures.tokens())
+            },
+        ])
+    }
+
+    private func oidcBoardKeyFactory(_ store: FactoryStore, idp: FakeServer, paperclip: FakeServer) async throws -> Factory {
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        return try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_old", webAuthenticator: FakeWebAuthenticator.approving())
+    }
+
+    @Test func reauthenticationBehindOIDCTriesTheSavedSessionFirst() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProviderRejectingDeadRefresh(recorder: idpRequests)
+        let paperclip = signInServer()
+        let store = store(paperclip)
+        let factory = try await oidcBoardKeyFactory(store, idp: idp, paperclip: paperclip)
+        let tokenRequestsBefore = idpRequests.requests.filter { $0.url?.path() == "/token" }.count
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix", webAuthenticator: browser))
+
+        #expect(renewed.id == factory.id)
+        #expect(browser.authorizeURL == nil)
+        #expect(idpRequests.requests.filter { $0.url?.path() == "/token" }.count == tokenRequestsBefore)
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func reauthenticationLogsInToTheIdentityProviderWhenItsSessionEnded() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProviderRejectingDeadRefresh(recorder: idpRequests)
+        let recorder = RequestRecorder()
+        let paperclip = signInServer(recorder: recorder)
+        let store = store(paperclip)
+        let factory = try await oidcBoardKeyFactory(store, idp: idp, paperclip: paperclip)
+        let tokenEndpoint = idp.baseURL.appending(path: "token")
+        try OIDCTokenStore(credentials: credentials, account: "\(factory.id).oidc")
+            .save(OIDCTokens(accessToken: "stale", refreshToken: "dead", expiresAt: .now - 60, tokenEndpoint: tokenEndpoint))
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix", webAuthenticator: browser))
+
+        #expect(renewed.id == factory.id)
+        #expect(browser.authorizeURL != nil)
+        #expect(recorder.last("POST", "/api/cli-auth/challenges")?.value(forHTTPHeaderField: "X-Auth") == "Bearer access-1")
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func oidcOnlyFactorySignsInToTheIdentityProviderAgain() async throws {
+        let idp = identityProvider()
+        let recorder = RequestRecorder()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL))
+        let factory = try await store.connect(
+            url: paperclip.baseURL, auth: auth, boardKey: nil, name: "Proxy", headers: PaperclipFixtures.proxyHeader, webAuthenticator: FakeWebAuthenticator.approving()
+        )
+        try credentials.setCredential(nil, for: "\(factory.id).oidc")
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: browser)
+
+        #expect(renewed == factory)
+        #expect(browser.authorizeURL != nil)
+        #expect(try credentials.credential(for: "\(factory.id).oidc") != nil)
+        #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
+        #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "Authorization") == "Bearer access-1")
+    }
+
+    @Test func identityProviderSignInAgainNeedsOIDC() async throws {
+        let server = signInServer()
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "k")
+
+        await #expect(throws: PaperclipError.self) {
+            try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: FakeWebAuthenticator.approving())
+        }
+    }
+
+    @Test func identityProviderSignInAgainNeedsTheSavedBoardKey() async throws {
+        let idp = identityProvider()
+        let paperclip = signInServer()
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+        try credentials.setCredential(nil, for: factory.id)
+        let browser = FakeWebAuthenticator.approving()
+
+        await #expect(throws: PaperclipError.invalidAuthConfiguration("Enter a board API key.")) {
+            try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: browser)
+        }
+        #expect(browser.authorizeURL == nil)
+    }
 }
