@@ -16,15 +16,15 @@ None of it is linked to your identity. Fabrix does not send an advertising ID, t
 
 ### With every record
 
-| Attribute                                            | Example                                                                                                  |
-| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| App name (`service.name`)                            | `fabrix`                                                                                                 |
-| App version and build number                         | The installed build                                                                                      |
-| Installation ID (`service.instance.id`)              | A random UUID created on first launch and stored on your device. Reinstalling the app creates a new one. |
-| Operating system type, name, version and description | iOS, iPadOS or macOS, with its version                                                                   |
-| OpenTelemetry SDK (`telemetry.sdk.*`)                | The SDK name, language and version                                                                       |
-| Hardware model identifier                            | `iPhone17,1`, `Mac15,12`                                                                                 |
-| Environment                                          | `production` or `development`                                                                            |
+| Attribute                                                                   | Example                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App name (`service.name`)                                                   | `fabrix`                                                                                                                                                                                                          |
+| App version and build number                                                | The installed build                                                                                                                                                                                               |
+| Installation ID (`app.installation.id`, also sent as `service.instance.id`) | A random UUID created on first launch and kept in your device's Keychain. It is not derived from any hardware or vendor ID. Because the Keychain keeps it, it stays the same if you delete and reinstall the app. |
+| Operating system type, name, version and description                        | iOS, iPadOS or macOS, with its version                                                                                                                                                                            |
+| OpenTelemetry SDK (`telemetry.sdk.*`)                                       | The SDK name, language and version                                                                                                                                                                                |
+| Hardware model identifier                                                   | `iPhone17,1`, `Mac15,12`                                                                                                                                                                                          |
+| Environment                                                                 | `production` or `development`                                                                                                                                                                                     |
 
 ### On each launch
 
