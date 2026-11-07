@@ -29,7 +29,7 @@ The app SHALL show onboarding until the user connects a factory or explores the 
 
 #### Scenario: Leaving a factory
 
-- **WHEN** the user chooses Switch factory or Choose another factory
+- **WHEN** the user chooses "Choose another factory" on the empty or unreachable screen
 - **THEN** onboarding is shown again, neither the demo nor the factory reopens on the next launch, and the factory's saved credentials are kept
 
 ### Requirement: Connecting a factory
@@ -74,4 +74,23 @@ The connect form SHALL offer custom request headers in a collapsed "Advanced" se
 
 - **WHEN** the form has no headers
 - **THEN** the Advanced section is collapsed
+
+### Requirement: Adding and removing factories
+
+The app SHALL let the user add a factory and remove the open one without leaving the current factory first.
+
+#### Scenario: Adding a factory
+
+- **WHEN** the user chooses "Add Factory…" and connects
+- **THEN** the new factory opens and is remembered, and the previous one stays saved
+
+#### Scenario: Removing a factory
+
+- **WHEN** the user chooses "Remove Factory…" and confirms
+- **THEN** the factory and its credentials are deleted from the device, and the next saved factory opens, or onboarding when none is left
+
+#### Scenario: The demo
+
+- **WHEN** the demo is open
+- **THEN** "Remove Factory…" is not offered, and the demo stays reachable from the title menu
 
