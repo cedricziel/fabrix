@@ -139,8 +139,11 @@ public final class FactoryStore {
             throw PaperclipError.invalidAuthConfiguration("This factory doesn't use single sign-on.")
         }
         guard PaperclipClient.allowsCredentials(to: factory.baseURL) else { throw PaperclipError.insecureConnection }
-        let tokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
         let key = auth.usesBoardKey ? try credentials.credential(for: factory.id) : nil
+        if auth.usesBoardKey, key == nil {
+            throw PaperclipError.invalidAuthConfiguration("Enter a board API key.")
+        }
+        let tokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
         return try await validateAndSave(
             baseURL: factory.baseURL, auth: auth, boardKey: key, headers: customHeaders(for: factory), oidcTokens: tokens, name: factory.name
         )

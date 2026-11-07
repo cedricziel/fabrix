@@ -626,4 +626,19 @@ struct FactoryStoreTests {
             try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: FakeWebAuthenticator.approving())
         }
     }
+
+    @Test func identityProviderSignInAgainNeedsTheSavedBoardKey() async throws {
+        let idp = identityProvider()
+        let paperclip = signInServer()
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+        try credentials.setCredential(nil, for: factory.id)
+        let browser = FakeWebAuthenticator.approving()
+
+        await #expect(throws: PaperclipError.invalidAuthConfiguration("Enter a board API key.")) {
+            try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: browser)
+        }
+        #expect(browser.authorizeURL == nil)
+    }
 }
