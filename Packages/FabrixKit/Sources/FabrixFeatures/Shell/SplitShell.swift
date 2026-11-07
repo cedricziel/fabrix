@@ -16,6 +16,7 @@ struct SplitShell: View {
         } detail: {
             NavigationStack(path: $navigator.path) {
                 SectionScreen(section: navigator.section)
+                    .id(model.snapshot?.company.id)
                     .factoryTitle()
                     .fabrixDestinations()
             }
@@ -71,22 +72,36 @@ struct CompanyToolbar: ToolbarContent {
     @Environment(Navigator.self) private var navigator
 
     var body: some ToolbarContent {
+        #if os(macOS)
+        // The leading edge belongs to navigation and the title menu.
+        ToolbarItem(placement: .secondaryAction) { pauseButton }
+        ToolbarItem(placement: .automatic) { newTaskButton }
+        #else
         ToolbarItemGroup(placement: .primaryAction) {
-            if let company = model.snapshot?.company {
-                Button {
-                    Task { await model.setCompanyPaused(!company.isPaused) }
-                } label: {
-                    Label(company.isPaused ? "Resume company" : "Pause company",
-                          systemImage: company.isPaused ? "play.fill" : "pause.fill")
-                }
-                .help(company.isPaused ? "Resume every agent in \(company.name)" : "Pause every agent in \(company.name)")
-            }
-            Button {
-                navigator.showingNewTask = true
-            } label: {
-                Label("New task", systemImage: "plus")
-            }
-            .keyboardShortcut("n", modifiers: .command)
+            pauseButton
+            newTaskButton
         }
+        #endif
+    }
+
+    @ViewBuilder private var pauseButton: some View {
+        if let company = model.snapshot?.company {
+            Button {
+                Task { await model.setCompanyPaused(!company.isPaused) }
+            } label: {
+                Label(company.isPaused ? "Resume company" : "Pause company",
+                      systemImage: company.isPaused ? "play.fill" : "pause.fill")
+            }
+            .help(company.isPaused ? "Resume every agent in \(company.name)" : "Pause every agent in \(company.name)")
+        }
+    }
+
+    private var newTaskButton: some View {
+        Button {
+            navigator.showingNewTask = true
+        } label: {
+            Label("New task", systemImage: "plus")
+        }
+        .keyboardShortcut("n", modifiers: .command)
     }
 }
