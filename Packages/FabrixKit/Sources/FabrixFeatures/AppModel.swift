@@ -18,6 +18,15 @@ public enum LoadState: Equatable, Sendable {
     case failed(String)
 }
 
+/// Projects load beside the company snapshot, so their failure stays local to them.
+enum ProjectsState: Equatable {
+    case loading
+    case loaded([Project])
+    /// The last list that loaded stays visible.
+    case failed(String, last: [Project])
+    case unsupported
+}
+
 @MainActor
 @Observable
 public final class AppModel {
@@ -33,6 +42,7 @@ public final class AppModel {
 
     public private(set) var loadState: LoadState = .loading
     public private(set) var lastError: String?
+    private(set) var projectsState = ProjectsState.loading
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -53,6 +63,7 @@ public final class AppModel {
     /// The company the user chose; requests for any other company are stale.
     private var selectedCompanyID: Company.ID?
     private var requestCount = 0
+    private var projectsRequest = 0
     private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
@@ -434,6 +445,7 @@ public final class AppModel {
         factory = nil
         companies = []
         snapshot = nil
+        projectsState = .loading
         loadState = .loading
         lastError = nil
     }
@@ -468,6 +480,7 @@ public final class AppModel {
         checkedKeyExpiry = false
         companies = []
         snapshot = nil
+        projectsState = .loading
         lastError = nil
         loadState = .loading
     }
@@ -503,6 +516,9 @@ public final class AppModel {
             lastError = nil
             loadState = fresh == nil ? .empty : .loaded
             await checkKeyExpiry(service)
+            if let id = fresh?.company.id {
+                await loadProjects(companyID: id)
+            }
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == wanted, accept(request) else { return }
             report(error)
@@ -539,16 +555,60 @@ public final class AppModel {
     public func select(_ company: Company) async {
         guard let service, company.id != selectedCompanyID else { return }
         selectedCompanyID = company.id
+        projectsState = .loading
         let request = beginRequest()
         do {
             let fresh = try await service.snapshot(companyID: company.id)
             guard selectedCompanyID == company.id, accept(request) else { return }
             snapshot = fresh
             lastError = nil
+            await loadProjects(companyID: company.id)
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             selectedCompanyID = snapshot?.company.id
             report(error)
+        }
+    }
+
+    // MARK: Projects
+
+    var projects: [Project] {
+        switch projectsState {
+        case let .loaded(projects), let .failed(_, projects): projects
+        case .loading, .unsupported: []
+        }
+    }
+
+    var projectsFailure: String? {
+        if case let .failed(message, _) = projectsState { message } else { nil }
+    }
+
+    var supportsProjects: Bool {
+        projectsState != .unsupported
+    }
+
+    func retryProjects() async {
+        guard let id = snapshot?.company.id else { return }
+        await loadProjects(companyID: id)
+    }
+
+    private func loadProjects(companyID: Company.ID) async {
+        guard let service else { return }
+        projectsRequest += 1
+        let number = projectsRequest, generation = generation
+        let result: ProjectsState
+        do {
+            result = try await .loaded(service.projects(companyID: companyID))
+        } catch FactoryServiceError.unsupported {
+            result = .unsupported
+        } catch {
+            guard !Self.isCancellation(error) else { return }
+            result = .failed(error.localizedDescription, last: [])
+        }
+        guard generation == self.generation, number == projectsRequest, selectedCompanyID == companyID else { return }
+        let next = if case let .failed(message, _) = result { ProjectsState.failed(message, last: projects) } else { result }
+        if next != projectsState {
+            projectsState = next
         }
     }
 
