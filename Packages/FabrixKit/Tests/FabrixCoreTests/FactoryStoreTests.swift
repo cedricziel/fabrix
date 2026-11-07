@@ -516,4 +516,15 @@ struct FactoryStoreTests {
 
         await #expect(throws: PaperclipError.self) { try await store.startReauthentication(of: factory, clientName: "Fabrix") }
     }
+
+    @Test func missingHeaderValuesAreReportedInsteadOfDroppingTheHeaders() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: PaperclipFixtures.proxyHeader)
+        // Keychain items are this-device-only, so a migrated device has the record but not the values.
+        try credentials.setCredential(nil, for: "\(factory.id).headers")
+
+        #expect(throws: PaperclipError.missingHeaderValues(["X-Proxy-Token"])) { try store.customHeaders(for: factory) }
+        #expect(throws: PaperclipError.missingHeaderValues(["X-Proxy-Token"])) { try store.service(for: factory) }
+    }
 }

@@ -24,6 +24,8 @@ public enum PaperclipError: Error, Equatable, Sendable {
     case signInCancelled
     /// The browser sign-in was not approved in time.
     case signInExpired
+    /// Custom header names are saved but their values are gone, e.g. after moving to a new device.
+    case missingHeaderValues([String])
 
     init(status: Int, message: String?) {
         switch status {
@@ -53,6 +55,8 @@ extension PaperclipError: LocalizedError {
         case let .invalidAuthConfiguration(message): message
         case .signInCancelled: "Sign-in was cancelled."
         case .signInExpired: "Sign-in timed out. Try again."
+        case let .missingHeaderValues(names):
+            "This device no longer has the values for \(names.formatted(.list(type: .and))). Enter them again to connect."
         }
     }
 }

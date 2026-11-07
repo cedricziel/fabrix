@@ -218,11 +218,17 @@ public final class FactoryStore {
     }
 
     /// The saved custom headers, with their values read from the credential store.
+    ///
+    /// - Throws: `PaperclipError.missingHeaderValues` when names are saved but their values are gone.
     public func customHeaders(for factory: Factory) throws -> [CustomHeader] {
         let names = headerNames[factory.id] ?? []
-        guard !names.isEmpty, let stored = try credentials.credential(for: Self.headersAccount(factory.id)) else { return [] }
-        let values = try JSONDecoder().decode([String: String].self, from: Data(stored.utf8))
-        return names.compactMap { name in values[name].map { CustomHeader(name: name, value: $0) } }
+        guard !names.isEmpty else { return [] }
+        // Sending without them would reach a proxy unauthenticated and fail in confusing ways.
+        let values = try credentials.credential(for: Self.headersAccount(factory.id))
+            .map { try JSONDecoder().decode([String: String].self, from: Data($0.utf8)) } ?? [:]
+        let missing = names.filter { values[$0] == nil }
+        guard missing.isEmpty else { throw PaperclipError.missingHeaderValues(missing) }
+        return names.map { CustomHeader(name: $0, value: values[$0]!) }
     }
 
     /// Forgets the factory and deletes its board key, custom header values and OIDC tokens.
