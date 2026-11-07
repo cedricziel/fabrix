@@ -16,7 +16,7 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
 
 - `App/Shared`, `App/iOS`, `App/macOS`: thin app shells; all logic lives in the package.
 - `Packages/FabrixKit`:
-  - `FabrixCore`: models, `FactoryService` protocol (the UI/server seam), `DemoFactoryService`, the Paperclip client and `PaperclipFactoryService` (`Paperclip/`), saved factories and Keychain credentials (`Connections/`). Endpoint reference: `docs/paperclip-api.md`.
+  - `FabrixCore`: models, `FactoryService` protocol (the UI/server seam), `DemoFactoryService`, the Paperclip client and `PaperclipFactoryService` (`Paperclip/`), pluggable auth with board keys and OIDC (`Auth/`), saved factories and Keychain credentials (`Connections/`). Endpoint reference: `docs/paperclip-api.md`.
   - `FabrixDesign`: tokens (`Palette`, type) and reusable components. No dependency on Core.
   - `FabrixFeatures`: screens and `AppModel`. Depends on Core + Design.
 
