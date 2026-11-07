@@ -43,7 +43,7 @@ public enum FactoryAuth: Hashable, Sendable {
 /// Turns the onboarding form into a live factory and reopens saved ones.
 /// Without one the form stays visible but disabled.
 @MainActor
-public protocol FactoryConnector: AnyObject {
+public protocol FactoryConnector: AnyObject, Sendable {
     /// - Parameters:
     ///   - headers: Extra headers for every request to the factory, such as a proxy access token.
     ///   - webAuthenticator: Shows the identity provider's login page for OIDC.

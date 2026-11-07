@@ -44,7 +44,6 @@ struct OnboardingView: View {
 struct ConnectFactoryForm: View {
     @Environment(AppModel.self) private var model
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
-    @Environment(\.openURL) private var openURL
     @State private var form = ConnectForm()
     var onConnected: () -> Void = {}
 
@@ -118,7 +117,7 @@ struct ConnectFactoryForm: View {
         guard model.canConnect, !form.address.isEmpty, !model.isConnecting else { return }
         let authenticator = SessionAuthenticator(session: webAuthenticationSession)
         Task {
-            if await model.connect(form, webAuthenticator: authenticator, openURL: { openURL($0) }) { onConnected() }
+            if await model.connect(form, webAuthenticator: authenticator) { onConnected() }
         }
     }
 }

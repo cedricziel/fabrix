@@ -369,6 +369,8 @@ final class RecordingConnector: FactoryConnector {
     }
 
     var browserOutcome = BrowserOutcome.approve
+    /// Runs before the outcome, e.g. to wait until the approval sheet is up.
+    var beforeCompleting: (@Sendable () async -> Void)?
     /// The service a re-signed-in factory gets, standing in for the renewed key.
     var renewedService: any FactoryService = DemoFactoryService()
     private(set) var browserCalls: [ConnectCall] = []
@@ -390,6 +392,7 @@ final class RecordingConnector: FactoryConnector {
     }
 
     func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection {
+        await beforeCompleting?()
         switch browserOutcome {
         case .approve:
             if let existing = saved.values.first(where: { $0.factory.baseURL == challenge.serverURL }) {

@@ -11,6 +11,7 @@ public final class StoreConnector: FactoryConnector {
     /// Where the identity provider sends the user back. ASWebAuthenticationSession catches the
     /// custom scheme, so the app needs no URL-scheme registration.
     static let redirectURI = URL(string: "com.cedricziel.fabrix:/oauth/callback")!
+    static let callbackScheme = redirectURI.scheme!
     /// With a board key in `Authorization`, the proxy's OIDC token goes in this header instead.
     static let proxyTokenHeader = "X-Forwarded-Access-Token"
 

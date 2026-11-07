@@ -1,9 +1,10 @@
 import FabrixCore
 import Foundation
+import Synchronization
 @testable import FabrixFeatures
 import Testing
 
-private struct Sandbox {
+private struct Sandbox: Sendable {
     var url: URL
     var key: String
 
@@ -28,6 +29,26 @@ private struct Sandbox {
     }
 }
 
+/// Plays the user approving on Paperclip's page: approves through the API, then stays open
+/// until the app dismisses the sheet.
+private final class ApprovingBrowser: WebAuthenticator {
+    let sandbox: Sandbox
+    private let count = Mutex(0)
+
+    init(sandbox: Sandbox) {
+        self.sandbox = sandbox
+    }
+
+    var approvals: Int { count.withLock { $0 } }
+
+    func authenticate(url: URL, callbackScheme _: String) async throws -> URL {
+        try await sandbox.approve(url)
+        count.withLock { $0 += 1 }
+        try await Task.sleep(for: .seconds(3600))
+        throw CancellationError()
+    }
+}
+
 /// Browser sign-in through the app's own path, against a sandbox seeded by `scripts/paperclip-sandbox-seed.sh`.
 @MainActor
 @Suite(.serialized, .enabled(if: Sandbox.current != nil, "Set FABRIX_SANDBOX_URL to run against a Paperclip sandbox"))
@@ -37,21 +58,18 @@ struct SandboxSignInTests {
     @Test func browserSignInConnectsThenSignsInAgain() async throws {
         let store = FactoryStore(defaults: UserDefaults(suiteName: "SandboxSignInTests-\(UUID().uuidString)")!, credentials: InMemoryCredentialStore())
         let model = AppModel(connector: StoreConnector(store: store), defaults: UserDefaults(suiteName: "SandboxSignInTests-\(UUID().uuidString)")!)
-        var approvals: [Task<Void, any Error>] = []
-        let approve: @MainActor (URL) -> Void = { url in approvals.append(Task { try await sandbox.approve(url) }) }
+        let browser = ApprovingBrowser(sandbox: sandbox)
 
-        await model.connect(ConnectForm(address: sandbox.url.absoluteString), openURL: approve)
-        for approval in approvals { try await approval.value }
+        await model.connect(ConnectForm(address: sandbox.url.absoluteString), webAuthenticator: browser)
 
         let factory = try #require(model.factory)
         #expect(model.browserSignIn == nil)
         #expect(model.companies.contains { $0.name == "Atlas Sandbox" })
-        #expect(approvals.count == 1)
+        #expect(browser.approvals == 1)
 
-        await model.signInAgain(openURL: approve)
-        for approval in approvals { try await approval.value }
+        await model.signInAgain(webAuthenticator: browser)
 
-        #expect(approvals.count == 2)
+        #expect(browser.approvals == 2)
         #expect(model.factory?.id == factory.id)
         #expect(store.factories.count == 1)
         #expect(model.companies.contains { $0.name == "Atlas Sandbox" })

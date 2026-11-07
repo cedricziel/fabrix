@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixCore
 import Foundation
 @testable import FabrixFeatures
@@ -33,10 +34,38 @@ private struct ExpiringService: FactoryService {
     func credentialExpiry() async throws -> Date? { expiry }
 }
 
-@MainActor
-private final class OpenedURLs {
-    var urls: [URL] = []
-    func open(_ url: URL) { urls.append(url) }
+/// Plays the web authentication sheet that shows Paperclip's approval page. The page never
+/// redirects back, so the sheet stays up until the flow dismisses it or the user closes it.
+private final class ApprovalSheet: WebAuthenticator {
+    enum Mode { case staysOpen, closedByUser }
+
+    private let mode: Mode
+    private let state = Mutex<(opened: [URL], dismissed: Bool)>(([], false))
+
+    init(_ mode: Mode = .staysOpen) {
+        self.mode = mode
+    }
+
+    var opened: [URL] { state.withLock { $0.opened } }
+    var dismissed: Bool { state.withLock { $0.dismissed } }
+
+    func waitUntilOpened() async {
+        while opened.isEmpty {
+            await Task.yield()
+        }
+    }
+
+    func authenticate(url: URL, callbackScheme _: String) async throws -> URL {
+        state.withLock { $0.opened.append(url) }
+        if mode == .closedByUser { throw ASWebAuthenticationSessionError(.canceledLogin) }
+        do {
+            try await Task.sleep(for: .seconds(3600))
+        } catch {
+            state.withLock { $0.dismissed = true }
+            throw error
+        }
+        throw CancellationError()
+    }
 }
 
 @MainActor
@@ -64,17 +93,20 @@ struct BrowserSignInTests {
         }
     }
 
-    @Test func browserSignInOpensTheApprovalPageThenConnects() async {
+    @Test func approvalDismissesTheSheetAndConnects() async {
         let connector = RecordingConnector()
+        let sheet = ApprovalSheet()
+        connector.beforeCompleting = { await sheet.waitUntilOpened() }
         let model = model(connector)
-        let opened = OpenedURLs()
         var form = ConnectForm(address: "factory.example")
         form.headers = [ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "p")]
 
-        await model.connect(form, openURL: opened.open)
+        let connected = await model.connect(form, webAuthenticator: sheet)
 
+        #expect(connected)
         #expect(connector.browserCalls == [ConnectCall(url: "https://factory.example", auth: .browser, headers: [CustomHeader(name: "X-Proxy-Token", value: "p")])])
-        #expect(opened.urls == [URL(string: "https://factory.example/cli-auth/ch-1")!])
+        #expect(sheet.opened == [URL(string: "https://factory.example/cli-auth/ch-1")!])
+        #expect(sheet.dismissed)
         #expect(model.factory?.id == "f-browser")
         #expect(model.browserSignIn == nil)
         #expect(model.snapshot?.company.name == "Atlas")
@@ -109,6 +141,32 @@ struct BrowserSignInTests {
         #expect(model.isOnboarding)
     }
 
+    @Test func closingTheSheetCancelsTheSignIn() async {
+        let connector = RecordingConnector()
+        connector.browserOutcome = .waitUntilCancelled
+        let model = model(connector)
+
+        let connected = await model.connect(ConnectForm(address: "factory.example"), webAuthenticator: ApprovalSheet(.closedByUser))
+
+        #expect(!connected)
+        #expect(connector.cancelledWaits == 1)
+        #expect(model.browserSignIn == nil)
+        #expect(model.connectError == nil)
+    }
+
+    @Test func expiryDismissesTheSheetAndShowsTheMessage() async {
+        let connector = RecordingConnector()
+        let sheet = ApprovalSheet()
+        connector.beforeCompleting = { await sheet.waitUntilOpened() }
+        connector.browserOutcome = .fail(.signInExpired)
+        let model = model(connector)
+
+        await model.connect(ConnectForm(address: "factory.example"), webAuthenticator: sheet)
+
+        #expect(sheet.dismissed)
+        #expect(model.browserSignIn?.failure?.contains("expired") == true)
+    }
+
     @Test(arguments: [(PaperclipError.signInExpired, "expired"), (.signInCancelled, "cancelled")])
     func expiredOrDeclinedSignInShowsItsMessage(error: PaperclipError, word: String) async {
         let connector = RecordingConnector()
@@ -137,11 +195,11 @@ struct BrowserSignInTests {
 
     @Test func insecureAddressIsRefusedBeforeWaiting() async {
         let model = model(RecordingConnector(error: PaperclipError.insecureConnection))
-        let opened = OpenedURLs()
+        let sheet = ApprovalSheet()
 
-        await model.connect(ConnectForm(address: "http://paperclip.example.com"), openURL: opened.open)
+        await model.connect(ConnectForm(address: "http://paperclip.example.com"), webAuthenticator: sheet)
 
-        #expect(opened.urls.isEmpty)
+        #expect(sheet.opened.isEmpty)
         #expect(model.browserSignIn?.failure == PaperclipError.insecureConnection.localizedDescription)
     }
 
@@ -175,14 +233,16 @@ struct BrowserSignInTests {
     @Test func signingInAgainKeepsTheFactory() async {
         let (model, connector, _) = await rejectedModel()
         let factory = model.factory
-        let opened = OpenedURLs()
+        let sheet = ApprovalSheet()
+        connector.beforeCompleting = { await sheet.waitUntilOpened() }
 
-        await model.signInAgain(openURL: opened.open)
+        await model.signInAgain(webAuthenticator: sheet)
 
         #expect(connector.reauthenticated == [factory?.id])
         #expect(model.factory == factory)
         #expect(!model.needsSignIn)
-        #expect(opened.urls.count == 1)
+        #expect(sheet.opened.count == 1)
+        #expect(sheet.dismissed)
         #expect(model.snapshot?.company.name == "Atlas")
     }
 

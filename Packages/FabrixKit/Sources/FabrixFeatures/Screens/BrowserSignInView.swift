@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixDesign
 import SwiftUI
 #if os(iOS)
@@ -10,7 +11,6 @@ import SwiftUI
 struct BrowserSignInView: View {
     let state: BrowserSignInState
     @Environment(AppModel.self) private var model
-    @Environment(\.openURL) private var openURL
     @State private var copied = false
 
     var body: some View {
@@ -28,7 +28,7 @@ struct BrowserSignInView: View {
                     ProgressView().controlSize(.small)
                     Text("Approve Fabrix in your browser").font(.headline)
                 }
-                Text("Paperclip's approval page is open in your browser. Approve the request from \(StoreConnector.clientName) there, and Fabrix connects on its own.")
+                Text("Approve the request from \(StoreConnector.clientName) on Paperclip's page, and Fabrix connects on its own. Signed in somewhere else? Copy the link and open it there.")
                     .foregroundStyle(Palette.steel)
                 if let expiresAt = state.expiresAt {
                     Text("The request expires at \(expiresAt, format: .dateTime.hour().minute()).")
@@ -37,7 +37,6 @@ struct BrowserSignInView: View {
                 }
                 if let url = state.approvalURL {
                     HStack {
-                        Button("Open again") { openURL(url) }
                         Button(copied ? "Copied" : "Copy link") {
                             Self.copy(url)
                             copied = true
@@ -64,12 +63,12 @@ struct BrowserSignInView: View {
 /// Offers browser sign-in when the factory rejected its key or the key expires soon.
 struct SignInBanner: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openURL) private var openURL
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
         if let message {
             NoticeBanner(systemImage: "key.fill", tint: Palette.signal, message: message) {
-                Button("Sign in again") { Task { await model.signInAgain(openURL: { openURL($0) }) } }
+                Button("Sign in again") { Task { await model.signInAgain(webAuthenticator: SessionAuthenticator(session: webAuthenticationSession)) } }
                     .buttonStyle(.fabrixPrimary)
                     .disabled(model.browserSignIn != nil)
             }

@@ -120,12 +120,10 @@ public final class AppModel {
         await refresh()
     }
 
-    /// - Parameter openURL: Opens the browser sign-in approval page in the user's browser.
+    /// - Parameter webAuthenticator: Shows the identity provider's login page, and Paperclip's approval page for browser sign-in.
     /// - Returns: Whether the factory is now open.
     @discardableResult
-    func connect(
-        _ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil, openURL: @escaping @MainActor (URL) -> Void = { _ in }
-    ) async -> Bool {
+    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async -> Bool {
         guard let connector, !isConnecting else { return false }
         let request: (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader])
         do {
@@ -135,7 +133,7 @@ public final class AppModel {
             return false
         }
         if request.auth.usesBrowserSignIn {
-            return await runBrowserSignIn(openURL: openURL) {
+            return await runBrowserSignIn(webAuthenticator: webAuthenticator) {
                 try await connector.startBrowserSignIn(
                     baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
                 )
@@ -183,9 +181,9 @@ public final class AppModel {
     }
 
     /// Runs browser sign-in for the current factory and replaces only its key.
-    func signInAgain(openURL: @escaping @MainActor (URL) -> Void) async {
+    func signInAgain(webAuthenticator: (any WebAuthenticator)?) async {
         guard canSignInAgain, let connector, let factory else { return }
-        await runBrowserSignIn(openURL: openURL) {
+        await runBrowserSignIn(webAuthenticator: webAuthenticator) {
             try await connector.startReauthentication(factoryID: factory.id)
         }
     }
@@ -205,10 +203,10 @@ public final class AppModel {
     /// - Returns: Whether the factory is now open.
     @discardableResult
     private func runBrowserSignIn(
-        openURL: @escaping @MainActor (URL) -> Void, start: @escaping @MainActor () async throws -> SignInChallenge
+        webAuthenticator: (any WebAuthenticator)?, start: @escaping @MainActor () async throws -> SignInChallenge
     ) async -> Bool {
         guard let connector else { return false }
-        retrySignIn = { [weak self] in await self?.runBrowserSignIn(openURL: openURL, start: start) }
+        retrySignIn = { [weak self] in await self?.runBrowserSignIn(webAuthenticator: webAuthenticator, start: start) }
         signInTask?.cancel()
         connectError = nil
         isConnecting = true
@@ -216,8 +214,7 @@ public final class AppModel {
         do {
             let challenge = try await start()
             browserSignIn = BrowserSignInState(approvalURL: challenge.approvalURL, expiresAt: challenge.expiresAt)
-            openURL(challenge.approvalURL)
-            let task = Task { try await connector.completeBrowserSignIn(challenge) }
+            let task = Task { try await Self.awaitApproval(of: challenge, connector: connector, sheet: webAuthenticator) }
             signInTask = task
             let connection = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
             signInTask = nil
@@ -233,6 +230,48 @@ public final class AppModel {
                 browserSignIn = BrowserSignInState(failure: Self.signInFailure(error))
             }
             return false
+        }
+    }
+
+    private enum ApprovalEvent {
+        case connected(FactoryConnection)
+        case sheetClosed
+        case sheetFailed
+    }
+
+    /// Shows the approval page in a web authentication session while polling the request. The page
+    /// never redirects back, so polling decides: approval, expiry or decline dismisses the sheet,
+    /// and the user closing the sheet cancels the sign-in. Without a sheet, polling alone runs
+    /// and the user opens the copied link.
+    private static func awaitApproval(
+        of challenge: SignInChallenge, connector: any FactoryConnector, sheet: (any WebAuthenticator)?
+    ) async throws -> FactoryConnection {
+        try await withThrowingTaskGroup(of: ApprovalEvent.self) { group in
+            group.addTask { try await .connected(connector.completeBrowserSignIn(challenge)) }
+            if let sheet {
+                group.addTask {
+                    do {
+                        _ = try await sheet.authenticate(url: challenge.approvalURL, callbackScheme: StoreConnector.callbackScheme)
+                        return .sheetFailed
+                    } catch {
+                        return isCancellation(error) ? .sheetClosed : .sheetFailed
+                    }
+                }
+            }
+            for try await event in group {
+                switch event {
+                case let .connected(connection):
+                    group.cancelAll()
+                    return connection
+                case .sheetClosed:
+                    group.cancelAll()
+                    throw CancellationError()
+                case .sheetFailed:
+                    // Polling continues; the copied link still works in any browser.
+                    continue
+                }
+            }
+            throw CancellationError()
         }
     }
 
@@ -469,7 +508,7 @@ public final class AppModel {
     }
 
     /// A cancelled request (the scene went inactive, the view went away) is not a failure.
-    private static func isCancellation(_ error: any Error) -> Bool {
+    private nonisolated static func isCancellation(_ error: any Error) -> Bool {
         error is CancellationError
             || (error as? URLError)?.code == .cancelled
             || error as? PaperclipError == .transport(.cancelled)
