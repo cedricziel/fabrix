@@ -1,10 +1,16 @@
 import FabrixCore
 import Observation
 
+public enum LoadState: Equatable, Sendable {
+    case loading, loaded, empty
+    case failed(String)
+}
+
 @MainActor
 @Observable
 public final class AppModel {
     public private(set) var snapshot: CompanySnapshot?
+    public private(set) var loadState: LoadState = .loading
     public private(set) var lastError: String?
     public let service: any FactoryService
 
@@ -14,11 +20,18 @@ public final class AppModel {
 
     public func refresh() async {
         do {
-            guard let company = try await service.companies().first else { return }
+            guard let company = try await service.companies().first else {
+                snapshot = nil
+                lastError = nil
+                loadState = .empty
+                return
+            }
             snapshot = try await service.snapshot(companyID: company.id)
             lastError = nil
+            loadState = .loaded
         } catch {
             lastError = error.localizedDescription
+            if snapshot == nil { loadState = .failed(error.localizedDescription) }
         }
     }
 

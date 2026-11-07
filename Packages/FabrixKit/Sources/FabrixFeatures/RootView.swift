@@ -11,10 +11,21 @@ public struct RootView: View {
 
     public var body: some View {
         Group {
-            if let snapshot = model.snapshot {
-                PlaceholderOverview(snapshot: snapshot)
-            } else {
+            switch model.loadState {
+            case .loading:
                 ProgressView()
+            case .loaded:
+                if let snapshot = model.snapshot { PlaceholderOverview(snapshot: snapshot) }
+            case .empty:
+                ContentUnavailableView("No companies yet", systemImage: "building.2", description: Text("This factory has no companies."))
+            case .failed(let message):
+                ContentUnavailableView {
+                    Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Try again") { Task { await model.refresh() } }
+                }
             }
         }
         .task { await model.refresh() }
