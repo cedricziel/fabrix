@@ -80,6 +80,8 @@ struct BoardMeDTO: Decodable {
     var userId: String
     var isInstanceAdmin: Bool?
     var companyIds: [String]?
+    /// The board key the request used; nil for session and local-trusted access.
+    var keyId: String?
 }
 
 struct SignInChallengeCreatedDTO: Decodable {
@@ -88,7 +90,13 @@ struct SignInChallengeCreatedDTO: Decodable {
     var boardApiToken: String
     var approvalPath: String
     var approvalUrl: String?
+    var expiresAt: Date?
     var suggestedPollIntervalMs: Int?
+}
+
+struct BoardAPIKeyDTO: Decodable {
+    var id: String
+    var expiresAt: Date?
 }
 
 struct SignInChallengeStatusDTO: Decodable {
