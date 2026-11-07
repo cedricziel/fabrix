@@ -84,12 +84,12 @@ private struct AppRoot: View {
                             Text("Create a company on your Paperclip board, then refresh.", bundle: .module)
                         } actions: {
                             Button {
-                                Task { await model.refresh() }
+                                Task { await model.retry() }
                             } label: {
-                                if model.isRefreshing { ProgressView().controlSize(.small) } else { Text("Refresh", bundle: .module) }
+                                if model.isRetrying { ProgressView().controlSize(.small) } else { Text("Refresh", bundle: .module) }
                             }
                             .buttonStyle(.fabrixPrimary)
-                            .disabled(model.isRefreshing)
+                            .disabled(model.isRetrying)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
