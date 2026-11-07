@@ -117,12 +117,13 @@ public final class AppLock {
         isCovered = settings.isEnabled
     }
 
-    /// iOS: the scene reached the background. macOS: the app resigned active.
+    /// iOS: the app reached the background. macOS: the app resigned active.
+    /// Counts even during a prompt; a successful prompt forgives the time it caused (see `authenticate`).
     public func sceneDidEnterBackground(at date: Date) {
-        // The system prompt deactivates the app; that isn't time away.
-        guard !isAuthenticating else { return }
         isCovered = settings.isEnabled
-        promptedThisForeground = false
+        if !isAuthenticating {
+            promptedThisForeground = false
+        }
         if backgroundedAt == nil {
             backgroundedAt = date
         }
@@ -163,11 +164,23 @@ public final class AppLock {
         return result == .success || result == .unavailable
     }
 
-    /// `.unavailable` means the device has no passcode: nothing to check against.
     private func authenticate(reason: String) async -> AuthenticationResult {
         guard !isAuthenticating else { return .cancelled }
+        let wasAway = backgroundedAt != nil
         isAuthenticating = true
-        defer { isAuthenticating = false }
+        let result = await evaluate(reason: reason)
+        isAuthenticating = false
+        switch result {
+        case .success where !wasAway:
+            // On a Mac the prompt deactivates the app; that isn't time away.
+            backgroundedAt = nil
+        default:
+            break
+        }
+        return result
+    }
+
+    private func evaluate(reason: String) async -> AuthenticationResult {
         guard method == .biometricsOnly else {
             return await authenticator.authenticate(.biometricsOrPasscode, reason: reason)
         }

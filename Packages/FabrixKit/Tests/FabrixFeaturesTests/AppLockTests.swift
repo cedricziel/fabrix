@@ -134,19 +134,50 @@ struct AppLockTests {
         #expect(!lock.isCovered)
     }
 
-    @Test func authenticationPromptIsNotTimeAway() async {
+    @Test func successfulPromptThatDeactivatesTheAppIsNotTimeAway() async {
+        let authenticator = StubAuthenticator()
+        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator)
+        lock.confirmsApprovals = true
+
+        // On a Mac the system prompt makes the app resign active while it is up.
+        authenticator.onAuthenticate = { lock.sceneWillResignActive(); lock.sceneDidEnterBackground(at: start) }
+        #expect(await lock.confirmDecision())
+        lock.sceneDidBecomeActive(at: start.addingTimeInterval(5))
+
+        #expect(!lock.isLocked)
+        #expect(!lock.isCovered)
+    }
+
+    @Test func backgroundingDuringAPromptLocks() async {
+        let authenticator = StubAuthenticator()
+        let lock = await enabledLock(authenticator: authenticator)
+        lock.confirmsApprovals = true
+        authenticator.results = [.cancelled]
+
+        // iOS: the user goes Home while the Face ID prompt for an approval is up.
+        authenticator.onAuthenticate = { lock.sceneDidEnterBackground(at: start) }
+        #expect(await !lock.confirmDecision())
+        #expect(lock.isCovered)
+        lock.sceneDidBecomeActive(at: start.addingTimeInterval(2 * 3600))
+
+        #expect(lock.isLocked)
+    }
+
+    @Test func cancelledPromptThatDeactivatesTheAppDoesNotPromptAgain() async {
         let authenticator = StubAuthenticator()
         let lock = await enabledLock(timeout: .immediately, authenticator: authenticator)
         lock.sceneDidEnterBackground(at: start)
         lock.sceneDidBecomeActive(at: start)
-        #expect(lock.isLocked)
-
-        // On a Mac the system prompt deactivates the app while it is up.
+        authenticator.results = [.cancelled]
         authenticator.onAuthenticate = { lock.sceneWillResignActive(); lock.sceneDidEnterBackground(at: start) }
-        #expect(await lock.unlock())
-        lock.sceneDidBecomeActive(at: start.addingTimeInterval(5))
-        #expect(!lock.isLocked)
-        #expect(!lock.isCovered)
+        let before = authenticator.calls.count
+
+        await lock.promptIfNeeded()
+        lock.sceneDidBecomeActive(at: start)
+        await lock.promptIfNeeded()
+
+        #expect(authenticator.calls.count == before + 1)
+        #expect(lock.isLocked)
     }
 
     @Test(arguments: [AuthenticationResult.cancelled, .failed])
