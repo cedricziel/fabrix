@@ -359,9 +359,10 @@ def write_telemetry_secrets
   UI.message("Telemetry export enabled for this build")
 end
 
-# xcconfig expands $(...) and treats // as a comment start, so both are escaped.
+# xcconfig expands $(...) and treats // as a comment start. Every slash gets an empty
+# expansion after it, so no run of slashes survives as a comment.
 def xcconfig_literal(value)
-  value.gsub("$", "$$").gsub("//", "/$()/")
+  value.gsub("$", "$$").gsub("/", "/$()")
 end
 
 def load_app_store_connect_api_key
