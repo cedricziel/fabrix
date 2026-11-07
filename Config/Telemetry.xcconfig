@@ -1,0 +1,10 @@
+// Telemetry export settings, expanded into the FabrixOTLP* Info.plist keys.
+// Builds without an endpoint and key run with telemetry off.
+// fastlane writes the endpoint and key into Telemetry.secrets.xcconfig (gitignored) from
+// the OTLP_ENDPOINT and OTLP_API_KEY environment variables; never commit them.
+OTLP_ENDPOINT =
+OTLP_API_KEY =
+OTLP_TENANT_ID = apps
+OTLP_DATASET_ID = fabrix
+
+#include? "Telemetry.secrets.xcconfig"
