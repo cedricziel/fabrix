@@ -187,7 +187,7 @@ struct PaperclipClientTests {
     @Test func doesNotFollowRedirectsToAnotherOrigin() async throws {
         let attacker = RequestRecorder()
         let evil = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: attacker)
-        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let downgraded = evil.httpBaseURL
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: downgraded.appending(path: "api/cli-auth/me"))])
         let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
 
@@ -202,7 +202,7 @@ struct PaperclipClientTests {
     @Test func signInPollingDoesNotFollowRedirectsToAnotherOrigin() async throws {
         let attacker = RequestRecorder()
         let evil = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#)], recorder: attacker)
-        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let downgraded = evil.httpBaseURL
         let server = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .redirect(to: downgraded.appending(path: "api/cli-auth/challenges/ch-1"))])
         let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
         let challenge = SignInChallenge(serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero)
@@ -213,6 +213,59 @@ struct PaperclipClientTests {
             if case .server(302, _) = error as? PaperclipError { true } else { false }
         }
         #expect(attacker.requests.isEmpty)
+    }
+
+    @Test func redirectErrorNamesOnlyTheNewOrigin() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: URL(string: "https://elsewhere.paperclip.test:8443/api/cli-auth/me?token=pcp_cli_auth_secret")!)])
+        let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
+
+        await #expect(throws: PaperclipError.server(status: 302, message: "The server redirected to https://elsewhere.paperclip.test:8443. Connect to that address instead.")) {
+            try await client.boardSession()
+        }
+    }
+
+    @Test func doesNotFollowADowngradeToHTTPOnTheSameHost() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder, dynamicRoutes: [
+            "GET /api/cli-auth/me": { request in
+                request.url?.scheme == "https" ? .redirect(to: URL(string: "http://\(request.url!.host()!)/api/cli-auth/me")!) : .json(PaperclipFixtures.me)
+            },
+        ])
+        let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
+
+        await #expect {
+            try await client.boardSession()
+        } throws: { error in
+            if case .server(302, _) = error as? PaperclipError { true } else { false }
+        }
+        #expect(recorder.requests.map { $0.url?.scheme } == ["https"])
+    }
+
+    @Test(arguments: [
+        ("https://paperclip.test/a", "https://paperclip.test/b", true),
+        ("https://paperclip.test/a", "https://PaperClip.TEST/b", true),
+        ("https://paperclip.test/a", "https://paperclip.test:443/b", true),
+        ("http://paperclip.test:80/a", "http://paperclip.test/b", true),
+        ("HTTPS://paperclip.test/a", "https://paperclip.test/b", true),
+        ("https://paperclip.test/a", "http://paperclip.test/b", false),
+        ("https://paperclip.test/a", "https://paperclip.test:8443/b", false),
+        ("https://paperclip.test/a", "https://evil.test/b", false),
+        ("https://paperclip.test/a", "https://evil.paperclip.test/b", false),
+    ])
+    func comparesRedirectOrigins(from: String, to: String, sameOrigin: Bool) throws {
+        let from = try #require(URL(string: from))
+        let to = try #require(URL(string: to))
+        #expect((SameOriginRedirects.Origin(from) == SameOriginRedirects.Origin(to)) == sameOrigin)
+    }
+
+    @Test(arguments: [
+        ("https://paperclip.test/api/x?token=1", "https://paperclip.test"),
+        ("https://paperclip.test:443/x", "https://paperclip.test"),
+        ("https://Paperclip.test:8443/x", "https://paperclip.test:8443"),
+        ("http://[fd00::1]:3100/x", "http://[fd00::1]:3100"),
+    ])
+    func describesOriginWithoutPathOrDefaultPort(url: String, expected: String) throws {
+        #expect(try SameOriginRedirects.Origin(#require(URL(string: url))).description == expected)
     }
 
     @Test func followsRedirectsWithinTheSameOrigin() async throws {

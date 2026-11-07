@@ -63,6 +63,8 @@ public final class FactoryStore {
 
         var oidcTokens: OIDCTokens?
         if let oidc = auth.oidc {
+            // An OIDC token is a credential too; fail before the user goes through a login that can't be used.
+            guard PaperclipClient.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
             oidcTokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
         }
         return try await validateAndSave(baseURL: baseURL, auth: auth, boardKey: key, oidcTokens: oidcTokens, name: name)
@@ -78,6 +80,7 @@ public final class FactoryStore {
         url: URL, clientName: String, frontDoor: OIDCSettings? = nil, webAuthenticator: (any WebAuthenticator)? = nil
     ) async throws -> SignInChallenge {
         let baseURL = try PaperclipClient.serverURL(url)
+        guard PaperclipClient.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         var oidcTokens: OIDCTokens?
         if let frontDoor {
             try FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true).validate()

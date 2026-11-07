@@ -81,6 +81,14 @@ extension WorkItem {
 }
 
 extension Approval {
+    /// Newest first, each approval once: one can change status between the per-status requests and show up in both.
+    static func list(paperclip dtos: [ApprovalDTO], agents: [Agent.ID: Agent]) -> [Approval] {
+        var seen = Set<String>()
+        return dtos.sorted { $0.createdAt > $1.createdAt }
+            .filter { seen.insert($0.id).inserted }
+            .map { Approval(paperclip: $0, agents: agents) }
+    }
+
     init(paperclip dto: ApprovalDTO, agents: [Agent.ID: Agent]) {
         let payload = dto.payload ?? [:]
         func text(_ keys: String...) -> String? {

@@ -101,7 +101,7 @@ public struct PaperclipClient: Sendable {
     /// 100.64.0.0/10, link-local and IPv6 unique-local addresses).
     public static func allowsCredentials(to url: URL) -> Bool {
         if url.scheme?.lowercased() == "https" { return true }
-        guard let host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) else { return false }
+        guard let host = url.normalizedHost else { return false }
         if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
         if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") { return host.contains(":") }
         let labels = host.split(separator: ".", omittingEmptySubsequences: false)
@@ -178,8 +178,8 @@ public struct PaperclipClient: Sendable {
             (data, response) = try await load(auth.authorize(request))
         }
         let status = response?.statusCode ?? 0
-        if (300 ..< 400).contains(status), let location = response?.value(forHTTPHeaderField: "Location") {
-            throw PaperclipError.server(status: status, message: "The server redirected to \(location). Connect to that address instead.")
+        if let origin = SameOriginRedirects.refusedOrigin(response) {
+            throw PaperclipError.server(status: status, message: "The server redirected to \(origin). Connect to that address instead.")
         }
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
@@ -189,12 +189,7 @@ public struct PaperclipClient: Sendable {
     }
 
     private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
-        do {
-            let (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
-            return (data, response as? HTTPURLResponse)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
+        try await SameOriginRedirects.load(request, session: session)
     }
 
     private func decode<Response: Decodable>(_ data: Data) throws -> Response {
@@ -232,12 +227,53 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
         newRequest request: URLRequest
     ) async -> URLRequest? {
         guard let from = response.url, let to = request.url else { return nil }
-        return Self.origin(of: from) == Self.origin(of: to) ? request : nil
+        return Origin(from) == Origin(to) ? request : nil
     }
 
-    private static func origin(of url: URL) -> String {
-        let scheme = url.scheme?.lowercased() ?? ""
-        let port = url.port ?? (scheme == "https" ? 443 : 80)
-        return "\(scheme)://\(url.host()?.lowercased() ?? ""):\(port)"
+    /// Loads `request` under this redirect rule, reporting network failures as `PaperclipError.transport`.
+    static func load(_ request: URLRequest, session: URLSession) async throws -> (Data, HTTPURLResponse?) {
+        do {
+            let (data, response) = try await session.data(for: request, delegate: shared)
+            return (data, response as? HTTPURLResponse)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
+    }
+
+    /// Where a refused redirect pointed. Error messages show only this, since the full URL can carry tokens.
+    static func refusedOrigin(_ response: HTTPURLResponse?) -> Origin? {
+        guard let response, (300 ..< 400).contains(response.statusCode),
+              let location = response.value(forHTTPHeaderField: "Location"),
+              let target = URL(string: location, relativeTo: response.url)
+        else { return nil }
+        return Origin(target.absoluteURL)
+    }
+
+    struct Origin: Equatable, CustomStringConvertible {
+        let scheme: String
+        let host: String
+        let port: Int
+
+        init(_ url: URL) {
+            scheme = url.scheme?.lowercased() ?? ""
+            host = url.normalizedHost ?? ""
+            port = url.port ?? Self.defaultPort(scheme)
+        }
+
+        var description: String {
+            let host = host.contains(":") ? "[\(host)]" : host
+            return port == Self.defaultPort(scheme) ? "\(scheme)://\(host)" : "\(scheme)://\(host):\(port)"
+        }
+
+        private static func defaultPort(_ scheme: String) -> Int {
+            scheme == "https" ? 443 : 80
+        }
+    }
+}
+
+extension URL {
+    /// Lowercased host without IPv6 brackets.
+    var normalizedHost: String? {
+        host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
     }
 }

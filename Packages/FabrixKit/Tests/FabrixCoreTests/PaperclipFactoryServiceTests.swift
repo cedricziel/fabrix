@@ -131,6 +131,16 @@ struct PaperclipFactoryServiceTests {
         ])
     }
 
+    @Test func snapshotListsAnApprovalOnceWhenBothStatusQueriesReturnIt() async throws {
+        // This route ignores the status filter, so every approval comes back from both queries.
+        let server = FakeServer(routes: snapshotRoutes)
+        let service = PaperclipFactoryService(client: PaperclipClient(baseURL: server.baseURL, credential: "k", session: server.session))
+
+        let approvals = try await service.snapshot(companyID: companyID).approvals
+
+        #expect(approvals.map(\.id) == ["ap-hire", "ap-plan", "ap-budget", "ap-other"])
+    }
+
     @Test func snapshotMapsHeartbeatRuns() async throws {
         let runs = try await snapshot().runs
 
