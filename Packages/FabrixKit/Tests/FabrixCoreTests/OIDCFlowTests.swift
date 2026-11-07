@@ -186,7 +186,47 @@ struct OIDCFlowTests {
         let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
         let current = OIDCTokens(accessToken: "a", refreshToken: "refresh-1", expiresAt: nil, tokenEndpoint: server.baseURL.appending(path: "token"))
 
-        await #expect(throws: OIDCError.self) { try await flow.refresh(current) }
+        await #expect(throws: OIDCError.redirected(origin: evil.baseURL.absoluteString)) { try await flow.refresh(current) }
         #expect(attacker.requests.isEmpty)
+    }
+
+    @Test func discoveryDoesNotFollowRedirectsToAnotherOrigin() async throws {
+        let attacker = RequestRecorder()
+        let evil = FakeServer(routes: [:], recorder: attacker)
+        let server = FakeServer(routes: ["GET /.well-known/openid-configuration": .redirect(to: evil.baseURL.appending(path: ".well-known/openid-configuration"))])
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
+
+        await #expect(throws: OIDCError.redirected(origin: evil.baseURL.absoluteString)) { try await flow.discover() }
+        #expect(attacker.requests.isEmpty)
+    }
+
+    @Test func refusesIssuerOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let issuer = try #require(URL(string: server.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let browser = FakeWebAuthenticator.approving()
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: issuer), session: server.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await flow.signIn(using: browser) }
+        #expect(recorder.requests.isEmpty)
+        #expect(browser.authorizeURL == nil)
+    }
+
+    @Test func allowsIssuerOverHTTPOnTheLocalNetwork() async throws {
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: URL(string: "http://127.0.0.1:5556")!), session: StubURLProtocol.session)
+
+        // No stub serves this host, so getting as far as the network means the transport check passed.
+        await #expect(throws: PaperclipError.transport(.cannotFindHost)) { try await flow.discover() }
+    }
+
+    @Test func refusesTokenEndpointOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let endpoint = try #require(URL(string: server.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://") + "/token"))
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: server.baseURL), session: server.session)
+        let current = OIDCTokens(accessToken: "a", refreshToken: "refresh-1", expiresAt: nil, tokenEndpoint: endpoint)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await flow.refresh(current) }
+        #expect(recorder.requests.isEmpty)
     }
 }

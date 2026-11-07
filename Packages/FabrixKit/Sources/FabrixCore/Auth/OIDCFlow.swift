@@ -43,6 +43,8 @@ public enum OIDCError: Error, Equatable, Sendable {
     /// An OAuth error from the authorize redirect or the token endpoint, e.g. `invalid_grant`.
     case provider(code: String, description: String?)
     case invalidResponse
+    /// The provider redirected to another origin, which Fabrix doesn't follow.
+    case redirected(origin: String)
 }
 
 extension OIDCError: LocalizedError {
@@ -53,6 +55,7 @@ extension OIDCError: LocalizedError {
         case .missingCode: "The sign-in provider didn't return an authorization code."
         case let .provider(code, description): description ?? "The sign-in provider refused the request (\(code))."
         case .invalidResponse: "The sign-in provider sent a response Fabrix doesn't understand."
+        case let .redirected(origin): "The sign-in provider redirected to \(origin). Check the issuer address."
         }
     }
 }
@@ -73,15 +76,8 @@ struct OIDCFlow: Sendable {
             var authorization_endpoint: URL
             var token_endpoint: URL
         }
-        let url = settings.issuer.appending(path: ".well-known/openid-configuration")
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(from: url, delegate: SameOriginRedirects.shared)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
-        guard (response as? HTTPURLResponse)?.statusCode == 200,
+        let (data, response) = try await load(URLRequest(url: settings.issuer.appending(path: ".well-known/openid-configuration")))
+        guard response?.statusCode == 200,
               let discovery = try? JSONDecoder().decode(Discovery.self, from: data)
         else { throw OIDCError.discoveryFailed }
         return OIDCEndpoints(authorization: discovery.authorization_endpoint, token: discovery.token_endpoint)
@@ -154,14 +150,8 @@ struct OIDCFlow: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = Data(form.map { "\($0)=\(Self.formEncode($1))" }.joined(separator: "&").utf8)
 
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+        let (data, response) = try await load(request)
+        guard response?.statusCode == 200 else {
             let error = try? JSONDecoder().decode(ErrorResponse.self, from: data)
             throw OIDCError.provider(code: error?.error ?? "server_error", description: error?.error_description)
         }
@@ -172,6 +162,23 @@ struct OIDCFlow: Sendable {
             expiresAt: tokens.expires_in.map { now() + $0 },
             tokenEndpoint: endpoint
         )
+    }
+
+    /// Discovery and token requests follow the same transport and redirect rules as Paperclip requests.
+    private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
+        guard let url = request.url, PaperclipClient.allowsCredentials(to: url) else { throw PaperclipError.insecureConnection }
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
+        let http = response as? HTTPURLResponse
+        if let origin = SameOriginRedirects.refusedOrigin(http) {
+            throw OIDCError.redirected(origin: origin.description)
+        }
+        return (data, http)
     }
 
     private static let formAllowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
