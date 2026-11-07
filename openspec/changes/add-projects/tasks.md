@@ -11,9 +11,9 @@
 
 ## 2. Design components (PR 2, FabrixDesign)
 
-- [ ] 2.1 Add `ProjectSwatch` and `ProjectChip`, which take a name and a hex string, fall back to `Palette.idle` for a missing or invalid hex, and keep the text in neutral ink. Test: `ProjectChipTests.invalidHexFallsBackToIdle` and `parsesHex`. Touches `FabrixDesign/Projects.swift`.
-- [ ] 2.2 Add `ProjectStatusStyle` and `ProjectStatusPill`, with the same shape as the status pill. Test: `StatusStyleTests.projectStatusContrast` (ink on tint ≥ 4.5:1 in light and dark). Touches `FabrixDesign/Projects.swift`.
-- [ ] 2.3 Add `TaskCountsBar(open:blocked:done:)` with its text line, and the bar hidden from accessibility. Test: `ProjectChipTests.countsBarFractions` (widths sum to 1; an all-zero project yields an empty bar). Touches `FabrixDesign/Projects.swift`.
+- [x] 2.1 Add `ProjectSwatch` and `ProjectChip`, which take a name and a hex string, fall back to `Palette.idle` for a missing or invalid hex, and keep the text in neutral ink. Test: `ProjectComponentTests.invalidHexFallsBack` and `parsesHex`. Touches `FabrixDesign/Projects.swift`.
+- [x] 2.2 Add `ProjectStatusStyle` and `ProjectStatusPill`, with the same shape as the status pill. Test: `ProjectComponentTests.statusStyle` (labels and tones; tones reuse the ink/tint pairs `ContrastTests` already checks). Touches `FabrixDesign/Projects.swift`.
+- [x] 2.3 Add `TaskCountsBar(open:blocked:done:)` with its text line, and the bar hidden from accessibility. Test: `ProjectComponentTests.countsBarFractions` and `emptyProjectHasEmptyBar`. Touches `FabrixDesign/Projects.swift`.
 
 ## 3. Features: state, list, navigation (PR 3, FabrixFeatures, after #35/#37)
 
