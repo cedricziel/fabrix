@@ -577,22 +577,59 @@ struct FactoryStoreTests {
 
     // MARK: - Signing in to the identity provider again
 
-    @Test func reauthenticationWithABrowserLogsInToTheIdentityProviderAgain() async throws {
-        let idpRequests = RequestRecorder()
-        let idp = identityProvider(recorder: idpRequests)
-        let recorder = RequestRecorder()
-        let paperclip = signInServer(recorder: recorder)
-        let store = store(paperclip)
+    /// An identity provider that rejects the refresh token "dead" and accepts everything else.
+    private func identityProviderRejectingDeadRefresh(recorder: RequestRecorder) -> FakeServer {
+        FakeServer(routes: [:], recorder: recorder, dynamicRoutes: [
+            "GET /.well-known/openid-configuration": { request in
+                .json(OIDCFixtures.discovery(issuer: URL(string: "https://\(request.url!.host()!)")!))
+            },
+            "POST /token": { request in
+                formFields(request)["refresh_token"] == "dead"
+                    ? .json(#"{"error":"invalid_grant","error_description":"Session ended"}"#, status: 400)
+                    : .json(OIDCFixtures.tokens())
+            },
+        ])
+    }
+
+    private func oidcBoardKeyFactory(_ store: FactoryStore, idp: FakeServer, paperclip: FakeServer) async throws -> Factory {
         let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
-        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_old", webAuthenticator: FakeWebAuthenticator.approving())
+        return try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_old", webAuthenticator: FakeWebAuthenticator.approving())
+    }
+
+    @Test func reauthenticationBehindOIDCTriesTheSavedSessionFirst() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProviderRejectingDeadRefresh(recorder: idpRequests)
+        let paperclip = signInServer()
+        let store = store(paperclip)
+        let factory = try await oidcBoardKeyFactory(store, idp: idp, paperclip: paperclip)
         let tokenRequestsBefore = idpRequests.requests.filter { $0.url?.path() == "/token" }.count
         let browser = FakeWebAuthenticator.approving()
 
         let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix", webAuthenticator: browser))
 
         #expect(renewed.id == factory.id)
+        #expect(browser.authorizeURL == nil)
+        #expect(idpRequests.requests.filter { $0.url?.path() == "/token" }.count == tokenRequestsBefore)
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func reauthenticationLogsInToTheIdentityProviderWhenItsSessionEnded() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProviderRejectingDeadRefresh(recorder: idpRequests)
+        let recorder = RequestRecorder()
+        let paperclip = signInServer(recorder: recorder)
+        let store = store(paperclip)
+        let factory = try await oidcBoardKeyFactory(store, idp: idp, paperclip: paperclip)
+        let tokenEndpoint = idp.baseURL.appending(path: "token")
+        try OIDCTokenStore(credentials: credentials, account: "\(factory.id).oidc")
+            .save(OIDCTokens(accessToken: "stale", refreshToken: "dead", expiresAt: .now - 60, tokenEndpoint: tokenEndpoint))
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix", webAuthenticator: browser))
+
+        #expect(renewed.id == factory.id)
         #expect(browser.authorizeURL != nil)
-        #expect(idpRequests.requests.filter { $0.url?.path() == "/token" }.count == tokenRequestsBefore + 1)
+        #expect(recorder.last("POST", "/api/cli-auth/challenges")?.value(forHTTPHeaderField: "X-Auth") == "Bearer access-1")
         #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
     }
 
