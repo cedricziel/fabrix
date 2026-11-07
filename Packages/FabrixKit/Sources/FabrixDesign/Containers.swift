@@ -43,6 +43,8 @@ public struct SectionHeader: View {
         case eyebrow
     }
 
+    nonisolated static let linkColor = Palette.signalInk
+
     private let title: String
     private let style: Style
     private let action: (title: String, perform: () -> Void)?
@@ -77,7 +79,7 @@ public struct SectionHeader: View {
                 Button(action.title, action: action.perform)
                     .buttonStyle(.plain)
                     .font(.fabrix(.link))
-                    .foregroundStyle(Palette.signal)
+                    .foregroundStyle(Self.linkColor)
                     .frame(minHeight: minimumTapTarget)
                     .contentShape(Rectangle())
             }
@@ -98,6 +100,7 @@ public struct MetricCard<Footer: View>: View {
     /// - Parameters:
     ///   - total: Shown muted after the value, e.g. "/ 7".
     ///   - emphasis: Colors the value signal orange. Use only for things waiting on a human.
+    ///     Signal orange passes contrast only at this large metric size; small text uses `Palette.signalInk`.
     public init(
         _ title: String, value: String, total: String? = nil, emphasis: Bool = false,
         @ViewBuilder footer: () -> Footer
