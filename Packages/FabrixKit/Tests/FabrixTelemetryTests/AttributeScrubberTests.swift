@@ -98,13 +98,39 @@ struct AttributeScrubberTests {
         #expect(scrubbed["url.full"] == .string("https://\(anonymizer.hash("factory.example.com"))/api/issues/{id}/comments"))
     }
 
-    @Test func apiRequestsGetTheirRouteTemplate() {
-        let scrubbed = scrubber.scrub(attributes: ["url.path": .string("/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/agents")])
+    @Test func paperclipRequestsGetTheirRouteTemplate() {
+        let scrubbed = scrubber.scrub(attributes: [
+            "server.address": .string("Paperclip.acme.lan"),
+            "url.path": .string("/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/agents"),
+        ])
         #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == .string("/api/companies/{id}/agents"))
     }
 
+    @Test func otherHostsGetNoRoute() {
+        let scrubbed = scrubber.scrub(attributes: [
+            "server.address": .string("api.example.com"),
+            "url.path": .string("/api/v1/things"),
+        ])
+        #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == nil)
+    }
+
+    @Test func unparseableURLsStillLoseTheirHost() {
+        let scrubbed = scrubber.scrub(url: "https://bad host.acme.lan:3100/api/x?token=abc")
+        #expect(scrubbed == "https://\(anonymizer.hash("bad host.acme.lan"))/api/x")
+    }
+
+    @Test func ipv6HostsHashTheSameEverywhere() {
+        let scrubbed = scrubber.scrub(attributes: [
+            "server.address": .string("[fe80::1]"),
+            "url.full": .string("http://[fe80::1]:3100/api/health"),
+        ])
+        let hashed = anonymizer.hash("fe80::1")
+        #expect(scrubbed["server.address"] == .string(hashed))
+        #expect(scrubbed["url.full"] == .string("http://\(hashed)/api/health"))
+    }
+
     @Test func nonAPIPathsGetNoRoute() {
-        let scrubbed = scrubber.scrub(attributes: ["url.path": .string("/health")])
+        let scrubbed = scrubber.scrub(attributes: ["server.address": .string("paperclip.acme.lan"), "url.path": .string("/health")])
         #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == nil)
     }
 

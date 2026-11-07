@@ -27,10 +27,10 @@ struct AttributeScrubber: Sendable {
 
     func scrub(url: String) -> String {
         guard var components = URLComponents(string: url) else {
-            return String(url.prefix { $0 != "?" && $0 != "#" })
+            return scrubUnparseable(url: url)
         }
         if let host = components.host, !host.isEmpty {
-            components.host = anonymizer.hash(host)
+            components.host = anonymizer.hash(Self.normalized(host))
         }
         components.user = nil
         components.password = nil
@@ -40,6 +40,19 @@ struct AttributeScrubber: Sendable {
         let path = Self.template(components.path)
         components.path = ""
         return (components.string ?? "") + path
+    }
+
+    /// Fallback for strings URLComponents rejects: still hashes whatever sits where the host would.
+    private func scrubUnparseable(url: String) -> String {
+        let withoutQuery = String(url.prefix { $0 != "?" && $0 != "#" })
+        guard let separator = withoutQuery.range(of: "://") else {
+            return Self.template(withoutQuery)
+        }
+        let scheme = withoutQuery[..<separator.lowerBound]
+        let rest = withoutQuery[separator.upperBound...]
+        let authority = rest.prefix { $0 != "/" }
+        let host = Self.stripPort(String(authority.split(separator: "@").last ?? authority))
+        return "\(scheme)://\(anonymizer.hash(Self.normalized(host)))" + Self.template(String(rest.dropFirst(authority.count)))
     }
 
     func scrub(_ text: String) -> String {
@@ -72,18 +85,21 @@ struct AttributeScrubber: Sendable {
     }
 
     func scrub(attributes: [String: AttributeValue]) -> [String: AttributeValue] {
+        let isPaperclipRequest = requestHost(in: attributes).map { host in
+            sensitiveValues.contains { $0.value.caseInsensitiveCompare(host) == .orderedSame }
+        } ?? false
         var result: [String: AttributeValue] = [:]
         for (key, value) in attributes where !Self.droppedKeys.contains(key) {
             switch (key, value) {
             case let (key, .string(host)) where Self.hostKeys.contains(key):
-                result[key] = .string(anonymizer.hash(Self.stripPort(host)))
+                result[key] = .string(anonymizer.hash(Self.normalized(Self.stripPort(host))))
             case let (key, .string(url)) where Self.urlKeys.contains(key):
                 result[key] = .string(replaceSensitiveValues(in: scrub(url: url)))
             default:
                 result[key] = scrub(value)
             }
         }
-        if case let .string(path) = result[SemanticConventions.Url.path.rawValue], path.hasPrefix("/api/") {
+        if isPaperclipRequest, case let .string(path) = result[SemanticConventions.Url.path.rawValue], path.hasPrefix("/api/") {
             result[PaperclipAttribute.apiRoute.rawValue] = .string(path)
         }
         return result
@@ -99,7 +115,28 @@ struct AttributeScrubber: Sendable {
         }.joined(separator: "/")
     }
 
+    private func requestHost(in attributes: [String: AttributeValue]) -> String? {
+        if case let .string(address) = attributes[SemanticConventions.Server.address.rawValue] {
+            return Self.normalized(Self.stripPort(address))
+        }
+        if case let .string(url) = attributes[SemanticConventions.Url.full.rawValue], let host = URLComponents(string: url)?.host {
+            return Self.normalized(host)
+        }
+        return nil
+    }
+
     private static func stripPort(_ host: String) -> String {
-        URLComponents(string: "//\(host)")?.host ?? host
+        if let parsed = URLComponents(string: "//\(host)")?.host {
+            return parsed
+        }
+        guard !host.hasPrefix("["), let colon = host.lastIndex(of: ":"), host[host.index(after: colon)...].allSatisfy(\.isNumber) else {
+            return host
+        }
+        return String(host[..<colon])
+    }
+
+    /// IPv6 literals hash without their brackets, however they were written.
+    private static func normalized(_ host: String) -> String {
+        host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
     }
 }
