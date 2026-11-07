@@ -75,6 +75,9 @@ public protocol FactoryConnector: AnyObject, Sendable {
 
     /// Waits for approval, then saves the factory. Cancel the calling task to stop waiting.
     func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection
+
+    /// Cancels a pending request on the server, so its key can't be activated later.
+    func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws
 }
 
 /// A saved factory that needs the connect form again, e.g. its custom header values were lost moving devices.

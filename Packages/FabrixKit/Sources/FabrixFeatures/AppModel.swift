@@ -57,6 +57,10 @@ public final class AppModel {
     private let undoWindow: Duration
     private var usesBoardKey = false
     private var signInTask: Task<FactoryConnection, any Error>?
+    /// Bumped by every start and cancel, so a run that was overtaken never connects.
+    private var signInRun = 0
+    /// The request the app is waiting on; cancelled on the server when the user backs out.
+    private var pendingChallenge: SignInChallenge?
     private var retrySignIn: (@MainActor () async -> Void)?
     private var checkedKeyExpiry = false
     private static let expiryWarning: TimeInterval = 5 * 24 * 60 * 60
@@ -163,9 +167,16 @@ public final class AppModel {
     }
 
     private func finishConnecting(_ connection: FactoryConnection) async {
+        reconnect = nil
+        if connection.factory.id == factory?.id {
+            // Signed in again: same factory, new key. Decisions held while signed out go out now.
+            renew(connection)
+            await commitStagedDecisions()
+            await refresh()
+            return
+        }
         // Only now is the open factory being left; a cancelled or failed sign-in keeps the undo window.
         await commitStagedDecisions()
-        reconnect = nil
         use(connection)
         defaults.set(connection.factory.id, forKey: Self.factoryKey)
         defaults.removeObject(forKey: Self.demoKey)
@@ -182,7 +193,7 @@ public final class AppModel {
 
     /// Runs browser sign-in for the current factory and replaces only its key.
     func signInAgain(webAuthenticator: (any WebAuthenticator)?) async {
-        guard canSignInAgain, let connector, let factory else { return }
+        guard canSignInAgain, !isConnecting, let connector, let factory else { return }
         await runBrowserSignIn(webAuthenticator: webAuthenticator) {
             try await connector.startReauthentication(factoryID: factory.id)
         }
@@ -192,12 +203,18 @@ public final class AppModel {
         await retrySignIn?()
     }
 
-    /// Stops waiting for approval, or dismisses a failed sign-in.
+    /// Stops waiting for approval, or dismisses a failed sign-in. A pending request is also
+    /// cancelled on the server, so a later approval can't activate its key.
     func cancelBrowserSignIn() {
+        signInRun += 1
         signInTask?.cancel()
         signInTask = nil
         retrySignIn = nil
         browserSignIn = nil
+        if let challenge = pendingChallenge, let connector {
+            pendingChallenge = nil
+            Task { try? await connector.cancelBrowserSignIn(challenge) }
+        }
     }
 
     /// - Returns: Whether the factory is now open.
@@ -206,27 +223,40 @@ public final class AppModel {
         webAuthenticator: (any WebAuthenticator)?, start: @escaping @MainActor () async throws -> SignInChallenge
     ) async -> Bool {
         guard let connector else { return false }
-        retrySignIn = { [weak self] in await self?.runBrowserSignIn(webAuthenticator: webAuthenticator, start: start) }
         signInTask?.cancel()
+        signInRun += 1
+        let run = signInRun
+        retrySignIn = { [weak self] in await self?.runBrowserSignIn(webAuthenticator: webAuthenticator, start: start) }
         connectError = nil
         isConnecting = true
         defer { isConnecting = false }
         do {
             let challenge = try await start()
+            guard run == signInRun else {
+                // Cancelled while the request was being created.
+                Task { try? await connector.cancelBrowserSignIn(challenge) }
+                return false
+            }
+            pendingChallenge = challenge
             browserSignIn = BrowserSignInState(approvalURL: challenge.approvalURL, expiresAt: challenge.expiresAt)
             let task = Task { try await Self.awaitApproval(of: challenge, connector: connector, sheet: webAuthenticator) }
             signInTask = task
             let connection = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            // An approval that lands as the user cancels must not open the factory anyway.
+            guard run == signInRun else { return false }
+            pendingChallenge = nil
             signInTask = nil
             retrySignIn = nil
             browserSignIn = nil
             await finishConnecting(connection)
             return true
         } catch {
+            guard run == signInRun else { return false }
             if Self.isCancellation(error) {
-                retrySignIn = nil
-                browserSignIn = nil
+                // Closing the approval sheet is the same as Cancel.
+                cancelBrowserSignIn()
             } else {
+                pendingChallenge = nil
                 browserSignIn = BrowserSignInState(failure: Self.signInFailure(error))
             }
             return false
@@ -407,7 +437,19 @@ public final class AppModel {
 
     /// Staged decisions belong to the open factory. Callers send them before switching,
     /// and anything still staged is dropped here so it can never reach the next factory.
+    /// Swaps in new credentials for the open factory without dropping what is on screen.
+    private func renew(_ connection: FactoryConnection) {
+        factory = connection.factory
+        service = connection.service
+        usesBoardKey = connection.usesBoardKey
+        needsSignIn = false
+        keyExpiry = nil
+        checkedKeyExpiry = false
+        lastError = nil
+    }
+
     private func use(_ connection: FactoryConnection) {
+        cancelBrowserSignIn()
         commitTimers.values.forEach { $0.cancel() }
         commitTimers = [:]
         desk = ApprovalDesk()
@@ -574,35 +616,48 @@ public final class AppModel {
     }
 
     private func commit(_ ids: [Approval.ID]) async {
-        guard let service else { return }
+        // Signed out, every decision would bounce; they stay staged until signing in again.
+        guard let service, !needsSignIn else { return }
         let verdicts = ids.compactMap { id -> (Approval.ID, Bool)? in
             commitTimers.removeValue(forKey: id)?.cancel()
             return desk.beginCommit(id).map { (id, $0) }
         }
         guard !verdicts.isEmpty else { return }
         let session = generation
-        let failures = await withTaskGroup(of: (Approval.ID, String)?.self) { group in
+        let failures = await withTaskGroup(of: (Approval.ID, any Error)?.self) { group in
             for (id, approve) in verdicts {
                 group.addTask {
                     do {
                         try await service.decide(approvalID: id, approve: approve)
                         return nil
                     } catch {
-                        return (id, error.localizedDescription)
+                        return (id, error)
                     }
                 }
             }
-            var failures: [Approval.ID: String] = [:]
-            for await case let (id, message)? in group {
-                failures[id] = message
+            var failures: [Approval.ID: any Error] = [:]
+            for await case let (id, error)? in group {
+                failures[id] = error
             }
             return failures
         }
         guard session == generation else { return }
-        failures.keys.forEach { desk.finish($0) }
-        decisionErrors.merge(failures) { _, new in new }
+        let verdictByID = Dictionary(uniqueKeysWithValues: verdicts)
+        var messages: [Approval.ID: String] = [:]
+        for (id, error) in failures {
+            if canSignInAgain, case .unauthorized = error as? PaperclipError, let approve = verdictByID[id] {
+                // The key was rejected, not the decision: keep it for after signing in again.
+                desk.stage(id, approve: approve)
+                needsSignIn = true
+            } else {
+                desk.finish(id)
+                messages[id] = error.localizedDescription
+            }
+        }
+        decisionErrors.merge(messages) { _, new in new }
+        guard !needsSignIn else { return }
         await refresh()
-        guard session == generation, let failure = failures.values.first else { return }
+        guard session == generation, let failure = messages.values.first else { return }
         lastError = failure
     }
 

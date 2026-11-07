@@ -300,4 +300,124 @@ struct BrowserSignInTests {
         #expect(relaunched.reconnect == nil)
         #expect(!relaunched.isOnboarding)
     }
+
+    // MARK: - Release fixes
+
+    private func waitUntilCancelledOnServer(_ connector: RecordingConnector) async {
+        while connector.cancelledChallenges.isEmpty {
+            await Task.yield()
+        }
+    }
+
+    @Test func cancelTellsTheServer() async {
+        let connector = RecordingConnector()
+        connector.browserOutcome = .waitUntilCancelled
+        let model = model(connector)
+        let connecting = Task { await model.connect(ConnectForm(address: "factory.example")) }
+        await waitUntilWaiting(model)
+
+        model.cancelBrowserSignIn()
+        await connecting.value
+        await waitUntilCancelledOnServer(connector)
+
+        #expect(connector.cancelledChallenges == ["ch-1"])
+    }
+
+    @Test func closingTheSheetTellsTheServer() async {
+        let connector = RecordingConnector()
+        connector.browserOutcome = .waitUntilCancelled
+        let model = model(connector)
+
+        await model.connect(ConnectForm(address: "factory.example"), webAuthenticator: ApprovalSheet(.closedByUser))
+        await waitUntilCancelledOnServer(connector)
+
+        #expect(connector.cancelledChallenges == ["ch-1"])
+    }
+
+    @Test func secondSignInAgainWhileOneRunsDoesNothing() async {
+        let (model, connector, _) = await rejectedModel()
+        connector.browserOutcome = .waitUntilCancelled
+        let first = Task { await model.signInAgain(webAuthenticator: nil) }
+        await waitUntilWaiting(model)
+
+        await model.signInAgain(webAuthenticator: nil)
+        model.cancelBrowserSignIn()
+        await first.value
+
+        #expect(connector.reauthenticated.count == 1)
+        #expect(connector.cancelledWaits == 1)
+    }
+
+    @Test func leavingForTheDemoCancelsTheSignIn() async {
+        let connector = RecordingConnector()
+        connector.browserOutcome = .waitUntilCancelled
+        let model = model(connector)
+        let connecting = Task { await model.connect(ConnectForm(address: "factory.example")) }
+        await waitUntilWaiting(model)
+
+        await model.exploreDemo()
+        await connecting.value
+
+        #expect(connector.cancelledWaits == 1)
+        #expect(model.browserSignIn == nil)
+        #expect(model.factory?.id == FactoryConnection.demo().factory.id)
+    }
+
+    @Test func cancelWinsOverAnApprovalThatLandsAtTheSameTime() async {
+        let connector = RecordingConnector()
+        let model = model(connector)
+        connector.beforeCompleting = { await MainActor.run { model.cancelBrowserSignIn() } }
+
+        let connected = await model.connect(ConnectForm(address: "factory.example"))
+
+        #expect(!connected)
+        #expect(model.isOnboarding)
+        #expect(model.browserSignIn == nil)
+    }
+
+    @Test func decisionsStayStagedWhileSignedOutAndGoOutAfterSigningInAgain() async throws {
+        let connector = RecordingConnector()
+        let renewed = RecordingDecisions()
+        connector.renewedService = renewed
+        let model = await relaunched(connector, service: RejectingDecisions())
+        let approval = try #require(model.waitingApprovals.first)
+
+        model.decide(approval, approve: true)
+        await model.commitStagedDecisions()
+
+        #expect(model.needsSignIn)
+        #expect(model.decisionErrors.isEmpty)
+        #expect(model.decidedApprovals.map(\.id) == [approval.id])
+
+        await model.signInAgain(webAuthenticator: nil)
+
+        #expect(renewed.decided.withLock { $0 } == [approval.id])
+    }
+}
+
+/// Loads like the demo but rejects decisions, as a factory does once the key is revoked.
+private struct RejectingDecisions: FactoryService {
+    let base = DemoFactoryService()
+
+    func companies() async throws -> [Company] { try await base.companies() }
+    func snapshot(companyID: Company.ID) async throws -> CompanySnapshot { try await base.snapshot(companyID: companyID) }
+    func decide(approvalID _: Approval.ID, approve _: Bool) async throws { throw PaperclipError.unauthorized(nil) }
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
+}
+
+private final class RecordingDecisions: FactoryService {
+    let base = DemoFactoryService()
+    let decided = Mutex<[Approval.ID]>([])
+
+    func companies() async throws -> [Company] { try await base.companies() }
+    func snapshot(companyID: Company.ID) async throws -> CompanySnapshot { try await base.snapshot(companyID: companyID) }
+    func decide(approvalID: Approval.ID, approve: Bool) async throws {
+        decided.withLock { $0.append(approvalID) }
+        try await base.decide(approvalID: approvalID, approve: approve)
+    }
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
 }

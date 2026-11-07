@@ -65,6 +65,10 @@ public final class StoreConnector: FactoryConnector {
         return try await store.startReauthentication(of: factory, clientName: Self.clientName)
     }
 
+    public func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws {
+        try await store.cancelSignIn(challenge)
+    }
+
     public func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection {
         let factory = try await store.completeSignIn(challenge)
         return try connection(for: factory)

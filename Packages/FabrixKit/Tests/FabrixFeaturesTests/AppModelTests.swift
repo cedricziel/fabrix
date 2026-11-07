@@ -376,6 +376,11 @@ final class RecordingConnector: FactoryConnector {
     private(set) var browserCalls: [ConnectCall] = []
     private(set) var reauthenticated: [Factory.ID] = []
     private(set) var cancelledWaits = 0
+    private(set) var cancelledChallenges: [String] = []
+
+    func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws {
+        cancelledChallenges.append(challenge.id)
+    }
 
     func startBrowserSignIn(
         baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator _: (any WebAuthenticator)?
