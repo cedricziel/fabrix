@@ -91,7 +91,7 @@ Counts come from the snapshot's issues, which are capped at 500. The server's `t
 
 ### 6. Design components
 
-`FabrixDesign` gains the proposed `ProjectSwatch`, `ProjectChip` and `TaskCountsBar`. They take plain values (name, hex string, three integers), never Core types. Project statuses reuse `StatusPill` through `StatusPill(_:title:)`: a design-side `ProjectStatusStyle` names the label and the `StatusStyle` it looks like, and FabrixFeatures maps `ProjectStatus` onto it.
+`FabrixDesign` gains the proposed `ProjectSwatch`, `ProjectChip`, `TaskCountsBar` and a generic `FilterChip`. They take plain values (name, hex string, three integers), never Core types. Project statuses use the shared `Pill` through `Pill(_ project: ProjectStatusStyle)`: a design-side `ProjectStatusStyle` names the label and the `StatusStyle` whose dot and tone it borrows, and FabrixFeatures maps `ProjectStatus` onto it. The primary repository uses `KindTag(title:tone: .neutral)`. Projects copy resolves from the Features catalog (`.features(…)`, `bundle: .module`).
 
 ### 7. Lead from another company
 

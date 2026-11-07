@@ -41,7 +41,7 @@
 ## 7. Review fixes (folded into PRs 1–5)
 
 - [x] 7.1 Core: lenient row decoding, unknown status → `.other`, web-only repository URLs, `Project.taskCount`, `CompanySnapshot.formerAgentIDs`. Tests: `PaperclipProjectMappingTests` (`unknownStatusIsNotActive`, `badWorkspaceIsDropped`, `onlyWebURLsAreKept`, `keepsServerTaskCount`), `PaperclipFactoryServiceTests.malformedProjectRowIsSkipped`, `snapshotRemembersTerminatedAgents`.
-- [x] 7.2 Design: `ProjectStatusPill` replaced by `StatusPill(_:title:)`. Test: `ProjectComponentTests.statusStyle`.
+- [x] 7.2 Design: `ProjectStatusPill` replaced by the shared `Pill`; `FilterChip` added; screens adopt `KindTag(tone: .neutral)`, `SectionCard(_:)`, `EmptyRow(_:)` and catalog-backed strings (`scripts/check-feature-strings.sh` passes). Test: `ProjectComponentTests.statusStyle`.
 - [x] 7.3 State: parallel projects load, unsupported remembered per factory, reload after a failed switch, former lead, unloaded task count. Tests: `AppModelProjectsTests.unsupportedIsNotAskedAgain`, `failedSwitchReloadsTheShownCompanysProjects`, `ProjectBoardTests.terminatedLeadIsFormer`, `unloadedTasksBeyondTheWindow`.
 - [x] 7.4 Screens: leave projects when unsupported, unloaded-tasks note, active badge, wording fixes. Test: `NavigatorTests.factoryWithoutProjectsLeavesThem`.
 - [x] 7.5 Filter: reset when its project goes away. Test: `TaskProjectFilterTests.filterResetsWhenItsProjectDisappears`.
