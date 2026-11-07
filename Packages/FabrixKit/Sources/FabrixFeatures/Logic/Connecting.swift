@@ -85,6 +85,15 @@ public protocol FactoryConnector: AnyObject, Sendable {
 
     /// Cancels a pending request on the server, so its key can't be activated later.
     func cancelBrowserSignIn(_ challenge: SignInChallenge) async throws
+
+    /// What the connect form needs to replace a saved factory's credentials: its header names and sign-in method.
+    func reconnectRequest(for factory: Factory, reason: String) -> ReconnectNeeded
+}
+
+public extension FactoryConnector {
+    func reconnectRequest(for factory: Factory, reason: String) -> ReconnectNeeded {
+        ReconnectNeeded(factory: factory, headerNames: [], reason: reason)
+    }
 }
 
 /// A saved factory that needs the connect form again, e.g. its custom header values were lost moving devices.

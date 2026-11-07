@@ -517,6 +517,27 @@ struct BrowserSignInTests {
         #expect(service.calls.withLock { $0 } == callsWhenSignedOut)
     }
 
+    @Test func reconnectReopensTheFormWithTheSavedHeadersAndSignInMethod() async throws {
+        let connector = RecordingConnector()
+        let model = await relaunched(connector, service: RejectingDecisions(), usesBoardKey: false)
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+        await model.commitStagedDecisions()
+        let oidc = OIDCSettings(
+            issuer: URL(string: "https://auth.example")!, clientID: "fabrix",
+            redirectURI: URL(string: "com.cedricziel.fabrix:/cb")!, tokenHeader: "Authorization"
+        )
+        connector.reconnectHeaderNames = ["X-Gateway-Token"]
+        connector.reconnectAuth = FactoryAuthConfiguration(oidc: oidc, usesBoardKey: false)
+
+        model.reconnectWithNewCredentials()
+        let form = try ConnectForm(reconnecting: #require(model.reconnect))
+
+        #expect(form.headers.map(\.name) == ["X-Gateway-Token"])
+        #expect(form.method == .oidc)
+        #expect(form.issuer == "https://auth.example")
+    }
+
     @Test func reconnectKeepsDecisionsHeldWhileSignedOut() async throws {
         let connector = RecordingConnector()
         let model = await relaunched(connector, service: RejectingDecisions(), usesBoardKey: false)

@@ -581,10 +581,8 @@ public final class AppModel {
     /// The factory stays open, so decisions held while signed out go out once it reconnects.
     func reconnectWithNewCredentials() {
         guard let factory, isSignedOutWithoutSignIn else { return }
-        reconnect = ReconnectNeeded(
-            factory: factory, headerNames: [],
-            reason: String(localized: "Your sign-in to \(factory.name) ended. Enter your credentials again to continue.", bundle: .module)
-        )
+        let reason = String(localized: "Your sign-in to \(factory.name) ended. Enter your credentials again to continue.", bundle: .module)
+        reconnect = connector?.reconnectRequest(for: factory, reason: reason) ?? ReconnectNeeded(factory: factory, headerNames: [], reason: reason)
     }
 
     /// The factory rejects its credentials and "Sign in again" can't renew them.
@@ -736,6 +734,9 @@ public final class AppModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: interval)
             guard !Task.isCancelled else { return }
+            // Every poll would be rejected the same way, and a lucky one would drop held decisions'
+            // undo timers. Refreshing by hand and Reconnect still work.
+            if connectionProblem?.issue == .signedOut { continue }
             await refresh()
         }
     }

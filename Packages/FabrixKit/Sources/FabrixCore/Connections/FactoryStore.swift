@@ -273,6 +273,11 @@ public final class FactoryStore {
         authConfigurations[factory.id] ?? .none
     }
 
+    /// The names of the saved custom headers; their values stay in the credential store.
+    public func customHeaderNames(for factory: Factory) -> [String] {
+        headerNames[factory.id] ?? []
+    }
+
     /// The saved custom headers, with their values read from the credential store.
     ///
     /// - Throws: `PaperclipError.missingHeaderValues` when names are saved but their values are gone.
