@@ -249,6 +249,9 @@
     "Factory address" : {
 
     },
+    "Filter by project" : {
+
+    },
     "Former agent" : {
 
     },
@@ -345,6 +348,9 @@
     "No monthly cap" : {
 
     },
+    "No project" : {
+
+    },
     "No projects in %@" : {
 
     },
@@ -412,6 +418,9 @@
 
     },
     "Project" : {
+
+    },
+    "Project details" : {
 
     },
     "Projects" : {
@@ -487,6 +496,9 @@
 
     },
     "Show" : {
+
+    },
+    "Show all projects" : {
 
     },
     "Sign in again" : {
@@ -604,6 +616,9 @@
 
     },
     "^[%lld repository](inflect: true)" : {
+
+    },
+    "^[%lld task](inflect: true)" : {
 
     },
     "from %@" : {

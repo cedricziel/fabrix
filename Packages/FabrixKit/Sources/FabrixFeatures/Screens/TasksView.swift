@@ -37,19 +37,19 @@ private struct ProjectFilterMenu: View {
     var body: some View {
         @Bindable var model = model
         Menu {
-            Picker("Project", selection: $model.taskProjectFilter) {
-                Text("All projects").tag(ProjectFilter.all)
+            Picker(.features("Project"), selection: $model.taskProjectFilter) {
+                Text("All projects", bundle: .module).tag(ProjectFilter.all)
                 ForEach(model.projects) { project in
                     Text(project.name).tag(ProjectFilter.project(project.id))
                 }
-                Text("No project").tag(ProjectFilter.none)
+                Text("No project", bundle: .module).tag(ProjectFilter.none)
             }
             .pickerStyle(.inline)
         } label: {
-            Label("Project", systemImage: model.taskProjectFilter == .all
+            Label(.features("Project"), systemImage: model.taskProjectFilter == .all
                 ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
         }
-        .help("Filter by project")
+        .help(.features("Filter by project"))
     }
 }
 
@@ -67,16 +67,16 @@ private struct ProjectFilterToken: View {
             }
             HStack(spacing: 10) {
                 FilterChip(
-                    project?.name ?? String(localized: "No project"),
-                    clearLabel: String(localized: "Show all projects"),
+                    project?.name ?? String(localized: "No project", bundle: .module),
+                    clearLabel: String(localized: "Show all projects", bundle: .module),
                     onClear: { model.taskProjectFilter = .all }
                 ) {
                     if let project { ProjectSwatch(colorHex: project.colorHex) }
                 }
-                Text("^[\(model.visibleTasks.count) task](inflect: true)").font(.caption).foregroundStyle(Palette.steel)
+                Text("^[\(model.visibleTasks.count) task](inflect: true)", bundle: .module).font(.caption).foregroundStyle(Palette.steel)
                 Spacer()
                 if let project {
-                    Button("Project details") { navigator.open(project: project.id) }
+                    Button(.features("Project details")) { navigator.open(project: project.id) }
                         .buttonStyle(.borderless)
                         .font(.caption.weight(.medium))
                 }
