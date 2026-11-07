@@ -338,7 +338,8 @@ public final class AppModel {
             signInTask = nil
             retrySignIn = nil
             browserSignIn = nil
-            await finishConnecting(connection)
+            // Like a plain connect: once opening starts, closing the form must not stop it halfway.
+            await Task { await self.finishConnecting(connection) }.value
             return true
         } catch {
             guard run == signInRun else { return false }

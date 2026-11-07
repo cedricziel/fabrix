@@ -230,6 +230,20 @@ struct FactorySwitchingTests {
         #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
     }
 
+    @Test func closingTheFormMidConnectOpensNothingAndKeepsHeldDecisions() async throws {
+        let (model, _) = await connected(["one.example"])
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        let connecting = Task { await model.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k")) }
+        connecting.cancel()
+        let opened = await connecting.value
+
+        #expect(!opened)
+        #expect(model.factory?.name == "one.example")
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
+    }
+
     @Test func cancelledSignInKeepsTheUndoWindow() async throws {
         let (model, connector) = await connected(["one.example"])
         let approval = try #require(model.waitingApprovals.first)
