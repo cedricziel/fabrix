@@ -62,3 +62,22 @@ extension AgentStatus {
         }
     }
 }
+
+extension ProjectStatus {
+    var style: ProjectStatusStyle {
+        switch self {
+        case .backlog: .backlog
+        case .planned: .planned
+        case .inProgress: .inProgress
+        case .completed: .completed
+        case .cancelled: .cancelled
+        }
+    }
+}
+
+extension Project {
+    /// The target date on the day Paperclip stores, in the user's calendar.
+    var targetDay: Date? {
+        targetDate.flatMap { Calendar.current.date(from: DateComponents(year: $0.year, month: $0.month, day: $0.day)) }
+    }
+}

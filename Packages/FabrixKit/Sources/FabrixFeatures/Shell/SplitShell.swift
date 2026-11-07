@@ -22,8 +22,14 @@ struct SplitShell: View {
                 #endif
         } detail: {
             NavigationStack(path: $navigator.path) {
-                SectionScreen(section: navigator.section)
-                    .id(model.snapshot?.company.id)
+                Group {
+                    if let project = navigator.project {
+                        ProjectDetailView(projectID: project)
+                    } else {
+                        SectionScreen(section: navigator.section)
+                    }
+                }
+                .id(model.snapshot?.company.id)
                     .factoryTitle()
                     .fabrixDestinations()
             }
@@ -40,6 +46,7 @@ struct SectionScreen: View {
     var body: some View {
         switch section {
         case .overview: OverviewView()
+        case .projects: ProjectsView()
         case .tasks: TasksView()
         case .agents: AgentsView()
         case .orgChart: OrgChartView()
@@ -54,12 +61,26 @@ private struct Sidebar: View {
     @Environment(Navigator.self) private var navigator
 
     var body: some View {
-        @Bindable var navigator = navigator
-        List(selection: Binding($navigator.section)) {
-            ForEach(AppSection.allCases) { section in
+        List(selection: selection) {
+            ForEach(AppSection.allCases.filter { $0 != .projects }) { section in
                 Label(section.title, systemImage: section.systemImage)
                     .badge(badge(for: section))
-                    .tag(section)
+                    .tag(SidebarItem.section(section))
+            }
+            if model.supportsProjects {
+                Section("Projects") { ProjectsSidebarGroup() }
+            }
+        }
+    }
+
+    private var selection: Binding<SidebarItem?> {
+        Binding {
+            navigator.project.map(SidebarItem.project) ?? .section(navigator.section)
+        } set: { item in
+            switch item {
+            case let .section(section): navigator.open(section)
+            case let .project(id): navigator.open(project: id)
+            case nil: break
             }
         }
     }
@@ -112,5 +133,62 @@ struct CompanyToolbar: ToolbarContent {
             Label(.features("New task"), systemImage: "plus")
         }
         .keyboardShortcut("n", modifiers: .command)
+    }
+}
+
+enum SidebarItem: Hashable {
+    case section(AppSection)
+    case project(Project.ID)
+}
+
+/// All projects, then one row per active project with its open and blocked counts.
+private struct ProjectsSidebarGroup: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let board = ProjectBoard(projects: model.projects, snapshot: model.snapshot)
+        Label("All projects", systemImage: AppSection.projects.systemImage)
+            .badge(board.projects.count)
+            .tag(SidebarItem.section(.projects))
+        if model.projectsState == .loading {
+            ForEach(0 ..< 3, id: \.self) { _ in
+                Label("Project", systemImage: "square.fill").redacted(reason: .placeholder)
+            }
+            .accessibilityHidden(true)
+        }
+        if model.projectsFailure != nil {
+            Button("Didn't load · Retry", systemImage: "exclamationmark.circle") {
+                Task { await model.retryProjects() }
+            }
+            .foregroundStyle(Palette.haltInk)
+        }
+        ForEach(board.active) { project in
+            let counts = board.counts(for: project.id)
+            HStack(spacing: 8) {
+                ProjectSwatch(colorHex: project.colorHex)
+                    .frame(width: 18)
+                Text(project.name).lineLimit(1)
+                Spacer()
+                if counts.blocked > 0 {
+                    Label("\(counts.blocked)", systemImage: "circle.fill")
+                        .labelStyle(BlockedCountStyle())
+                        .accessibilityLabel("\(counts.blocked) blocked")
+                }
+                Text("\(counts.open)")
+                    .font(.caption)
+                    .foregroundStyle(Palette.muted)
+                    .accessibilityLabel("\(counts.open) open")
+            }
+            .tag(SidebarItem.project(project.id))
+        }
+    }
+}
+
+private struct BlockedCountStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 3) {
+            configuration.icon.font(.system(size: 6)).foregroundStyle(Palette.halt)
+            configuration.title.font(.caption.weight(.semibold)).foregroundStyle(Palette.haltInk)
+        }
     }
 }

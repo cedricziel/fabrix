@@ -5,6 +5,7 @@ import SwiftUI
 struct OverviewView: View {
     @Environment(AppModel.self) private var model
     @Environment(Navigator.self) private var navigator
+    @Environment(\.isCompact) private var isCompact
     @State private var isWide = true
 
     var body: some View {
@@ -22,6 +23,9 @@ struct OverviewView: View {
                         LiveRunsCard(runs: runs)
                         DecisionsCard(waiting: waiting)
                             .frame(maxWidth: isWide ? 380 : .infinity)
+                    }
+                    if isCompact, model.supportsProjects {
+                        ProjectsCard()
                     }
                     SectionCard(.features("Activity"), actionTitle: .features("All activity"), action: { navigator.open(.activity) }) {
                         ActivityRows(events: Array(snapshot.activity.prefix(5)))
@@ -217,3 +221,46 @@ private struct DecisionsCard: View {
 }
 
 #Preview { PreviewHost { NavigationStack { OverviewView() } } }
+
+/// iPhone: up to three active projects, with a way to all of them.
+private struct ProjectsCard: View {
+    @Environment(AppModel.self) private var model
+    @Environment(Navigator.self) private var navigator
+
+    var body: some View {
+        let board = ProjectBoard(projects: model.projects, snapshot: model.snapshot)
+        let action: (title: LocalizedStringResource, perform: () -> Void)? =
+            board.active.isEmpty ? nil : ("See all \(board.active.count)", { navigator.open(.projects) })
+        SectionCard(title: "Projects", action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                if let failure = model.projectsFailure {
+                    ProjectsFailureRow(message: failure).padding(.horizontal, 16).padding(.vertical, 8)
+                } else if model.projectsState == .loading {
+                    EmptyRow(text: "Loading projects…")
+                } else if board.active.isEmpty {
+                    EmptyRow(text: "No projects yet. Create one in Paperclip.")
+                }
+                ForEach(board.active.prefix(3)) { project in
+                    let counts = board.counts(for: project.id)
+                    Button { navigator.open(project: project.id) } label: {
+                        HStack(spacing: 12) {
+                            ProjectSwatch(colorHex: project.colorHex, size: 12)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(project.name).font(.fabrix(.headline))
+                                Text("\(counts.open) open · \(counts.blocked) blocked")
+                                    .font(.caption)
+                                    .foregroundStyle(counts.blocked > 0 ? Palette.haltInk : Palette.steel)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Palette.idle)
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 56)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}

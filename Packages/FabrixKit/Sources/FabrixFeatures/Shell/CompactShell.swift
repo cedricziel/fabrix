@@ -35,7 +35,7 @@ private struct TabStack: View {
                     if !tab.nestedSections.isEmpty {
                         ToolbarItem(placement: .navigation) {
                             Menu {
-                                ForEach(tab.nestedSections) { section in
+                                ForEach(tab.nestedSections.filter { $0 != .projects || model.supportsProjects }) { section in
                                     Button { navigator.open(section) } label: {
                                         Label(section.title, systemImage: section.systemImage)
                                     }
