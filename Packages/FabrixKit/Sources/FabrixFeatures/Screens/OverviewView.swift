@@ -26,6 +26,9 @@ struct OverviewView: View {
                     SectionCard(title: "Activity") {
                         Button("All activity") { navigator.open(.activity) }
                             .buttonStyle(.borderless)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(.rect)
+                            .padding(.vertical, -12)
                     } content: {
                         ActivityRows(events: Array(snapshot.activity.prefix(5)))
                     }
