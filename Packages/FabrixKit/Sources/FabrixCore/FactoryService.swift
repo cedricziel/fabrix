@@ -10,10 +10,22 @@ public protocol FactoryService: Sendable {
     func setCompanyPaused(_ paused: Bool, companyID: Company.ID) async throws
     /// When the credential this service uses stops working, if the server says.
     func credentialExpiry() async throws -> Date?
+    /// The company's projects that aren't archived. Throws `FactoryServiceError.unsupported`
+    /// when the factory has no projects.
+    func projects(companyID: Company.ID) async throws -> [Project]
+}
+
+public enum FactoryServiceError: Error, Equatable, Sendable {
+    /// The factory doesn't offer this feature, for example an older server.
+    case unsupported
 }
 
 public extension FactoryService {
     func credentialExpiry() async throws -> Date? {
         nil
+    }
+
+    func projects(companyID _: Company.ID) async throws -> [Project] {
+        throw FactoryServiceError.unsupported
     }
 }

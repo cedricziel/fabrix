@@ -77,14 +77,19 @@ public struct WorkItem: Identifiable, Hashable, Sendable, Codable {
     public var status: TaskStatus
     public var assigneeID: String?
     public var updatedAt: Date
+    public var projectID: String?
 
-    public init(id: String, identifier: String, title: String, status: TaskStatus, assigneeID: String? = nil, updatedAt: Date = .now) {
+    public init(
+        id: String, identifier: String, title: String, status: TaskStatus, assigneeID: String? = nil,
+        updatedAt: Date = .now, projectID: String? = nil
+    ) {
         self.id = id
         self.identifier = identifier
         self.title = title
         self.status = status
         self.assigneeID = assigneeID
         self.updatedAt = updatedAt
+        self.projectID = projectID
     }
 }
 
@@ -152,12 +157,88 @@ public struct ActivityEvent: Identifiable, Hashable, Sendable, Codable {
     public var at: Date
     public var actor: String
     public var summary: String
+    public var taskID: String?
+    public var projectID: String?
 
-    public init(id: String, at: Date, actor: String, summary: String) {
+    public init(id: String, at: Date, actor: String, summary: String, taskID: String? = nil, projectID: String? = nil) {
         self.id = id
         self.at = at
         self.actor = actor
         self.summary = summary
+        self.taskID = taskID
+        self.projectID = projectID
+    }
+}
+
+public enum ProjectStatus: String, Sendable, Codable, CaseIterable {
+    case backlog, planned, inProgress, completed, cancelled
+    /// A status this version of Fabrix doesn't know. Not counted as active, so it can't hide a finished project.
+    case other
+
+    public var isActive: Bool {
+        switch self {
+        case .backlog, .planned, .inProgress: true
+        case .completed, .cancelled, .other: false
+        }
+    }
+}
+
+public struct ProjectRepository: Identifiable, Hashable, Sendable, Codable {
+    public enum Kind: String, Sendable, Codable {
+        case git, folder, other
+    }
+
+    public var id: String
+    public var kind: Kind
+    /// `owner/name` for a Git repository, the path for a folder.
+    public var name: String
+    /// Only set for Git repositories.
+    public var url: URL?
+    public var ref: String?
+    public var isPrimary: Bool
+
+    public init(id: String, kind: Kind, name: String, url: URL? = nil, ref: String? = nil, isPrimary: Bool = false) {
+        self.id = id
+        self.kind = kind
+        self.name = name
+        self.url = url
+        self.ref = ref
+        self.isPrimary = isPrimary
+    }
+}
+
+public struct Project: Identifiable, Hashable, Sendable, Codable {
+    public var id: String
+    public var name: String
+    public var summary: String?
+    public var status: ProjectStatus
+    public var leadAgentID: String?
+    /// A calendar date (year, month, day), so it never shifts with the time zone.
+    public var targetDate: DateComponents?
+    /// `#RRGGBB` as Paperclip stores it.
+    public var colorHex: String?
+    public var goals: [String]
+    public var repositories: [ProjectRepository]
+    public var isArchived: Bool
+    /// Every task in the project as the server counts it, when the server says.
+    public var taskCount: Int?
+
+    public init(
+        id: String, name: String, summary: String? = nil, status: ProjectStatus, leadAgentID: String? = nil,
+        targetDate: DateComponents? = nil, colorHex: String? = nil, goals: [String] = [],
+        repositories: [ProjectRepository] = [], isArchived: Bool = false, taskCount: Int? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.summary = summary
+        self.status = status
+        self.leadAgentID = leadAgentID
+        self.targetDate = targetDate
+        self.colorHex = colorHex
+        self.goals = goals
+        self.repositories = repositories
+        self.isArchived = isArchived
+        self.taskCount = taskCount
     }
 }
 
@@ -170,10 +251,13 @@ public struct CompanySnapshot: Hashable, Sendable {
     public var activity: [ActivityEvent]
     public var spentMonthlyCents: Int
     public var budgetMonthlyCents: Int?
+    /// Agents of this company that were terminated; they aren't in `agents`.
+    public var formerAgentIDs: Set<Agent.ID>
 
     public init(
         company: Company, agents: [Agent], tasks: [WorkItem], approvals: [Approval],
-        runs: [Run], activity: [ActivityEvent], spentMonthlyCents: Int, budgetMonthlyCents: Int?
+        runs: [Run], activity: [ActivityEvent], spentMonthlyCents: Int, budgetMonthlyCents: Int?,
+        formerAgentIDs: Set<Agent.ID> = []
     ) {
         self.company = company
         self.agents = agents
@@ -183,6 +267,7 @@ public struct CompanySnapshot: Hashable, Sendable {
         self.activity = activity
         self.spentMonthlyCents = spentMonthlyCents
         self.budgetMonthlyCents = budgetMonthlyCents
+        self.formerAgentIDs = formerAgentIDs
     }
 
     public var pendingApprovals: [Approval] {

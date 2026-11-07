@@ -26,6 +26,22 @@ struct DemoFactoryServiceTests {
         #expect(after.agents.first { $0.id == agent.id }?.status == .paused)
     }
 
+    @Test func demoHasProjects() async throws {
+        let service = DemoFactoryService()
+        let company = try #require(try await service.companies().first)
+        let projects = try await service.projects(companyID: company.id)
+        let snapshot = try await service.snapshot(companyID: company.id)
+        let agentIDs = Set(snapshot.agents.map(\.id))
+
+        #expect(projects.contains { $0.status.isActive })
+        #expect(projects.contains { !$0.status.isActive })
+        #expect(projects.contains { $0.leadAgentID.map(agentIDs.contains) == true })
+        #expect(projects.contains { $0.leadAgentID == nil })
+        #expect(projects.contains { $0.repositories.isEmpty })
+        let projectIDs = Set(projects.map(\.id))
+        #expect(snapshot.tasks.contains { $0.status == .blocked && $0.projectID.map(projectIDs.contains) == true })
+    }
+
     @Test func initialsUseFirstLettersOfTwoWords() {
         #expect(Agent(id: "1", name: "Founding Engineer", status: .idle).initials == "FE")
         #expect(Agent(id: "2", name: "CTO", status: .idle).initials == "CT")

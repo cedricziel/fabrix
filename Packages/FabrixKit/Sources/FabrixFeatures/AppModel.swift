@@ -26,6 +26,22 @@ public enum LoadState: Equatable, Sendable {
     case failed(String)
 }
 
+/// Projects load beside the company snapshot, so their failure stays local to them.
+enum ProjectsState: Equatable {
+    case loading
+    case loaded([Project])
+    /// The last list that loaded stays visible.
+    case failed(String, last: [Project])
+    case unsupported
+}
+
+enum ProjectFilter: Hashable {
+    case all
+    case project(Project.ID)
+    /// Tasks that belong to no project.
+    case none
+}
+
 @MainActor
 @Observable
 public final class AppModel {
@@ -41,6 +57,16 @@ public final class AppModel {
 
     public private(set) var loadState: LoadState = .loading
     public private(set) var lastError: String?
+    private(set) var projectsState = ProjectsState.loading {
+        didSet {
+            if projectsState != oldValue {
+                projectsByID = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            }
+        }
+    }
+
+    var taskProjectFilter = ProjectFilter.all
+    private var projectsByID: [Project.ID: Project] = [:]
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -66,6 +92,9 @@ public final class AppModel {
     /// The company the user chose; requests for any other company are stale.
     private var selectedCompanyID: Company.ID?
     private var requestCount = 0
+    private var projectsRequest = 0
+    /// Set once the open factory answers that it has no projects; it isn't asked again.
+    private var projectsUnsupported = false
     private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
@@ -492,6 +521,9 @@ public final class AppModel {
         factory = nil
         companies = []
         snapshot = nil
+        projectsState = .loading
+        projectsUnsupported = false
+        taskProjectFilter = .all
         loadState = .loading
         lastError = nil
     }
@@ -528,6 +560,9 @@ public final class AppModel {
         checkedKeyExpiry = false
         companies = []
         snapshot = nil
+        projectsState = .loading
+        projectsUnsupported = false
+        taskProjectFilter = .all
         lastError = nil
         loadState = .loading
     }
@@ -538,6 +573,9 @@ public final class AppModel {
         guard let service, !needsSignIn else { return }
         let request = beginRequest()
         let wanted = selectedCompanyID
+        // Projects for an already shown company load in parallel with the snapshot.
+        let projectsTicket = beginProjectsRequest()
+        async let earlyProjects = Self.fetchProjects(from: service, companyID: projectsUnsupported ? nil : wanted)
         do {
             let (companies, current) = try await Self.load(from: service, current: wanted)
             let fresh: CompanySnapshot?
@@ -563,6 +601,13 @@ public final class AppModel {
             lastError = nil
             loadState = fresh == nil ? .empty : .loaded
             await checkKeyExpiry(service)
+            if let id = fresh?.company.id {
+                if id == wanted, let early = await earlyProjects {
+                    apply(early, companyID: id, ticket: projectsTicket)
+                } else {
+                    await loadProjects(companyID: id)
+                }
+            }
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == wanted, accept(request) else { return }
             report(error)
@@ -599,16 +644,107 @@ public final class AppModel {
     public func select(_ company: Company) async {
         guard let service, company.id != selectedCompanyID else { return }
         selectedCompanyID = company.id
+        projectsState = .loading
+        taskProjectFilter = .all
         let request = beginRequest()
         do {
             let fresh = try await service.snapshot(companyID: company.id)
             guard selectedCompanyID == company.id, accept(request) else { return }
             snapshot = fresh
             lastError = nil
+            await loadProjects(companyID: company.id)
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             selectedCompanyID = snapshot?.company.id
             report(error)
+            if let id = snapshot?.company.id {
+                await loadProjects(companyID: id)
+            }
+        }
+    }
+
+    // MARK: Projects
+
+    var projects: [Project] {
+        switch projectsState {
+        case let .loaded(projects), let .failed(_, projects): projects
+        case .loading, .unsupported: []
+        }
+    }
+
+    var projectsFailure: String? {
+        if case let .failed(message, _) = projectsState { message } else { nil }
+    }
+
+    var supportsProjects: Bool {
+        projectsState != .unsupported
+    }
+
+    /// The project a task card names, only while the board spans every project.
+    func chipProject(for task: WorkItem) -> Project? {
+        guard taskProjectFilter == .all else { return nil }
+        return task.projectID.flatMap { projectsByID[$0] }
+    }
+
+    func retryProjects() async {
+        guard let id = snapshot?.company.id else { return }
+        await loadProjects(companyID: id)
+    }
+
+    private enum ProjectsFetch {
+        case loaded([Project])
+        case unsupported
+        case failed(String)
+    }
+
+    private struct ProjectsTicket {
+        var generation: Int
+        var number: Int
+    }
+
+    private func beginProjectsRequest() -> ProjectsTicket {
+        projectsRequest += 1
+        return ProjectsTicket(generation: generation, number: projectsRequest)
+    }
+
+    /// nil when there is nothing to ask, or the request was cancelled.
+    private static func fetchProjects(from service: any FactoryService, companyID: Company.ID?) async -> ProjectsFetch? {
+        guard let companyID else { return nil }
+        do {
+            return try await .loaded(service.projects(companyID: companyID))
+        } catch FactoryServiceError.unsupported {
+            return .unsupported
+        } catch {
+            return isCancellation(error) ? nil : .failed(error.localizedDescription)
+        }
+    }
+
+    private func loadProjects(companyID: Company.ID) async {
+        guard let service else { return }
+        let ticket = beginProjectsRequest()
+        guard !projectsUnsupported else {
+            apply(.unsupported, companyID: companyID, ticket: ticket)
+            return
+        }
+        guard let result = await Self.fetchProjects(from: service, companyID: companyID) else { return }
+        apply(result, companyID: companyID, ticket: ticket)
+    }
+
+    private func apply(_ result: ProjectsFetch, companyID: Company.ID, ticket: ProjectsTicket) {
+        guard ticket.generation == generation, ticket.number == projectsRequest, selectedCompanyID == companyID else { return }
+        let next: ProjectsState = switch result {
+        case let .loaded(projects): .loaded(projects)
+        case .unsupported: .unsupported
+        case let .failed(message): .failed(message, last: projects)
+        }
+        if case .unsupported = result {
+            projectsUnsupported = true
+        }
+        if case let .project(id) = taskProjectFilter, case let .loaded(projects) = next, !projects.contains(where: { $0.id == id }) {
+            taskProjectFilter = .all
+        }
+        if next != projectsState {
+            projectsState = next
         }
     }
 
@@ -768,7 +904,13 @@ public final class AppModel {
     }
 
     var visibleTasks: [WorkItem] {
-        let tasks = snapshot?.tasks ?? []
+        let tasks = (snapshot?.tasks ?? []).filter { task in
+            switch taskProjectFilter {
+            case .all: true
+            case let .project(id): task.projectID == id
+            case .none: task.projectID == nil
+            }
+        }
         guard let query = trimmedQuery else { return tasks }
         return tasks.filter { task in
             task.identifier.localizedStandardContains(query)

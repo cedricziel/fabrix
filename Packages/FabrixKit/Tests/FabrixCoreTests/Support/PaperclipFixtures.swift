@@ -82,7 +82,8 @@ enum PaperclipFixtures {
         "createdAt": "2026-11-06T08:00:00.000Z", "updatedAt": "2026-11-07T09:50:00.000Z"
       },
       {
-        "id": "i-160", "companyId": "\(companyID)", "title": "Evaluate push provider", "status": "backlog",
+        "id": "i-160", "companyId": "\(companyID)", "projectId": "p-mobile", "projectWorkspaceId": null,
+        "title": "Evaluate push provider", "status": "backlog",
         "workMode": "standard", "priority": "low", "assigneeAgentId": null, "issueNumber": 160,
         "identifier": "ATL-160", "createdAt": "2026-11-06T08:00:00Z", "updatedAt": "2026-11-06T08:00:00Z"
       }
@@ -152,6 +153,44 @@ enum PaperclipFixtures {
         "id": "e-2", "companyId": "\(companyID)", "actorType": "user", "actorId": "u-1", "action": "agent.paused",
         "entityType": "agent", "entityId": "a-ops", "agentId": null, "runId": null, "details": null,
         "createdAt": "2026-11-05T12:00:00Z"
+      },
+      {
+        "id": "e-3", "companyId": "\(companyID)", "actorType": "user", "actorId": "u-1", "action": "project.created",
+        "entityType": "project", "entityId": "p-mobile", "agentId": null, "runId": null,
+        "details": { "name": "Mobile app", "repositories": [] }, "createdAt": "2026-11-04T12:00:00Z"
+      }
+    ]
+    """
+
+    /// Recorded from a Paperclip sandbox (`GET /api/companies/{id}/projects`), trimmed to the fields Fabrix reads
+    /// plus a few it ignores. Platform's status is made up to stand for a value from a newer server.
+    static let projects = """
+    [
+      {
+        "id": "p-mobile", "companyId": "\(companyID)", "urlKey": "mobile-app", "goalId": "g-1",
+        "goalIds": ["g-1"], "goals": [{ "id": "g-1", "title": "Ship v1 of the Atlas mobile app" }],
+        "name": "Mobile app", "description": "iOS and Android client", "visibility": "open",
+        "status": "in_progress", "leadAgentId": "a-cto", "targetDate": "2026-12-15", "color": "#0F766E",
+        "icon": null, "env": null, "pauseReason": null, "pausedAt": null, "executionWorkspacePolicy": null,
+        "archivedAt": null, "createdAt": "2026-11-07T13:26:52.387Z", "updatedAt": "2026-11-07T13:26:52.387Z",
+        "codebase": { "workspaceId": "w-1", "repoUrl": "https://github.com/atlas/mobile", "repoName": "mobile", "origin": "managed_checkout" },
+        "workspaces": [
+          {
+            "id": "w-1", "projectId": "p-mobile", "name": "atlas/mobile", "sourceType": "git_repo", "cwd": null,
+            "repoUrl": "https://github.com/atlas/mobile", "repoRef": null, "defaultRef": "main", "visibility": "default",
+            "isPrimary": true, "runtimeServices": [], "createdAt": "2026-11-07T13:26:52.387Z"
+          },
+          {
+            "id": "w-2", "projectId": "p-mobile", "name": "ops scripts", "sourceType": "local_path", "cwd": "/srv/atlas/ops",
+            "repoUrl": null, "repoRef": null, "defaultRef": null, "visibility": "advanced", "isPrimary": false
+          }
+        ],
+        "taskCount": 4, "budget": null
+      },
+      {
+        "id": "p-platform", "companyId": "\(companyID)", "urlKey": "platform", "goalId": null, "goalIds": [], "goals": [],
+        "name": "Platform", "description": null, "status": "on_hold", "leadAgentId": null, "targetDate": null,
+        "color": null, "archivedAt": null, "workspaces": [], "taskCount": 1, "budget": null
       }
     ]
     """

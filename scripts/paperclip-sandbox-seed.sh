@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seeds a fresh Paperclip sandbox (scripts/paperclip-sandbox.sh up) through its own API:
-# board user + instance claim, a board API key, one company with agents, issues and approvals.
+# board user + instance claim, a board API key, one company with agents, issues, approvals and projects.
 # Prints shell assignments for the sandbox contract tests:
 #   eval "$(scripts/paperclip-sandbox-seed.sh)"
 #   xcrun swift test --package-path Packages/FabrixKit --filter Sandbox
@@ -37,6 +37,12 @@ issue() { api -X POST "$BASE/api/companies/$COMPANY/issues" -d "$1" >/dev/null; 
 issue "{\"title\":\"Split sync worker into queue consumers\",\"status\":\"todo\",\"assigneeAgentId\":\"$CTO\"}"
 issue "{\"title\":\"Rotate staging certificates\",\"status\":\"blocked\",\"assigneeAgentId\":\"$OPS\"}"
 issue '{"title":"Evaluate push provider"}'
+
+project() { api -X POST "$BASE/api/companies/$COMPANY/projects" -d "$1" | json_field id; }
+MOBILE="$(project "{\"name\":\"Mobile app\",\"status\":\"in_progress\",\"leadAgentId\":\"$CTO\",\"targetDate\":\"2026-12-15\",\"color\":\"#0F766E\",\"repositoryUrls\":[\"https://github.com/atlas/mobile\"]}")"
+issue "{\"title\":\"Offline cache for task list\",\"status\":\"todo\",\"projectId\":\"$MOBILE\"}"
+ARCHIVED="$(project '{"name":"Old website","status":"completed"}')"
+api -X PATCH "$BASE/api/projects/$ARCHIVED" -d '{"archivedAt":"2026-01-01T00:00:00.000Z"}' >/dev/null
 
 approval() { api -X POST "$BASE/api/companies/$COMPANY/approvals" -d "$1" >/dev/null; }
 approval "{\"type\":\"hire_agent\",\"requestedByAgentId\":\"$CTO\",\"payload\":{\"name\":\"Designer\",\"role\":\"designer\",\"title\":\"Product Designer\",\"adapterType\":\"process\"}}"

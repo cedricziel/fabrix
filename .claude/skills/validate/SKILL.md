@@ -38,7 +38,8 @@ The script uses the server's own API:
 2. It mints a board API key (`POST /api/board-api-keys`). The session cookie stays inside the script.
 3. It creates the company "Atlas Sandbox" with:
    - a CTO agent and a DevOps agent, paused, reporting to the CTO;
-   - three issues (todo, blocked, backlog);
+   - four issues (todo, blocked, backlog, and a todo in the Mobile app project);
+   - a project "Mobile app" led by the CTO, with a target date, a colour and the repository `https://github.com/atlas/mobile`, and an archived project "Old website";
    - a pending `hire_agent` approval and a pending `approve_ceo_strategy` approval.
 
 It exports `FABRIX_SANDBOX_URL`, `FABRIX_SANDBOX_KEY` and `FABRIX_SANDBOX_COMPANY_ID`, and writes them to `$TMPDIR/$PAPERCLIP_SANDBOX_NAME/credentials.env` (default `fabrix-paperclip-sandbox`). `down` deletes that file with the sandbox data. Never commit it.

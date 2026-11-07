@@ -2,13 +2,14 @@ import FabrixCore
 import SwiftUI
 
 enum AppSection: String, Hashable, CaseIterable, Identifiable {
-    case overview, tasks, agents, orgChart, approvals, activity
+    case overview, projects, tasks, agents, orgChart, approvals, activity
 
     var id: Self { self }
 
     var title: LocalizedStringResource {
         switch self {
         case .overview: .features("Overview")
+        case .projects: .features("Projects")
         case .tasks: .features("Tasks")
         case .agents: .features("Agents")
         case .orgChart: .features("Org chart")
@@ -20,6 +21,7 @@ enum AppSection: String, Hashable, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .overview: "square.grid.2x2"
+        case .projects: "folder"
         case .tasks: "rectangle.split.3x1"
         case .agents: "person.2"
         case .orgChart: "point.3.connected.trianglepath.dotted"
@@ -38,7 +40,7 @@ enum CompactTab: Hashable, CaseIterable {
         case .tasks: self = .tasks
         case .approvals: self = .approvals
         case .agents: self = .agents
-        case .overview, .orgChart, .activity: self = .factory
+        case .overview, .projects, .orgChart, .activity: self = .factory
         }
     }
 
@@ -79,15 +81,21 @@ final class Navigator {
         showingNewTask || showingAddFactory || showingSettings
     }
     var isCompact = false
+    /// The project picked in the regular-width sidebar; its detail replaces the section.
+    var project: Project.ID? {
+        didSet { if project != oldValue { path = NavigationPath() } }
+    }
 
-    /// A new factory or company starts every stack at its root.
+    /// A new factory or company starts every stack at its root, and leaves any project.
     func resetPaths() {
         path = NavigationPath()
         tabPaths = [:]
+        project = nil
     }
 
     func open(_ section: AppSection) {
         guard isCompact else {
+            project = nil
             self.section = section
             return
         }
@@ -99,10 +107,38 @@ final class Navigator {
     }
 }
 
+extension Navigator {
+    /// The factory has no projects (any more): leave anything that shows them.
+    func leaveProjects() {
+        if project != nil || section == .projects {
+            project = nil
+            section = .overview
+        }
+        tabPaths[.factory] = nil
+    }
+
+    func open(project id: Project.ID) {
+        guard isCompact else {
+            section = .projects
+            project = id
+            return
+        }
+        tab = .factory
+        var path = tabPaths[.factory] ?? NavigationPath()
+        path.append(ProjectRoute(id: id))
+        tabPaths[.factory] = path
+    }
+}
+
+struct ProjectRoute: Hashable {
+    var id: Project.ID
+}
+
 extension View {
     /// Destinations every navigation stack in the app can push.
     func fabrixDestinations() -> some View {
         navigationDestination(for: Agent.ID.self) { AgentDetailView(agentID: $0) }
             .navigationDestination(for: AppSection.self) { SectionScreen(section: $0).navigationTitle($0.title) }
+            .navigationDestination(for: ProjectRoute.self) { ProjectDetailView(projectID: $0.id) }
     }
 }

@@ -31,6 +31,47 @@ struct IssueDTO: Decodable {
     var status: String
     var assigneeAgentId: String?
     var updatedAt: Date?
+    var projectId: String?
+}
+
+struct ProjectDTO: Decodable {
+    struct Goal: Decodable {
+        var title: String
+    }
+
+    var id: String
+    var name: String
+    var description: String?
+    var status: String
+    var leadAgentId: String?
+    /// `YYYY-MM-DD`, a calendar date.
+    var targetDate: String?
+    var color: String?
+    var goals: [Goal]?
+    /// Kept as text: only its presence matters.
+    var archivedAt: String?
+    var workspaces: [Lenient<ProjectWorkspaceDTO>]?
+    var taskCount: Int?
+}
+
+/// Decodes to nil instead of failing, so one malformed row doesn't fail a whole list.
+struct Lenient<Value: Decodable>: Decodable {
+    var value: Value?
+
+    init(from decoder: any Decoder) throws {
+        value = try? Value(from: decoder)
+    }
+}
+
+struct ProjectWorkspaceDTO: Decodable {
+    var id: String
+    var name: String
+    var sourceType: String
+    var cwd: String?
+    var repoUrl: String?
+    var repoRef: String?
+    var defaultRef: String?
+    var isPrimary: Bool?
 }
 
 struct ApprovalDTO: Decodable {
