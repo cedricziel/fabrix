@@ -1,3 +1,7 @@
 Fabrix is a native control room for Paperclip agent factories on iPhone, iPad and Mac.
 
-This beta runs on built-in sample data: tap "Explore the demo" to see agents at work, pending approvals and live runs. Connecting your own Paperclip server comes in a later build.
+Try it two ways:
+- Tap "Explore the demo" to see agents at work, pending approvals and live runs on built-in sample data.
+- Connect your own self-hosted Paperclip server: enter its address and sign in with a Paperclip API key, OIDC, or both.
+
+Please test connecting, reopening the app (it reconnects to your last factory), and "Forget Factory".

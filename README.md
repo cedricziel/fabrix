@@ -8,7 +8,7 @@ Fabrix is a native control room for [Paperclip](https://github.com/paperclipai/p
 - work the task board
 - browse the org chart
 
-Demo mode loads sample data, so you can try the app without a server. The current beta runs on the demo only; connecting your own server and most of the screens above are still in review.
+Demo mode loads sample data, so you can try the app without a server. You can also connect your own self-hosted Paperclip server. Some of the screens above are still in review.
 
 ## Try it on TestFlight
 
@@ -16,12 +16,19 @@ Join the public beta: https://testflight.apple.com/join/uQU3veF3
 
 The beta covers iPhone, iPad and Mac.
 
-## Connect your factory (planned)
+## Connect your factory
 
-Fabrix will connect to a self-hosted Paperclip server. Sign in with either:
+On first launch, tap "Explore the demo" to use the sample data, or connect a self-hosted Paperclip server. Enter the factory's address and choose how to sign in:
 
-- a Paperclip board API key, or
-- OIDC, including when an OIDC proxy sits in front of Paperclip.
+- Paperclip API key: a board key from your Paperclip server.
+- Single sign-on (OIDC): for a factory behind an OIDC reverse proxy. Fabrix opens your identity provider's login page.
+- Single sign-on + Paperclip key: both.
+
+Fabrix reopens the last factory you connected. To remove one, choose "Forget Factory", which deletes its saved keys and tokens from the device.
+
+API keys and OIDC tokens are stored only in the Keychain. The factory address and name, and the OIDC issuer and client ID, are stored in the app's local settings.
+
+Fabrix talks only to the factory address you enter and, for OIDC, your identity provider. It sends credentials over plain HTTP only to local-network addresses, and never follows a redirect to a different origin.
 
 ## Development
 
