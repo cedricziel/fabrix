@@ -44,13 +44,18 @@ public struct SignInChallenge: Hashable, Sendable {
 public struct PaperclipClient: Sendable {
     /// Server root, without the `/api` suffix.
     public let baseURL: URL
-    private let credential: String?
+    private let auth: any AuthProvider
     private let session: URLSession
 
-    public init(baseURL: URL, credential: String? = nil, session: URLSession = .shared) {
+    public init(baseURL: URL, auth: any AuthProvider = NoAuth(), session: URLSession = .shared) {
         self.baseURL = baseURL
-        self.credential = credential
+        self.auth = auth
         self.session = session
+    }
+
+    /// A client that sends `credential` as a bearer token, or nothing when it is nil.
+    public init(baseURL: URL, credential: String?, session: URLSession = .shared) {
+        self.init(baseURL: baseURL, auth: credential.map { BearerTokenAuth(token: $0) } ?? NoAuth(), session: session)
     }
 
     /// Turns user input like `paperclip.example.com` or `http://host:3100/api/` into a server root URL.
@@ -150,31 +155,29 @@ public struct PaperclipClient: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let credential {
-            guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
-            request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
-        }
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if (300 ..< 400).contains(status), let location = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Location") {
-            throw PaperclipError.server(status: status, message: "The server redirected to \(location). Connect to that address instead.")
+        var (data, status) = try await load(auth.authorize(request))
+        if status == 401, try await auth.refreshAfterUnauthorized() {
+            (data, status) = try await load(auth.authorize(request))
         }
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
             throw PaperclipError(status: status, message: message)
         }
         return data
+    }
+
+    private func load(_ request: URLRequest) async throws -> (Data, Int) {
+        do {
+            let (data, response) = try await session.data(for: request)
+            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
     }
 
     private func decode<Response: Decodable>(_ data: Data) throws -> Response {

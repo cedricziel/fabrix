@@ -241,4 +241,40 @@ struct PaperclipClientTests {
 
         await #expect(throws: PaperclipError.insecureConnection) { try await client.startSignIn(clientName: "Fabrix") }
     }
+
+    @Test func retriesOnceAfterRefreshOn401() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder, dynamicRoutes: ["GET /api/cli-auth/me": { request in
+            request.value(forHTTPHeaderField: "Authorization") == "fresh"
+                ? .json(PaperclipFixtures.me)
+                : .json(#"{"error":"expired"}"#, status: 401)
+        }])
+        let auth = RotatingTokenAuth(tokens: ["stale", "fresh"])
+        let client = PaperclipClient(baseURL: server.baseURL, auth: auth, session: server.session)
+
+        _ = try await client.boardSession()
+
+        #expect(recorder.requests.map { $0.value(forHTTPHeaderField: "Authorization") } == ["stale", "fresh"])
+        #expect(auth.refreshes == 1)
+    }
+
+    @Test func doesNotRetryWhenNothingRefreshed() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"expired"}"#, status: 401)], recorder: recorder)
+        let auth = RotatingTokenAuth(tokens: ["stale"])
+        let client = PaperclipClient(baseURL: server.baseURL, auth: auth, session: server.session)
+
+        await #expect(throws: PaperclipError.unauthorized("expired")) { try await client.boardSession() }
+        #expect(recorder.requests.count == 1)
+    }
+
+    @Test func retriesAtMostOnce() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"expired"}"#, status: 401)], recorder: recorder)
+        let auth = RotatingTokenAuth(tokens: ["a", "b", "c"])
+        let client = PaperclipClient(baseURL: server.baseURL, auth: auth, session: server.session)
+
+        await #expect(throws: PaperclipError.unauthorized("expired")) { try await client.boardSession() }
+        #expect(recorder.requests.count == 2)
+    }
 }

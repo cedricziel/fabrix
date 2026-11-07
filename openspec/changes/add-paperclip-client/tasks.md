@@ -16,7 +16,7 @@
 
 ## 4. Pluggable auth and OIDC (stack layer 4)
 
-- [ ] 4.1 Add the `AuthProvider` protocol with `NoAuth`, `BearerTokenAuth` and `ChainedAuth`, and route every `PaperclipClient` request through it, retrying once after a refresh on 401. Files: `FabrixCore/Auth/AuthProvider.swift`, `PaperclipClient.swift`. Tests: `AuthProviderTests.chainAppliesProvidersInOrder`, `PaperclipClientTests.retriesOnceAfterRefreshOn401`, `doesNotRetryWhenNothingRefreshed`.
+- [x] 4.1 Add the `AuthProvider` protocol with `NoAuth`, `BearerTokenAuth` and `ChainedAuth`, and route every `PaperclipClient` request through it, retrying once after a refresh on 401. Files: `FabrixCore/Auth/AuthProvider.swift`, `PaperclipClient.swift`. Tests: `AuthProviderTests.chainAppliesProvidersInOrder`, `PaperclipClientTests.retriesOnceAfterRefreshOn401`, `doesNotRetryWhenNothingRefreshed`.
 - [ ] 4.2 Add PKCE and OIDC discovery. Files: `FabrixCore/Auth/PKCE.swift`, `OIDCFlow.swift`. Tests: `OIDCFlowTests.pkceChallengeIsS256OfVerifier` (RFC 7636 appendix B vector), `discoversEndpoints`.
 - [ ] 4.3 Add the OIDC sign-in flow: authorize URL, `WebAuthenticator`, state check, error callback, code exchange. Files: `FabrixCore/Auth/OIDCFlow.swift`. Tests: `OIDCFlowTests.signInExchangesCodeWithVerifier`, `rejectsMismatchedState`, `surfacesProviderError`.
 - [ ] 4.4 Add `OIDCAuthProvider`: token placement header, refresh before expiry, refresh after 401, rotation, single-flight refresh, and `unauthorized` on `invalid_grant`. Files: `FabrixCore/Auth/OIDCAuthProvider.swift`. Tests: `OIDCAuthProviderTests.refreshesExpiringTokenAndStoresRotation`, `concurrentRequestsShareOneRefresh`, `rejectedRefreshIsUnauthorized`, `placesTokenInConfiguredHeader`.
