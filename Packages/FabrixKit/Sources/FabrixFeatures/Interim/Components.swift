@@ -154,13 +154,14 @@ struct FabrixButtonStyle: ButtonStyle {
     var role: Role = .primary
     var fullWidth = false
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.subheadline.weight(role == .secondary ? .medium : .semibold))
             .foregroundStyle(role == .secondary ? Palette.graphite : .white)
             .padding(.horizontal, 14)
-            .frame(minHeight: 34)
+            .frame(minHeight: minHeight)
             .frame(maxWidth: fullWidth ? .infinity : nil)
             .background(background, in: .rect(cornerRadius: 8))
             .overlay {
@@ -170,6 +171,16 @@ struct FabrixButtonStyle: ButtonStyle {
             }
             .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.4)
             .contentShape(.rect)
+    }
+
+    /// Touch targets follow the design: 44pt, or 50pt for large controls; Mac stays compact.
+    private var minHeight: CGFloat {
+        let large = controlSize >= .large
+        #if os(iOS)
+        return large ? 50 : 44
+        #else
+        return large ? 40 : 32
+        #endif
     }
 
     private var background: Color {
