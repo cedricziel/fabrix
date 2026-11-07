@@ -1,7 +1,7 @@
 ## 1. App icon (PR 1)
 
-- [ ] 1.1 Add `scripts/render-app-icons.swift` that draws the mark with CoreGraphics (no test: build tooling)
-- [ ] 1.2 Render `App/iOS/Assets.xcassets/AppIcon.appiconset` (1024, no alpha) and `App/macOS/Assets.xcassets/AppIcon.appiconset` (all sizes) and update both `Contents.json` (no test: assets; verified with `sips -g hasAlpha` and both app builds)
+- [x] 1.1 Add `scripts/render-app-icons.swift` that draws the mark with CoreGraphics (no test: build tooling)
+- [x] 1.2 Render `App/iOS/Assets.xcassets/AppIcon.appiconset` (1024, no alpha) and `App/macOS/Assets.xcassets/AppIcon.appiconset` (all sizes) and update both `Contents.json` (no test: assets; verified with `sips -g hasAlpha` and both app builds)
 
 ## 2. Tokens and type (PR 2)
 
