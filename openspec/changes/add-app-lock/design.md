@@ -20,13 +20,13 @@ Fabrix keeps factory credentials in the Keychain through `FactoryStore` and can 
 
 **`Authenticator` protocol (FabrixFeatures).** `@MainActor protocol Authenticator { var availableBiometry: Biometry; var canAuthenticate: Bool; func authenticate(_ policy: AuthenticationPolicy, reason: String) async -> AuthenticationResult }`. `DeviceAuthenticator` wraps a fresh `LAContext` per call and maps `LAError` to `.success`, `.cancelled`, `.failed`, `.biometryLockout`, `.unavailable`. `availableBiometry` reports the biometry type when it is enrolled, including while it is locked out, so "Biometrics only" stays visible and the fallback can run. Tests use a scripted stub. A result enum instead of `throws` keeps the state machine free of error casting.
 
-**`AppLock` model (FabrixFeatures).** `@MainActor @Observable`. It owns `AppLockSettings` (a struct persisted to `UserDefaults` under `fabrix.lock.*`) and exposes `isLocked`, `isCovered`, `sceneWillResignActive()`, `sceneDidEnterBackground(at:)`, `sceneDidBecomeActive(at:)`, `unlock()`, `promptIfNeeded()`, `setEnabled(_:)`, `confirmDecision()` and `offerAfterConnect()`. Times are passed in, so tests drive boundaries without a clock. The last-background time lives only in memory, which is also why a cold launch always locks.
+**`AppLock` model (FabrixFeatures).** `@MainActor @Observable`. It owns `AppLockSettings` (a struct persisted to `UserDefaults` under `fabrix.lock.*`) and exposes `isLocked`, `isCovered`, `sceneWillResignActive()`, `sceneDidEnterBackground(at:)`, `sceneDidBecomeActive(at:)`, `unlock()`, `promptIfNeeded()`, `setEnabled(_:)`, `confirmDecision()`, `shouldOfferLock` and `markOffered()`. Times are passed in, so tests drive boundaries without a clock. The last-background time lives only in memory, which is also why a cold launch always locks.
 
 - `isLocked` starts as `settings.isEnabled`.
-- Background events are ignored while an authentication is running, so the system prompt (which makes a Mac app resign active) never counts as time away, and an Immediately lock can't loop.
+- Going to the background always counts, even while a prompt is up, so leaving during an approval prompt still locks. A prompt that succeeds forgives the time away it caused itself (a Mac app resigns active while the system prompt is up), so an Immediately lock can't loop. Resign-active alone (the Face ID sheet on iOS) neither covers nor resets the once-per-foreground prompt while a prompt is running.
 - `promptIfNeeded()` prompts at most once per foreground. The flag resets on `sceneDidEnterBackground`. The Unlock button calls `unlock()` directly.
 - `biometricsOnly` tries `.deviceOwnerAuthenticationWithBiometrics`. On `.biometryLockout` it retries with `.deviceOwnerAuthentication`.
-- `.unavailable` (no passcode set, so the device can't authenticate at all) unlocks. A device without a passcode has no secret to check against, and keeping the user out would strand their data. The toggle is disabled in that state, so this only happens if the passcode is removed after turning the lock on.
+- `.unavailable` (no passcode set, so the device can't authenticate at all) unlocks and turns the lock and approval confirmation off. A device without a passcode has no secret to check against, and keeping the user out would strand their data. The toggle can't be turned on in that state.
 
 Alternative considered: putting the state in `AppModel`. Rejected. `AppModel` is per window and per factory. The lock is per app and survives disconnects.
 
@@ -40,7 +40,7 @@ Alternative considered: putting the state in `AppModel`. Rejected. `AppModel` is
 
 **Approval confirmation.** `AppModel.decide(_:approve:confirmingWith:)` awaits `lock.confirmDecision()` and calls the existing `decide(_:approve:)` only on success. `confirmDecision()` returns true without prompting when the setting is off. The undo window and commit rules are unchanged.
 
-**First-connect offer.** `AppModel` counts successful `connect(_:)` calls (`connectCount`). The demo and restored factories don't count. `RootView` watches it and asks `lock.offerAfterConnect()`, which returns true once (lock off, the device can authenticate, never offered) and records `fabrix.lock.offered`.
+**First-connect offer.** `AppModel` counts successful `connect(_:)` calls (`connectCount`). The demo and restored factories don't count. `RootView` watches it and checks `lock.shouldOfferLock` (lock off, the device can authenticate, never offered). It presents the offer once no other sheet is up, and the sheet calls `markOffered()` when it appears, which records `fabrix.lock.offered`. A connect from inside another sheet doesn't use up the offer.
 
 **Settings entry points.** macOS: a `Settings { SettingsView() }` scene in `FabrixApp.swift`. iPhone: a Settings item in the Factory tab's More menu. iPad: a Settings button at the bottom of the sidebar (`safeAreaInset`), outside the factory list another session is reworking. Both iOS entries set `Navigator.showingSettings`.
 
