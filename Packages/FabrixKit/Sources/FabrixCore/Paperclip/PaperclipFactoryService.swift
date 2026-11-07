@@ -55,6 +55,15 @@ public struct PaperclipFactoryService: FactoryService {
         try await client.boardKeyExpiry()
     }
 
+    public func projects(companyID: Company.ID) async throws -> [Project] {
+        do {
+            let dtos: [ProjectDTO] = try await client.get("companies/\(companyID)/projects")
+            return dtos.map(Project.init(paperclip:)).filter { !$0.isArchived }
+        } catch PaperclipError.notFound {
+            throw FactoryServiceError.unsupported
+        }
+    }
+
     public func decide(approvalID: Approval.ID, approve: Bool) async throws {
         try await client.send("POST", "approvals/\(approvalID)/\(approve ? "approve" : "reject")")
     }

@@ -75,7 +75,7 @@ extension WorkItem {
     init(paperclip dto: IssueDTO) {
         self.init(
             id: dto.id, identifier: dto.identifier ?? dto.id, title: dto.title, status: TaskStatus(paperclip: dto.status),
-            assigneeID: dto.assigneeAgentId, updatedAt: dto.updatedAt ?? .now
+            assigneeID: dto.assigneeAgentId, updatedAt: dto.updatedAt ?? .now, projectID: dto.projectId
         )
     }
 }
@@ -166,9 +166,70 @@ extension ActivityEvent {
         let entity = dto.entityType.replacing("_", with: " ")
         let label = dto.details?["identifier"]?.text
             ?? issues[dto.entityId]?.identifier
+            ?? (dto.entityType == "project" ? dto.details?["name"]?.text : nil)
             ?? agents[dto.entityId]?.name
         let summary = [verb, entity, label].compactMap(\.self).joined(separator: " ")
 
-        self.init(id: dto.id, at: dto.createdAt, actor: actor, summary: summary)
+        self.init(
+            id: dto.id, at: dto.createdAt, actor: actor, summary: summary,
+            taskID: dto.entityType == "issue" ? dto.entityId : nil,
+            projectID: dto.entityType == "project" ? dto.entityId : nil
+        )
+    }
+}
+
+extension ProjectStatus {
+    init(paperclip raw: String) {
+        switch raw {
+        case "planned": self = .planned
+        case "in_progress": self = .inProgress
+        case "completed": self = .completed
+        case "cancelled": self = .cancelled
+        default: self = .backlog
+        }
+    }
+}
+
+extension Project {
+    init(paperclip dto: ProjectDTO) {
+        self.init(
+            id: dto.id, name: dto.name, summary: dto.description, status: ProjectStatus(paperclip: dto.status),
+            leadAgentID: dto.leadAgentId, targetDate: dto.targetDate.flatMap(Self.calendarDate),
+            colorHex: dto.color, goals: dto.goals?.map(\.title) ?? [],
+            repositories: dto.workspaces?.map(ProjectRepository.init(paperclip:)) ?? [],
+            isArchived: dto.archivedAt != nil
+        )
+    }
+
+    private static func calendarDate(_ text: String) -> DateComponents? {
+        let parts = text.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return DateComponents(year: parts[0], month: parts[1], day: parts[2])
+    }
+}
+
+extension ProjectRepository {
+    init(paperclip dto: ProjectWorkspaceDTO) {
+        let kind: Kind = switch dto.sourceType {
+        case "git_repo": .git
+        case "local_path", "non_git_path": .folder
+        default: .other
+        }
+        let url = kind == .git ? dto.repoUrl.flatMap(URL.init(string:)) : nil
+        let name = switch kind {
+        case .git: url.flatMap(Self.ownerAndName) ?? dto.name
+        case .folder: dto.cwd ?? dto.name
+        case .other: dto.name
+        }
+        self.init(id: dto.id, kind: kind, name: name, url: url, ref: dto.defaultRef ?? dto.repoRef, isPrimary: dto.isPrimary ?? false)
+    }
+
+    /// `https://github.com/atlas/mobile(.git)` → `atlas/mobile`.
+    private static func ownerAndName(_ url: URL) -> String? {
+        guard url.scheme == "https" || url.scheme == "http" else { return nil }
+        let parts = url.pathComponents.filter { $0 != "/" }
+        guard parts.count >= 2 else { return nil }
+        let repo = parts[1].hasSuffix(".git") ? String(parts[1].dropLast(4)) : parts[1]
+        return "\(parts[0])/\(repo)"
     }
 }

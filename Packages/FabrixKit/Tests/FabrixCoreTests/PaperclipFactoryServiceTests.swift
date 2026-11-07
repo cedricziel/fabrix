@@ -106,7 +106,7 @@ struct PaperclipFactoryServiceTests {
 
         #expect(tasks == [
             WorkItem(id: "i-142", identifier: "ATL-142", title: "Split sync worker into queue consumers", status: .inProgress, assigneeID: "a-cto", updatedAt: date("2026-11-07T09:50:00Z")),
-            WorkItem(id: "i-160", identifier: "ATL-160", title: "Evaluate push provider", status: .backlog, updatedAt: date("2026-11-06T08:00:00Z")),
+            WorkItem(id: "i-160", identifier: "ATL-160", title: "Evaluate push provider", status: .backlog, updatedAt: date("2026-11-06T08:00:00Z"), projectID: "p-mobile"),
         ])
     }
 
@@ -216,9 +216,46 @@ struct PaperclipFactoryServiceTests {
         let activity = try await snapshot().activity
 
         #expect(activity == [
-            ActivityEvent(id: "e-1", at: date("2026-11-07T09:50:00Z"), actor: "CTO", summary: "updated issue ATL-142"),
+            ActivityEvent(id: "e-1", at: date("2026-11-07T09:50:00Z"), actor: "CTO", summary: "updated issue ATL-142", taskID: "i-142"),
             ActivityEvent(id: "e-2", at: date("2026-11-05T12:00:00Z"), actor: "Board", summary: "paused agent DevOps"),
+            ActivityEvent(id: "e-3", at: date("2026-11-04T12:00:00Z"), actor: "Board", summary: "created project Mobile app", projectID: "p-mobile"),
         ])
+    }
+
+    @Test func projectsFromServer() async throws {
+        let recorder = RequestRecorder()
+        let projects = try await service(["GET /api/companies/\(companyID)/projects": .json(PaperclipFixtures.projects)], recorder: recorder)
+            .projects(companyID: companyID)
+
+        #expect(recorder.last("GET", "/api/companies/\(companyID)/projects")?.url?.query() == nil)
+        #expect(projects == [
+            Project(
+                id: "p-mobile", name: "Mobile app", summary: "iOS and Android client", status: .inProgress, leadAgentID: "a-cto",
+                targetDate: DateComponents(year: 2026, month: 12, day: 15), colorHex: "#0F766E",
+                goals: ["Ship v1 of the Atlas mobile app"],
+                repositories: [
+                    ProjectRepository(id: "w-1", kind: .git, name: "atlas/mobile", url: URL(string: "https://github.com/atlas/mobile"), ref: "main", isPrimary: true),
+                    ProjectRepository(id: "w-2", kind: .folder, name: "/srv/atlas/ops"),
+                ]
+            ),
+            Project(id: "p-platform", name: "Platform", status: .backlog),
+        ])
+    }
+
+    @Test func projectsNotFoundIsUnsupported() async {
+        let routes: [String: StubURLProtocol.Response] = ["GET /api/companies/\(companyID)/projects": .json(#"{"error":"Not found"}"#, status: 404)]
+
+        await #expect(throws: FactoryServiceError.unsupported) {
+            try await service(routes).projects(companyID: companyID)
+        }
+    }
+
+    @Test func projectsForbiddenIsAnError() async {
+        let routes: [String: StubURLProtocol.Response] = ["GET /api/companies/\(companyID)/projects": .json(#"{"error":"Forbidden"}"#, status: 403)]
+
+        await #expect(throws: PaperclipError.forbidden("Forbidden")) {
+            try await service(routes).projects(companyID: companyID)
+        }
     }
 
     @Test(arguments: [(true, "/api/approvals/ap-1/approve"), (false, "/api/approvals/ap-1/reject")])
