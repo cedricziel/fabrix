@@ -40,7 +40,7 @@ public final class StoreConnector: FactoryConnector {
 
     public func forget(factoryID: Factory.ID) throws {
         guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return }
-        try store.remove(factory)
+        store.remove(factory)
     }
 
     static func configuration(for auth: FactoryAuth) -> (FactoryAuthConfiguration, boardKey: String?) {
