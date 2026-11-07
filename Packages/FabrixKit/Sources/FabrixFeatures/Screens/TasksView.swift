@@ -15,8 +15,8 @@ struct TasksView: View {
             } else {
                 TaskBoardView(columns: TaskBoard.columns(for: visible), selectedID: $selectedID)
                     .inspector(isPresented: $selectedID.isPresent()) {
-                        if let task = model.snapshot?.tasks.first(where: { $0.id == selectedID }) {
-                            TaskDetailView(task: task)
+                        if let selectedID {
+                            TaskDetailView(taskID: selectedID)
                                 .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
                         }
                     }
@@ -124,7 +124,7 @@ private struct TaskList: View {
                 Section {
                     ForEach(section.tasks) { task in
                         NavigationLink {
-                            TaskDetailView(task: task)
+                            TaskDetailView(taskID: task.id)
                         } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(task.identifier).font(.caption.monospaced()).foregroundStyle(Palette.steel)
@@ -147,7 +147,21 @@ private struct TaskList: View {
     }
 }
 
+/// Looks the task up on every update so details follow polls, wakes and edits.
 struct TaskDetailView: View {
+    @Environment(AppModel.self) private var model
+    let taskID: WorkItem.ID
+
+    var body: some View {
+        if let task = model.task(taskID) {
+            TaskDetailContent(task: task)
+        } else {
+            ContentUnavailableView("Task not found", systemImage: "rectangle.slash")
+        }
+    }
+}
+
+private struct TaskDetailContent: View {
     @Environment(AppModel.self) private var model
     let task: WorkItem
 
@@ -200,3 +214,9 @@ struct TaskDetailView: View {
 }
 
 #Preview { PreviewHost { NavigationStack { TasksView() } } }
+
+extension AppModel {
+    func task(_ id: WorkItem.ID) -> WorkItem? {
+        snapshot?.tasks.first { $0.id == id }
+    }
+}
