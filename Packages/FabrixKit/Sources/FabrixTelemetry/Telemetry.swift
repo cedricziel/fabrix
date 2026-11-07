@@ -10,33 +10,32 @@ import URLSessionInstrumentation
 /// Entry point for the app shells: call `start()` once at launch and `flush()` when the app goes to the background.
 public enum Telemetry {
     private static let runtime = Mutex<Runtime?>(nil)
-    private static let sensitiveValues = SensitiveValues()
 
     static var isRunning: Bool {
         runtime.withLock { $0 != nil }
     }
 
     /// Starts exporting to SignalDB if the build carries an ingest key; otherwise does nothing.
+    /// `sensitiveValues` supplies factory names and hosts to replace wherever they appear.
     @discardableResult
-    public static func start() -> Bool {
-        start(infoDictionary: Bundle.main.infoDictionary ?? [:])
+    public static func start(sensitiveValues: (any SensitiveValueSource)? = nil) -> Bool {
+        start(infoDictionary: Bundle.main.infoDictionary ?? [:], sensitiveValues: sensitiveValues ?? NoSensitiveValues())
     }
 
     @discardableResult
-    static func start(infoDictionary: [String: Any], defaults: UserDefaults = .standard) -> Bool {
+    static func start(
+        infoDictionary: [String: Any],
+        sensitiveValues: any SensitiveValueSource = NoSensitiveValues(),
+        defaults: UserDefaults = .standard
+    ) -> Bool {
         guard let configuration = TelemetryConfiguration(infoDictionary: infoDictionary) else { return false }
         return runtime.withLock { current in
             guard current == nil else { return true }
-            let scrubber = AttributeScrubber(anonymizer: Anonymizer(salt: Anonymizer.installSalt(in: defaults)), registry: sensitiveValues)
+            let anonymizer = Anonymizer(salt: Anonymizer.installSalt(in: defaults))
             let resource = Resource().merging(other: Resource(attributes: resourceAttributes(infoDictionary: infoDictionary, defaults: defaults)))
-            current = Runtime(configuration: configuration, scrubber: scrubber, resource: resource)
+            current = Runtime(configuration: configuration, anonymizer: anonymizer, sensitiveValues: sensitiveValues, resource: resource)
             return true
         }
-    }
-
-    /// Factory names and hosts to replace with their hash wherever they appear in telemetry.
-    public static func registerSensitive(_ values: some Sequence<String>) {
-        sensitiveValues.insert(values)
     }
 
     /// Exports what is buffered, off the main thread and within the time the OS grants before suspending.
@@ -83,11 +82,11 @@ final class Runtime: @unchecked Sendable {
     private let meterProvider: MeterProviderSdk
     private let urlSessionInstrumentation: URLSessionInstrumentation
 
-    init(configuration: TelemetryConfiguration, scrubber: AttributeScrubber, resource: Resource) {
+    init(configuration: TelemetryConfiguration, anonymizer: Anonymizer, sensitiveValues: any SensitiveValueSource, resource: Resource) {
         let otlp = OtlpConfiguration(headers: configuration.headers, exportAsJson: false)
 
         let spanHTTP = OtlpHttpTraceExporter(endpoint: configuration.url(for: "traces"), config: otlp, envVarHeaders: nil)
-        let spanExporter = ScrubbingSpanExporter(scrubber: scrubber, wrapping: spanHTTP)
+        let spanExporter = ScrubbingSpanExporter(anonymizer: anonymizer, sensitiveValues: sensitiveValues, wrapping: spanHTTP)
         tracerProvider = TracerProviderBuilder()
             .with(resource: resource)
             .add(spanProcessor: BatchSpanProcessor(spanExporter: spanExporter))
@@ -95,7 +94,7 @@ final class Runtime: @unchecked Sendable {
         OpenTelemetry.registerTracerProvider(tracerProvider: tracerProvider)
 
         let logHTTP = OtlpHttpLogExporter(endpoint: configuration.url(for: "logs"), config: otlp, envVarHeaders: nil)
-        let logExporter = ScrubbingLogExporter(scrubber: scrubber, wrapping: logHTTP)
+        let logExporter = ScrubbingLogExporter(anonymizer: anonymizer, sensitiveValues: sensitiveValues, wrapping: logHTTP)
         logProcessor = BatchLogRecordProcessor(logRecordExporter: logExporter)
         let loggerProvider = LoggerProviderBuilder()
             .with(resource: resource)
@@ -105,7 +104,7 @@ final class Runtime: @unchecked Sendable {
         logger = loggerProvider.loggerBuilder(instrumentationScopeName: "fabrix").build()
 
         let metricExporter = OtlpHttpMetricExporter(endpoint: configuration.url(for: "metrics"), config: otlp, envVarHeaders: nil)
-        meterProvider = Self.makeMeterProvider(exporter: metricExporter, resource: resource)
+        meterProvider = Self.makeMeterProvider(exporter: ScrubbingMetricExporter(wrapping: metricExporter), resource: resource)
         OpenTelemetry.registerMeterProvider(meterProvider: meterProvider)
 
         let ingestHost = configuration.endpoint.host

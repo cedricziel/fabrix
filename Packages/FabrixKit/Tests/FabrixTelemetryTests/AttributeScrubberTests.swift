@@ -6,7 +6,7 @@ import Testing
 struct AttributeScrubberTests {
     private let anonymizer = Anonymizer(salt: Data(repeating: 7, count: 32))
     private var scrubber: AttributeScrubber {
-        AttributeScrubber(anonymizer: anonymizer, sensitive: ["Acme Factory", "paperclip.acme.lan"])
+        AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["Acme Factory", "paperclip.acme.lan"])
     }
 
     @Test func urlKeepsSchemeAndPathButHashesHostAndDropsTheRest() {
@@ -68,17 +68,48 @@ struct AttributeScrubberTests {
         #expect(scrubbed == .array(AttributeArray(values: [.string(anonymizer.hash("Acme Factory")), .int(1)])))
     }
 
-    @Test func registryAddsValuesAtRuntime() {
-        let registry = SensitiveValues()
-        let scrubber = AttributeScrubber(anonymizer: anonymizer, registry: registry)
-        #expect(scrubber.scrub("Night Shift") == "Night Shift")
-        registry.insert(["Night Shift"])
-        #expect(scrubber.scrub("Night Shift") == anonymizer.hash("Night Shift"))
+    @Test func blankSensitiveValuesAreIgnored() {
+        let scrubber = AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["", "  "])
+        #expect(scrubber.scrub("nothing to hide") == "nothing to hide")
     }
 
-    @Test func blankValuesAreNotRegistered() {
-        let registry = SensitiveValues()
-        registry.insert(["", "  "])
-        #expect(registry.values.isEmpty)
+    @Test func urlsWithUppercaseSchemesAreScrubbed() {
+        let text = "Request to HTTPS://Factory.example.com/api?token=abc failed"
+        #expect(scrubber.scrub(text) == "Request to HTTPS://\(anonymizer.hash("factory.example.com"))/api failed")
+    }
+
+    @Test func webSocketURLsAreScrubbed() {
+        let text = "Stream closed: wss://factory.example.com:3100/api/events?token=abc"
+        #expect(scrubber.scrub(text) == "Stream closed: wss://\(anonymizer.hash("factory.example.com"))/api/events")
+    }
+
+    @Test func bareFactoryHostsInErrorTextAreHashed() {
+        let text = "The certificate is invalid; you might be connecting to a server pretending to be \"paperclip.acme.lan\"."
+        #expect(!scrubber.scrub(text).contains("paperclip.acme.lan"))
+        #expect(scrubber.scrub(text).contains(anonymizer.hash("paperclip.acme.lan")))
+    }
+
+    @Test func identifiersInPathsBecomeTemplates() {
+        let scrubbed = scrubber.scrub(attributes: [
+            "url.path": .string("/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/agents/1234"),
+            "url.full": .string("https://factory.example.com/api/issues/01HZX3K8Q9V2M7R4T6Y1B5N0CD/comments"),
+        ])
+        #expect(scrubbed["url.path"] == .string("/api/companies/{id}/agents/{id}"))
+        #expect(scrubbed["url.full"] == .string("https://\(anonymizer.hash("factory.example.com"))/api/issues/{id}/comments"))
+    }
+
+    @Test func apiRequestsGetTheirRouteTemplate() {
+        let scrubbed = scrubber.scrub(attributes: ["url.path": .string("/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/agents")])
+        #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == .string("/api/companies/{id}/agents"))
+    }
+
+    @Test func nonAPIPathsGetNoRoute() {
+        let scrubbed = scrubber.scrub(attributes: ["url.path": .string("/health")])
+        #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == nil)
+    }
+
+    @Test func factoryIDIsAlwaysHashed() {
+        let scrubbed = scrubber.scrub(attributes: [PaperclipAttribute.factoryID.rawValue: .string("paperclip.acme.lan")])
+        #expect(scrubbed[PaperclipAttribute.factoryID.rawValue] == .string(anonymizer.hash("paperclip.acme.lan")))
     }
 }

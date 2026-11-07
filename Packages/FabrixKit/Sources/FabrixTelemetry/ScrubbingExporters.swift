@@ -3,16 +3,19 @@ import OpenTelemetryApi
 import OpenTelemetrySdk
 
 final class ScrubbingSpanExporter: SpanExporter {
-    private let scrubber: AttributeScrubber
+    private let anonymizer: Anonymizer
+    private let source: any SensitiveValueSource
     private let next: SpanExporter
 
-    init(scrubber: AttributeScrubber, wrapping next: SpanExporter) {
-        self.scrubber = scrubber
+    init(anonymizer: Anonymizer, sensitiveValues source: any SensitiveValueSource, wrapping next: SpanExporter) {
+        self.anonymizer = anonymizer
+        self.source = source
         self.next = next
     }
 
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
-        next.export(spans: spans.map(scrub), explicitTimeout: explicitTimeout)
+        let scrubber = AttributeScrubber(anonymizer: anonymizer, sensitiveValues: source.sensitiveValues())
+        return next.export(spans: spans.map { scrub($0, with: scrubber) }, explicitTimeout: explicitTimeout)
     }
 
     func flush(explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
@@ -23,7 +26,7 @@ final class ScrubbingSpanExporter: SpanExporter {
         next.shutdown(explicitTimeout: explicitTimeout)
     }
 
-    private func scrub(_ span: SpanData) -> SpanData {
+    private func scrub(_ span: SpanData, with scrubber: AttributeScrubber) -> SpanData {
         var span = span
         let events = span.events.map {
             SpanData.Event(name: scrubber.scrub($0.name), timestamp: $0.timestamp, attributes: scrubber.scrub(attributes: $0.attributes))
@@ -44,16 +47,19 @@ final class ScrubbingSpanExporter: SpanExporter {
 }
 
 final class ScrubbingLogExporter: LogRecordExporter {
-    private let scrubber: AttributeScrubber
+    private let anonymizer: Anonymizer
+    private let source: any SensitiveValueSource
     private let next: LogRecordExporter
 
-    init(scrubber: AttributeScrubber, wrapping next: LogRecordExporter) {
-        self.scrubber = scrubber
+    init(anonymizer: Anonymizer, sensitiveValues source: any SensitiveValueSource, wrapping next: LogRecordExporter) {
+        self.anonymizer = anonymizer
+        self.source = source
         self.next = next
     }
 
     func export(logRecords: [ReadableLogRecord], explicitTimeout: TimeInterval?) -> ExportResult {
-        next.export(logRecords: logRecords.map(scrub), explicitTimeout: explicitTimeout)
+        let scrubber = AttributeScrubber(anonymizer: anonymizer, sensitiveValues: source.sensitiveValues())
+        return next.export(logRecords: logRecords.map { scrub($0, with: scrubber) }, explicitTimeout: explicitTimeout)
     }
 
     func shutdown(explicitTimeout: TimeInterval?) {
@@ -64,7 +70,7 @@ final class ScrubbingLogExporter: LogRecordExporter {
         next.forceFlush(explicitTimeout: explicitTimeout)
     }
 
-    private func scrub(_ record: ReadableLogRecord) -> ReadableLogRecord {
+    private func scrub(_ record: ReadableLogRecord, with scrubber: AttributeScrubber) -> ReadableLogRecord {
         ReadableLogRecord(
             resource: Resource(attributes: scrubber.scrub(attributes: record.resource.attributes)),
             instrumentationScopeInfo: record.instrumentationScopeInfo,
@@ -76,5 +82,33 @@ final class ScrubbingLogExporter: LogRecordExporter {
             attributes: scrubber.scrub(attributes: record.attributes),
             eventName: record.eventName
         )
+    }
+}
+
+/// Fabrix metrics carry no attributes by design; stripping them keeps it that way.
+final class ScrubbingMetricExporter: MetricExporter {
+    private let next: MetricExporter
+
+    init(wrapping next: MetricExporter) {
+        self.next = next
+    }
+
+    func export(metrics: [MetricData]) -> ExportResult {
+        for point in metrics.flatMap(\.data.points) {
+            point.attributes = [:]
+        }
+        return next.export(metrics: metrics)
+    }
+
+    func flush() -> ExportResult {
+        next.flush()
+    }
+
+    func shutdown() -> ExportResult {
+        next.shutdown()
+    }
+
+    func getAggregationTemporality(for instrument: InstrumentType) -> AggregationTemporality {
+        next.getAggregationTemporality(for: instrument)
     }
 }

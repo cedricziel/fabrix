@@ -33,10 +33,10 @@ struct TelemetryTests {
     }
 }
 
-private final class CapturingMetricExporter: MetricExporter {
-    let names = Mutex<[String]>([])
+final class CapturingMetricExporter: MetricExporter {
+    let metrics = Mutex<[MetricData]>([])
     func export(metrics: [MetricData]) -> ExportResult {
-        names.withLock { $0 += metrics.map(\.name) }
+        self.metrics.withLock { $0 += metrics }
         return .success
     }
     func flush() -> ExportResult { .success }
@@ -50,6 +50,6 @@ struct MeterProviderTests {
         let provider = Runtime.makeMeterProvider(exporter: exporter, resource: Resource())
         provider.get(name: "test").counterBuilder(name: "fabrix.test.count").build().add(value: 1)
         _ = provider.forceFlush()
-        #expect(exporter.names.withLock { $0 } == ["fabrix.test.count"])
+        #expect(exporter.metrics.withLock { $0.map(\.name) } == ["fabrix.test.count"])
     }
 }

@@ -1,9 +1,14 @@
 @testable import FabrixTelemetry
+import Synchronization
 
-extension AttributeScrubber {
-    init(anonymizer: Anonymizer, sensitive values: [String]) {
-        let registry = SensitiveValues()
-        registry.insert(values)
-        self.init(anonymizer: anonymizer, registry: registry)
+final class StubSensitiveValues: SensitiveValueSource {
+    let current: Mutex<[String]>
+
+    init(_ values: [String] = []) {
+        current = Mutex(values)
+    }
+
+    func sensitiveValues() -> [String] {
+        current.withLock { $0 }
     }
 }

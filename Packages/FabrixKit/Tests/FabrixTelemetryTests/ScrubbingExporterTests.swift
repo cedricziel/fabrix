@@ -34,15 +34,13 @@ private final class CapturingLogExporter: LogRecordExporter {
 
 struct ScrubbingExporterTests {
     private let anonymizer = Anonymizer(salt: Data(repeating: 3, count: 32))
-    private var scrubber: AttributeScrubber {
-        AttributeScrubber(anonymizer: anonymizer, sensitive: ["Acme Factory"])
-    }
+    private let source = StubSensitiveValues(["Acme Factory"])
 
     @Test func spansLeaveWithScrubbedNameAttributesEventsAndResource() throws {
         let capture = CapturingSpanExporter()
         let provider = TracerProviderBuilder()
             .with(resource: Resource(attributes: ["factory.label": .string("Acme Factory")]))
-            .add(spanProcessor: SimpleSpanProcessor(spanExporter: ScrubbingSpanExporter(scrubber: scrubber, wrapping: capture)))
+            .add(spanProcessor: SimpleSpanProcessor(spanExporter: ScrubbingSpanExporter(anonymizer: anonymizer, sensitiveValues: source, wrapping: capture)))
             .build()
         let span = provider.get(instrumentationName: "test")
             .spanBuilder(spanName: "GET Acme Factory")
@@ -63,7 +61,7 @@ struct ScrubbingExporterTests {
     @Test func logRecordsLeaveWithScrubbedBodyAndAttributes() throws {
         let capture = CapturingLogExporter()
         let provider = LoggerProviderBuilder()
-            .with(processors: [SimpleLogRecordProcessor(logRecordExporter: ScrubbingLogExporter(scrubber: scrubber, wrapping: capture))])
+            .with(processors: [SimpleLogRecordProcessor(logRecordExporter: ScrubbingLogExporter(anonymizer: anonymizer, sensitiveValues: source, wrapping: capture))])
             .build()
         provider.get(instrumentationScopeName: "test").logRecordBuilder()
             .setBody(.string("Refreshed Acme Factory"))
@@ -73,5 +71,29 @@ struct ScrubbingExporterTests {
         let record = try #require(capture.records.withLock { $0.first })
         #expect(record.body == .string("Refreshed \(anonymizer.hash("Acme Factory"))"))
         #expect(record.attributes["url.full"] == .string("http://\(anonymizer.hash("acme.lan"))/x"))
+    }
+
+    @Test func sensitiveValuesAreReadFromTheSourceAtExportTime() throws {
+        let capture = CapturingLogExporter()
+        let provider = LoggerProviderBuilder()
+            .with(processors: [SimpleLogRecordProcessor(logRecordExporter: ScrubbingLogExporter(anonymizer: anonymizer, sensitiveValues: source, wrapping: capture))])
+            .build()
+        source.current.withLock { $0.append("Night Shift") }
+        provider.get(instrumentationScopeName: "test").logRecordBuilder().setBody(.string("Connected to Night Shift")).emit()
+
+        let record = try #require(capture.records.withLock { $0.first })
+        #expect(record.body == .string("Connected to \(anonymizer.hash("Night Shift"))"))
+    }
+
+    @Test func metricPointsLeaveWithoutAttributes() {
+        let capture = CapturingMetricExporter()
+        let provider = Runtime.makeMeterProvider(exporter: ScrubbingMetricExporter(wrapping: capture), resource: Resource())
+        provider.get(name: "test").counterBuilder(name: "fabrix.test.count").build()
+            .add(value: 1, attributes: ["server.address": .string("paperclip.acme.lan")])
+        _ = provider.forceFlush()
+
+        let points = capture.metrics.withLock { $0 }.flatMap(\.data.points)
+        #expect(!points.isEmpty)
+        #expect(points.allSatisfy { $0.attributes.isEmpty })
     }
 }
