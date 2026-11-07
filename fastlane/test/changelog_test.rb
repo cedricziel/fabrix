@@ -60,6 +60,12 @@ class ChangelogTest < Minitest::Test
     refute_match(/[0-9a-f]{7}\]|https?:|\]\(|\*\*/, text)
   end
 
+  def test_identical_entries_are_listed_once
+    markdown = "## [1.0.0](u) (d)\n\n### Features\n\n* **core:** same ([a1b2c3d](u))\n* **core:** same ([e1f2a3b](u))\n* other\n"
+    text = Changelog.for_release(markdown: markdown, version: "1.0.0", subjects: [], env: {})
+    assert_equal "New\n\n- Core: same\n- other", text
+  end
+
   def test_section_stops_at_the_next_release
     refute_includes Changelog.section(FIXTURE, "0.2.0"), "older feature"
   end

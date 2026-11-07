@@ -66,7 +66,7 @@ module Changelog
 
   # Plain text, cut at an entry boundary to fit the limit and noting what was left out.
   def format_groups(groups, limit = LIMIT)
-    groups = groups.reject { |_, entries| entries.empty? }
+    groups = groups.map { |title, entries| [title, entries.uniq] }.reject { |_, entries| entries.empty? }
     flat = groups.flat_map { |title, entries| entries.map { |e| [title, e] } }
     full = join_groups(flat)
     return full if full.length <= limit
