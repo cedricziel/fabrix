@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixCore
 import Foundation
 import Observation
@@ -111,8 +112,26 @@ public final class AppModel {
             connectError = nil
             await refresh()
         } catch {
-            connectError = error.localizedDescription
+            // Closing the sign-in sheet is a choice, not a failure.
+            connectError = Self.isCancellation(error) ? nil : error.localizedDescription
         }
+    }
+
+    /// A real factory can be forgotten; the demo has nothing saved.
+    public var canForgetFactory: Bool {
+        connector != nil && factory != nil && factory?.id != FactoryConnection.demo().factory.id
+    }
+
+    /// Deletes the current factory and its credentials, then returns to onboarding.
+    func forgetFactory() {
+        guard canForgetFactory, let connector, let factory else { return }
+        do {
+            try connector.forget(factoryID: factory.id)
+        } catch {
+            lastError = error.localizedDescription
+            return
+        }
+        disconnect()
     }
 
     public func dismissError() {
@@ -230,7 +249,11 @@ public final class AppModel {
 
     /// A cancelled request (the scene went inactive, the view went away) is not a failure.
     private static func isCancellation(_ error: any Error) -> Bool {
-        error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled
+        error is CancellationError
+            || (error as? URLError)?.code == .cancelled
+            || error as? PaperclipError == .transport(.cancelled)
+            || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+            || Task.isCancelled
     }
 
     /// Responses arrive out of order: a slow poll can land after a newer refresh, or after
@@ -352,6 +375,10 @@ public final class AppModel {
 
     func agent(_ id: Agent.ID?) -> Agent? {
         id.flatMap { index.agents[$0] }
+    }
+
+    func status(of agent: Agent) -> AgentStatus {
+        .shown(reported: agent.status, hasLiveRun: runs(of: agent.id).contains(where: \.isLive))
     }
 
     func liveRun(for task: WorkItem) -> Run? {

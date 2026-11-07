@@ -12,7 +12,7 @@ struct OverviewMetrics: Equatable {
     var spend: Budget
 
     init(snapshot: CompanySnapshot, waiting: [Approval]) {
-        let agents = snapshot.agents
+        let agents = snapshot.agents.map { $0.with(liveRunBy: snapshot) }
         agentsWorking = agents.count(where: { $0.status == .running })
         agentsTotal = agents.count
         agentsIdle = agents.count(where: { $0.status == .idle })
@@ -28,4 +28,19 @@ struct OverviewMetrics: Equatable {
     }
 
     var waitingCount: Int { waitingByKind.values.reduce(0, +) }
+}
+
+extension AgentStatus {
+    /// What the user sees: a live run means running, even if the reported status lags behind.
+    static func shown(reported: AgentStatus, hasLiveRun: Bool) -> AgentStatus {
+        hasLiveRun ? .running : reported
+    }
+}
+
+extension Agent {
+    func with(liveRunBy snapshot: CompanySnapshot) -> Agent {
+        var agent = self
+        agent.status = .shown(reported: status, hasLiveRun: snapshot.runs.contains { $0.agentID == id && $0.isLive })
+        return agent
+    }
 }

@@ -33,4 +33,9 @@ struct StoreConnectorTests {
         let store = FactoryStore(defaults: UserDefaults(suiteName: UUID().uuidString)!, credentials: InMemoryCredentialStore())
         #expect(StoreConnector(store: store).restore(factoryID: "missing") == nil)
     }
+
+    @Test func forgettingAnUnknownFactoryIsANoOp() {
+        let store = FactoryStore(defaults: UserDefaults(suiteName: UUID().uuidString)!, credentials: InMemoryCredentialStore())
+        #expect(throws: Never.self) { try StoreConnector(store: store).forget(factoryID: "missing") }
+    }
 }

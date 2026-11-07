@@ -35,6 +35,9 @@ public protocol FactoryConnector: AnyObject {
 
     /// A saved factory from an earlier launch, or nil if it is gone.
     func restore(factoryID: Factory.ID) -> FactoryConnection?
+
+    /// Deletes a saved factory and its credentials from this device.
+    func forget(factoryID: Factory.ID) throws
 }
 
 struct ConnectForm: Equatable {
