@@ -7,9 +7,15 @@ final class StubURLProtocol: URLProtocol {
     struct Response {
         var status: Int
         var body: Data
+        var location: URL?
 
         static func json(_ string: String, status: Int = 200) -> Response {
             Response(status: status, body: Data(string.utf8))
+        }
+
+        /// A 302 whose redirected request keeps every original header, the worst case for credentials.
+        static func redirect(to location: URL) -> Response {
+            Response(status: 302, body: Data(), location: location)
         }
     }
 
@@ -47,6 +53,15 @@ final class StubURLProtocol: URLProtocol {
                 request.httpBody = Data(reading: stream)
             }
             let response = try handler(request)
+            if let location = response.location {
+                let redirect = HTTPURLResponse(url: request.url!, statusCode: response.status, httpVersion: nil, headerFields: ["Location": location.absoluteString])!
+                var next = URLRequest(url: location)
+                next.allHTTPHeaderFields = request.allHTTPHeaderFields
+                client?.urlProtocol(self, wasRedirectedTo: next, redirectResponse: redirect)
+                client?.urlProtocol(self, didReceive: redirect, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocolDidFinishLoading(self)
+                return
+            }
             let http = HTTPURLResponse(url: request.url!, statusCode: response.status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
             client?.urlProtocol(self, didReceive: http, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: response.body)

@@ -162,11 +162,14 @@ public struct PaperclipClient: Sendable {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
         } catch let error as URLError {
             throw PaperclipError.transport(error.code)
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if (300 ..< 400).contains(status), let location = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Location") {
+            throw PaperclipError.server(status: status, message: "The server redirected to \(location). Connect to that address instead.")
+        }
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
             throw PaperclipError(status: status, message: message)
@@ -197,4 +200,24 @@ public struct PaperclipClient: Sendable {
         }
         return decoder
     }()
+}
+
+/// Follows redirects only within the server's origin (scheme, host and port). A redirect elsewhere
+/// could carry the board key or a sign-in token to another host, or downgrade HTTPS to HTTP.
+final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
+    static let shared = SameOriginRedirects()
+
+    func urlSession(
+        _: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest
+    ) async -> URLRequest? {
+        guard let from = response.url, let to = request.url else { return nil }
+        return Self.origin(of: from) == Self.origin(of: to) ? request : nil
+    }
+
+    private static func origin(of url: URL) -> String {
+        let scheme = url.scheme?.lowercased() ?? ""
+        let port = url.port ?? (scheme == "https" ? 443 : 80)
+        return "\(scheme)://\(url.host()?.lowercased() ?? ""):\(port)"
+    }
 }

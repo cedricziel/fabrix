@@ -181,6 +181,34 @@ struct PaperclipClientTests {
         #expect(recorder.requests.isEmpty)
     }
 
+    @Test func doesNotFollowRedirectsToAnotherOrigin() async throws {
+        let attacker = RequestRecorder()
+        let evil = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: attacker)
+        let downgraded = try #require(URL(string: evil.baseURL.absoluteString.replacingOccurrences(of: "https://", with: "http://")))
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: downgraded.appending(path: "api/cli-auth/me"))])
+        let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
+
+        await #expect {
+            try await client.boardSession()
+        } throws: { error in
+            if case .server(302, _) = error as? PaperclipError { true } else { false }
+        }
+        #expect(attacker.requests.isEmpty)
+    }
+
+    @Test func followsRedirectsWithinTheSameOrigin() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder, dynamicRoutes: [
+            "GET /api/old/me": { request in .redirect(to: URL(string: "https://\(request.url!.host()!)/api/cli-auth/me")!) },
+        ])
+        let client = PaperclipClient(baseURL: server.baseURL, credential: "pcp_board_secret", session: server.session)
+
+        let me: BoardMeDTO = try await client.get("old/me")
+
+        #expect(me.userId == "u-1")
+        #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_secret")
+    }
+
     @Test func refusesSignInPollingOverRemoteHTTP() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: [:], recorder: recorder)
