@@ -79,8 +79,9 @@ struct FactoryMenuContent: View {
         }
         Section {
             Button("Add Factory…", systemImage: "plus") { navigator.showingAddFactory = true }
-            Button("Remove Factory…", systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
-                .disabled(!menu.canRemove)
+            if menu.canRemove {
+                Button("Remove Factory…", systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
+            }
         }
     }
 
