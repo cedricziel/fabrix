@@ -21,14 +21,37 @@ Redirects are followed only within the same scheme, host and port. Any other red
 
 There are two ways to get a board API key:
 
-1. **Browser sign-in (CLI auth challenge).** Fabrix creates a challenge, the user approves it in a browser where they are signed in to Paperclip, and the pending key in the challenge becomes active.
-2. **Paste a key** created with `POST /api/board-api-keys` (for example from the Paperclip CLI).
+1. **Browser sign-in (CLI auth challenge).** This is the default in the connect form. Fabrix creates a challenge and opens its approval page in the user's browser. The user approves it there while signed in to Paperclip, and the key in the challenge becomes active. The approval page is opened on the factory's own origin, even when the server reports another host in `approvalUrl`.
+2. **Paste a key** created with `POST /api/board-api-keys`, for example from the Paperclip CLI.
+
+### Where people get a board key
+
+Paperclip's web UI has no page that creates or lists board API keys. This was checked in Paperclip's source at `cc3e67cf`; the sandbox image runs `d69631b`.
+
+- **Web UI:** the only board-key page is the approval page at `/cli-auth/:id`. Its heading is "Approve Paperclip CLI access", with the buttons "Approve CLI access" and "Cancel". These settings pages don't manage board keys:
+  - `/company/settings` and its `connections`, `members` and `secrets` tabs
+  - `/company/settings/instance/profile`
+  - `/company/settings/instance/access`
+
+  The "API key" fields in the onboarding wizard are for LLM providers, not Paperclip.
+- **CLI (`paperclipai`):**
+  - `paperclipai auth login [--instance-admin] [--no-browser]` runs the same browser approval as Fabrix. Related commands: `auth whoami`, `auth logout`, `auth revoke-current` and `auth challenge create|get|approve|cancel`.
+  - `paperclipai token board create [--name <label>] [--expires-at <iso8601> | --ttl-days <n> | --never-expires]` creates a named key once the CLI is signed in. Related commands: `token board list` and `token board revoke`. (`token agent …` manages agent keys, which Fabrix doesn't use.)
+
+So without the CLI, browser sign-in is the only way to get a key.
+
+Board keys expire after 30 days by default. Fabrix reads the expiry by taking `keyId` from `/api/cli-auth/me` and finding that key in `GET /api/board-api-keys`. It offers to sign in again when fewer than 5 days are left, or once the key is rejected.
 
 | Method | Path                                          | Use                                                                                                                                                                                                    |
 | ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `GET`  | `/api/cli-auth/me`                            | Validate a credential. Returns the board user, `companyIds` and `isInstanceAdmin`. `401` if the key is missing or invalid.                                                                             |
 | `POST` | `/api/cli-auth/challenges`                    | Start browser sign-in. Body: `{ "command": "fabrix connect", "clientName": "Fabrix" }`. Returns `id`, `token`, `boardApiToken`, `approvalPath`, `approvalUrl`, `expiresAt`, `suggestedPollIntervalMs`. |
 | `GET`  | `/api/cli-auth/challenges/{id}?token={token}` | Poll the challenge. `status` is `pending`, `approved`, `cancelled` or `expired`.                                                                                                                       |
+
+Also used:
+
+- `GET /api/board-api-keys` lists the signed-in user's keys with `id`, `name` and `expiresAt`. A `403` or `404` means no expiry warning.
+- `POST /api/cli-auth/challenges/{id}/approve` takes `{ "token": … }`. Paperclip's approval page calls it, and the sandbox contract tests call it with the seeded board key.
 
 ### OIDC in front of Paperclip
 

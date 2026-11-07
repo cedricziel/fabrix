@@ -14,7 +14,7 @@ struct FactorySwitchingTests {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: defaults ?? freshDefaults())
         for host in hosts {
-            await model.connect(ConnectForm(address: host, apiKey: "k"))
+            await model.connect(ConnectForm(address: host, method: .paperclip, apiKey: "k"))
         }
         return (model, connector)
     }
@@ -122,7 +122,7 @@ struct FactorySwitchingTests {
         let service = DemoFactoryService()
         connector.service = service
         let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .seconds(60))
-        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "k"))
         let approval = try #require(model.waitingApprovals.first)
         model.decide(approval, approve: true)
 
@@ -136,8 +136,8 @@ struct FactorySwitchingTests {
         let connector = RecordingConnector()
         let defaults = freshDefaults()
         let windowA = AppModel(connector: connector, defaults: defaults)
-        await windowA.connect(ConnectForm(address: "one.example", apiKey: "k"))
-        await windowA.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        await windowA.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "k"))
+        await windowA.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k"))
         let windowB = AppModel(connector: connector, defaults: defaults)
         #expect(windowB.factory?.name == "two.example")
 
@@ -159,8 +159,8 @@ struct FactorySwitchingTests {
     @Test func switchingFactorySendsStagedDecisionsToTheFactoryTheyBelongTo() async throws {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .milliseconds(50))
-        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
-        await model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "k"))
+        await model.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k"))
         let one = try #require(connector.factories.first)
         let two = try #require(connector.factories.last)
         let approval = try #require(model.waitingApprovals.first)
@@ -179,7 +179,7 @@ struct FactorySwitchingTests {
     @Test func switchingToTheDemoSendsStagedDecisionsFirst() async throws {
         let connector = RecordingConnector()
         let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .seconds(60))
-        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "k"))
         let one = try #require(connector.factories.first)
         let approval = try #require(model.waitingApprovals.first)
         model.decide(approval, approve: false)
@@ -196,8 +196,8 @@ struct FactorySwitchingTests {
         connector.delay = .milliseconds(100)
         let model = AppModel(connector: connector, defaults: freshDefaults())
 
-        async let first = model.connect(ConnectForm(address: "one.example", apiKey: "k"))
-        async let second = model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        async let first = model.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "k"))
+        async let second = model.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k"))
         let results = await [first, second]
 
         #expect(connector.calls.count == 1)
@@ -206,7 +206,7 @@ struct FactorySwitchingTests {
 
     @Test func addingAFactoryWithHeadersWhileAnotherIsOpenPassesThemOn() async {
         let (model, connector) = await connected(["one.example"])
-        var form = ConnectForm(address: "two.example", apiKey: "k")
+        var form = ConnectForm(address: "two.example", method: .paperclip, apiKey: "k")
         form.headers = [ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "proxy-secret")]
 
         let opened = await model.connect(form)
@@ -223,7 +223,7 @@ struct FactorySwitchingTests {
         model.decide(approval, approve: true)
         connector.error = ConnectFailure(message: "Unauthorized")
 
-        let opened = await model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        let opened = await model.connect(ConnectForm(address: "two.example", method: .paperclip, apiKey: "k"))
 
         #expect(!opened)
         #expect(model.factory?.name == "one.example")
@@ -245,7 +245,7 @@ struct FactorySwitchingTests {
         let connector = RecordingConnector()
         let defaults = freshDefaults()
         let windowA = AppModel(connector: connector, defaults: defaults)
-        await windowA.connect(ConnectForm(address: "one.example", apiKey: "old"))
+        await windowA.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "old"))
         let windowB = AppModel(connector: connector, defaults: defaults)
         await windowB.refresh()
         #expect(windowB.snapshot?.company.name == "Atlas")
@@ -253,7 +253,7 @@ struct FactorySwitchingTests {
         let reconnected = DemoFactoryService()
         try await reconnected.pause(agentID: "cto")
         connector.service = reconnected
-        await windowA.connect(ConnectForm(address: "one.example", apiKey: "new"))
+        await windowA.connect(ConnectForm(address: "one.example", method: .paperclip, apiKey: "new"))
         await windowB.followStoreChanges()
 
         #expect(windowB.factory?.name == "one.example")

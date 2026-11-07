@@ -387,4 +387,78 @@ struct PaperclipClientTests {
 
         await #expect(throws: PaperclipError.transport(.cannotFindHost)) { try await client.boardSession() }
     }
+
+    // MARK: - Browser sign-in requests
+
+    private func challengeServer(approvalURL: String?) -> FakeServer {
+        let url = approvalURL.map { #""\#($0)""# } ?? "null"
+        return FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json("""
+            {
+              "id": "ch-1", "token": "pcp_cli_auth_abc", "boardApiToken": "pcp_board_new",
+              "approvalPath": "/cli-auth/ch-1?token=pcp_cli_auth_abc", "approvalUrl": \(url),
+              "expiresAt": "2026-11-07T10:10:00.000Z", "suggestedPollIntervalMs": 1000
+            }
+            """, status: 201),
+        ])
+    }
+
+    @Test func challengeCarriesItsExpiry() async throws {
+        let server = challengeServer(approvalURL: nil)
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+
+        let challenge = try await client.startSignIn(clientName: "Fabrix")
+
+        #expect(challenge.expiresAt == (try Date("2026-11-07T10:10:00Z", strategy: .iso8601)))
+    }
+
+    @Test(arguments: [
+        "http://paperclip-internal:3100/cli-auth/ch-1?token=pcp_cli_auth_abc",
+        "https://evil.paperclip.test/cli-auth/ch-1?token=pcp_cli_auth_abc",
+        "not a url",
+    ])
+    func approvalURLStaysOnTheFactoryOrigin(reported: String) async throws {
+        let server = challengeServer(approvalURL: reported)
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+
+        let challenge = try await client.startSignIn(clientName: "Fabrix")
+
+        #expect(challenge.approvalURL.absoluteString == server.baseURL.absoluteString + "/cli-auth/ch-1?token=pcp_cli_auth_abc")
+    }
+
+    @Test func approvalURLOnTheFactoryOriginIsKept() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder, dynamicRoutes: ["POST /api/cli-auth/challenges": { request in
+            .json("""
+            {"id":"ch-1","token":"t","boardApiToken":"b","approvalPath":"/cli-auth/ch-1?token=t",
+             "approvalUrl":"https://\(request.url!.host()!)/board/cli-auth/ch-1?token=t","suggestedPollIntervalMs":1000}
+            """, status: 201)
+        }])
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+
+        let challenge = try await client.startSignIn(clientName: "Fabrix")
+
+        #expect(challenge.approvalURL.path() == "/board/cli-auth/ch-1")
+    }
+
+    @Test func approvalLinkFromAPathThatChangesTheHostIsRefused() async throws {
+        let server = FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json(#"{"id":"ch-1","token":"t","boardApiToken":"b","approvalPath":"@evil.test/cli-auth/ch-1","approvalUrl":null}"#, status: 201),
+        ])
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+
+        await #expect(throws: PaperclipError.self) { try await client.startSignIn(clientName: "Fabrix") }
+    }
+
+    @Test func cancelsASignInRequestOnTheServer() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /api/cli-auth/challenges/ch-1/cancel": .json(#"{"status":"cancelled","cancelled":true}"#)], recorder: recorder)
+        let client = PaperclipClient(baseURL: server.baseURL, session: server.session)
+        let challenge = SignInChallenge(serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero)
+
+        try await client.cancelSignIn(challenge)
+
+        let body = try #require(recorder.last("POST", "/api/cli-auth/challenges/ch-1/cancel")?.httpBody)
+        #expect(try JSONDecoder().decode([String: String].self, from: body) == ["token": "pcp_cli_auth_abc"])
+    }
 }

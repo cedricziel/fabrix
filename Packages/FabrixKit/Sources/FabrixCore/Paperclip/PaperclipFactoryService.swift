@@ -51,6 +51,10 @@ public struct PaperclipFactoryService: FactoryService {
         }
     }
 
+    public func credentialExpiry() async throws -> Date? {
+        try await client.boardKeyExpiry()
+    }
+
     public func decide(approvalID: Approval.ID, approve: Bool) async throws {
         try await client.send("POST", "approvals/\(approvalID)/\(approve ? "approve" : "reject")")
     }

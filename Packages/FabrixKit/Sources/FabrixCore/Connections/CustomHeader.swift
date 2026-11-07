@@ -29,6 +29,8 @@ public struct CustomHeader: Codable, Hashable, Sendable {
                 "\(name) isn't a valid header name."
             } else if value.contains(where: \.isNewline) {
                 "The value of \(name) can't contain line breaks."
+            } else if value.unicodeScalars.contains(where: { $0 != "\t" && ($0.value < 0x20 || $0.value == 0x7F) }) {
+                "The value of \(name) can't contain control characters."
             } else if reservedNames.contains(key) {
                 "\(name) is set by the system and can't be a custom header."
             } else if let credential = auth.credential(carriedIn: name) {

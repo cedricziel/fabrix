@@ -49,4 +49,13 @@ struct CustomHeaderTests {
             try CustomHeader.validated([CustomHeader(name: "Host", value: "v")], for: .none)
         }
     }
+
+    @Test(arguments: ["a\u{0}b", "a\u{7F}", "\u{1B}[31m", "a\u{8}"])
+    func rejectsControlCharactersInValues(value: String) {
+        #expect(throws: PaperclipError.self) { try CustomHeader.validated([CustomHeader(name: "X-Token", value: value)], for: .none) }
+    }
+
+    @Test func keepsTabsInValues() throws {
+        #expect(try CustomHeader.validated([CustomHeader(name: "X-Token", value: "a\tb")], for: .none).first?.value == "a\tb")
+    }
 }
