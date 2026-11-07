@@ -117,6 +117,23 @@ public final class AppModel {
         }
     }
 
+    /// A real factory can be forgotten; the demo has nothing saved.
+    public var canForgetFactory: Bool {
+        connector != nil && factory != nil && factory?.id != FactoryConnection.demo().factory.id
+    }
+
+    /// Deletes the current factory and its credentials, then returns to onboarding.
+    func forgetFactory() {
+        guard canForgetFactory, let connector, let factory else { return }
+        do {
+            try connector.forget(factoryID: factory.id)
+        } catch {
+            lastError = error.localizedDescription
+            return
+        }
+        disconnect()
+    }
+
     public func dismissError() {
         lastError = nil
     }

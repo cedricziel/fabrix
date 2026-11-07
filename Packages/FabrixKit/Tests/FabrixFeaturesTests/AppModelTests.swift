@@ -271,6 +271,38 @@ struct AppModelTests {
         #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
     }
 
+    @Test func forgettingAFactoryDeletesItAndReturnsToOnboarding() async {
+        let defaults = freshDefaults()
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: defaults)
+        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        #expect(model.canForgetFactory)
+
+        model.forgetFactory()
+
+        #expect(model.isOnboarding)
+        #expect(connector.saved.isEmpty)
+        #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
+    }
+
+    @Test func failedForgetKeepsTheFactoryOpen() async {
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
+        connector.forgetError = ConnectFailure(message: "Keychain locked")
+
+        model.forgetFactory()
+
+        #expect(!model.isOnboarding)
+        #expect(model.lastError == "Keychain locked")
+    }
+
+    @Test func theDemoCannotBeForgotten() async {
+        let model = AppModel(connector: RecordingConnector(), defaults: freshDefaults())
+        await model.exploreDemo()
+        #expect(!model.canForgetFactory)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)
@@ -327,6 +359,13 @@ final class RecordingConnector: FactoryConnector {
 
     func restore(factoryID: Factory.ID) -> FactoryConnection? {
         saved[factoryID]
+    }
+
+    var forgetError: (any Error)?
+
+    func forget(factoryID: Factory.ID) throws {
+        if let forgetError { throw forgetError }
+        saved[factoryID] = nil
     }
 }
 

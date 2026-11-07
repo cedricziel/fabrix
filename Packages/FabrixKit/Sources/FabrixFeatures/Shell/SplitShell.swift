@@ -83,6 +83,8 @@ private struct Sidebar: View {
 }
 
 private struct FactoryRow: View {
+    @Environment(AppModel.self) private var model
+    @Environment(Navigator.self) private var navigator
     let factory: Factory
 
     var body: some View {
@@ -95,6 +97,13 @@ private struct FactoryRow: View {
                 .foregroundStyle(Palette.muted)
         }
         .selectionDisabled()
+        .contextMenu {
+            if model.canForgetFactory {
+                Button("Forget Factory…", systemImage: "trash", role: .destructive) {
+                    navigator.confirmingForget = true
+                }
+            }
+        }
     }
 }
 

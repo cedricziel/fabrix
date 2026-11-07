@@ -68,6 +68,13 @@ public struct RootView: View {
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
+        .confirmationDialog(
+            "Forget \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingForget, titleVisibility: .visible
+        ) {
+            Button("Forget Factory", role: .destructive) { model.forgetFactory() }
+        } message: {
+            Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.")
+        }
         .task(id: Polling(factoryID: model.factory?.id, isActive: ScenePolicy.keepsPolling(scenePhase))) {
             guard model.factory != nil, ScenePolicy.keepsPolling(scenePhase) else { return }
             await model.keepFresh()

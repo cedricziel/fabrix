@@ -38,6 +38,12 @@ private struct TabStack: View {
                                         Label(section.title, systemImage: section.systemImage)
                                     }
                                 }
+                                if tab == .factory, model.canForgetFactory {
+                                    Divider()
+                                    Button("Forget Factory…", systemImage: "trash", role: .destructive) {
+                                        navigator.confirmingForget = true
+                                    }
+                                }
                             } label: {
                                 Label("More", systemImage: "ellipsis.circle")
                             }
