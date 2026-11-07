@@ -189,7 +189,8 @@ struct OIDCAuthProviderTests {
     }
 
     @Test func refreshAfterReconnectKeepsTheNewSignIn() async throws {
-        let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2", refresh: "refresh-2"))])
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2", refresh: "refresh-2"))], recorder: recorder)
         let auth = try provider(server, stored: tokens(server, expiresIn: 3600))
         _ = try await auth.authorize(request)
         let newSignIn = tokens(server, access: "access-new", refresh: "refresh-new", expiresIn: 3600)
@@ -201,6 +202,7 @@ struct OIDCAuthProviderTests {
             if case .unauthorized = error as? PaperclipError { true } else { false }
         }
         #expect(try OIDCTokenStore(credentials: credentials, account: "f1.oidc").load() == newSignIn)
+        #expect(recorder.requests.isEmpty, "a replaced provider must not spend its refresh token")
         await #expect(throws: PaperclipError.self) { try await auth.authorize(request) }
     }
 
@@ -211,4 +213,50 @@ struct OIDCAuthProviderTests {
         #expect(try await auth.refreshAfterUnauthorized(.fromJWTProxy(value: "Bearer access-1")))
     }
 
+
+    @Test func keepsFreshTokensWhenKeychainReadFailsAfterRefresh() async throws {
+        let recorder = RequestRecorder()
+        let refreshes = Mutex(0)
+        let server = FakeServer(routes: [:], recorder: recorder, dynamicRoutes: ["POST /token": { _ in
+            let n = refreshes.withLock { $0 += 1; return $0 + 1 }
+            return .json(OIDCFixtures.tokens(access: "access-\(n)", refresh: "refresh-\(n)"))
+        }])
+        let flaky = FlakyCredentialStore()
+        try OIDCTokenStore(credentials: flaky, account: "f1.oidc").save(tokens(server, expiresIn: 3600))
+        let auth = OIDCAuthProvider(
+            settings: OIDCFixtures.settings(issuer: server.baseURL),
+            tokens: OIDCTokenStore(credentials: flaky, account: "f1.oidc"), session: server.session, now: { now }
+        )
+        _ = try await auth.authorize(request)
+        flaky.failReads(true)
+
+        #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1")))
+        #expect(try await auth.authorize(request).value(forHTTPHeaderField: "Authorization") == "Bearer access-2")
+
+        flaky.failReads(false)
+        #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-2")))
+        #expect(formFields(recorder.last("POST", "/token"))["refresh_token"] == "refresh-2")
+        #expect(try OIDCTokenStore(credentials: flaky, account: "f1.oidc").load()?.refreshToken == "refresh-3")
+    }
+
+    @Test func rejectedRefreshIsNotRetried() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /token": .json(#"{"error":"invalid_grant","error_description":"Token revoked"}"#, status: 400)], recorder: recorder)
+        let auth = try provider(server, stored: tokens(server, expiresIn: -10))
+
+        await #expect(throws: PaperclipError.unauthorized("Token revoked")) { try await auth.authorize(request) }
+        await #expect(throws: PaperclipError.unauthorized("Token revoked")) { try await auth.authorize(request) }
+        #expect(recorder.requests.count == 1)
+    }
+
+    @Test func corruptStoredTokensAreReportedAsUnreadable() async throws {
+        let server = FakeServer(routes: [:])
+        try credentials.setCredential("not json", for: "f1.oidc")
+        let auth = OIDCAuthProvider(
+            settings: OIDCFixtures.settings(issuer: server.baseURL),
+            tokens: OIDCTokenStore(credentials: credentials, account: "f1.oidc"), session: server.session
+        )
+
+        await #expect(throws: PaperclipError.unauthorized(OIDCTokenStore.unreadableMessage)) { try await auth.authorize(request) }
+    }
 }

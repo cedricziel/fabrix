@@ -2,17 +2,23 @@ import Foundation
 import Synchronization
 @testable import FabrixCore
 
-/// An in-memory credential store whose writes can be made to fail.
+/// An in-memory credential store whose reads or writes can be made to fail.
 final class FlakyCredentialStore: CredentialStore {
     private let inner = InMemoryCredentialStore()
     private let failing = Mutex<(Factory.ID) -> Bool>({ _ in false })
+    private let failingReads = Mutex(false)
 
     func failWrites(where predicate: @escaping @Sendable (Factory.ID) -> Bool) {
         failing.withLock { $0 = predicate }
     }
 
+    func failReads(_ fail: Bool) {
+        failingReads.withLock { $0 = fail }
+    }
+
     func credential(for factoryID: Factory.ID) throws -> String? {
-        try inner.credential(for: factoryID)
+        if failingReads.withLock({ $0 }) { throw KeychainError(status: errSecInteractionNotAllowed) }
+        return try inner.credential(for: factoryID)
     }
 
     func setCredential(_ credential: String?, for factoryID: Factory.ID) throws {

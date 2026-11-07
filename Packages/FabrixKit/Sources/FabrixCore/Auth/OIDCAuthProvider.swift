@@ -1,16 +1,54 @@
 import Foundation
 import os
+import Synchronization
 
-/// OIDC tokens kept as one JSON item in a `CredentialStore`.
+/// OIDC tokens kept as one JSON item in a `CredentialStore`. Every access goes through one lock, so a
+/// provider's compare-and-save can't interleave with a `FactoryStore` connect or remove.
 struct OIDCTokenStore: Sendable {
     let credentials: any CredentialStore
     let account: String
 
+    private static let lock = Mutex(())
+    static let unreadableMessage = "The saved sign-in can't be read. Sign in again."
+
+    enum SaveOutcome {
+        case saved
+        /// The store no longer holds the expected refresh token: another sign-in or a removal won.
+        case replaced
+    }
+
+    /// Nil when nothing is stored. Throws `PaperclipError.unauthorized` for an unreadable blob.
     func load() throws -> OIDCTokens? {
-        try credentials.credential(for: account).flatMap { try? JSONDecoder().decode(OIDCTokens.self, from: Data($0.utf8)) }
+        try Self.lock.withLock { _ in try unlockedLoad() }
     }
 
     func save(_ tokens: OIDCTokens?) throws {
+        try Self.lock.withLock { _ in try unlockedSave(tokens) }
+    }
+
+    /// Whether the store still holds `refreshToken`. Missing tokens count as replaced.
+    func holds(refreshToken: String?) throws -> Bool {
+        try load().map { $0.refreshToken == refreshToken } ?? false
+    }
+
+    /// Writes `tokens` only if the store still holds `expectedRefreshToken`, atomically.
+    func save(_ tokens: OIDCTokens, ifStoredRefreshTokenIs expectedRefreshToken: String?) throws -> SaveOutcome {
+        try Self.lock.withLock { _ in
+            guard let stored = try unlockedLoad(), stored.refreshToken == expectedRefreshToken else { return .replaced }
+            try unlockedSave(tokens)
+            return .saved
+        }
+    }
+
+    private func unlockedLoad() throws -> OIDCTokens? {
+        guard let json = try credentials.credential(for: account) else { return nil }
+        guard let tokens = try? JSONDecoder().decode(OIDCTokens.self, from: Data(json.utf8)) else {
+            throw PaperclipError.unauthorized(Self.unreadableMessage)
+        }
+        return tokens
+    }
+
+    private func unlockedSave(_ tokens: OIDCTokens?) throws {
         let json = try tokens.map { try String(decoding: JSONEncoder().encode($0), as: UTF8.self) }
         try credentials.setCredential(json, for: account)
     }
@@ -28,6 +66,8 @@ public actor OIDCAuthProvider: AuthProvider {
     /// store means the factory was reconnected or removed, so this provider must not write again.
     private var persistedRefreshToken: String?
     private var replaced = false
+    /// Set once the identity provider rejects the refresh token; every later request fails fast.
+    private var refreshRejection: PaperclipError?
     private var refreshing: Task<OIDCTokens, Error>?
     private static let logger = Logger(subsystem: "com.cedricziel.fabrix", category: "auth")
 
@@ -66,6 +106,9 @@ public actor OIDCAuthProvider: AuthProvider {
         if replaced {
             throw Self.replacedError
         }
+        if let refreshRejection {
+            throw refreshRejection
+        }
         if let cached {
             return cached
         }
@@ -89,26 +132,42 @@ public actor OIDCAuthProvider: AuthProvider {
     }
 
     private func performRefresh(from tokens: OIDCTokens) async throws -> OIDCTokens {
+        // Don't spend the refresh token if a newer sign-in or a removal already replaced it.
+        // If the Keychain can't be read right now, refresh anyway and decide after.
+        if (try? store.holds(refreshToken: persistedRefreshToken)) == false {
+            throw markReplaced()
+        }
+
         let fresh: OIDCTokens
         do {
             fresh = try await flow.refresh(tokens)
         } catch let OIDCError.provider(code, description) where code == "invalid_grant" {
-            throw PaperclipError.unauthorized(description)
+            let rejection = PaperclipError.unauthorized(description)
+            refreshRejection = rejection
+            cached = nil
+            throw rejection
         }
 
-        guard let stored = try store.load(), stored.refreshToken == persistedRefreshToken else {
-            replaced = true
-            cached = nil
-            throw Self.replacedError
-        }
-        // The old refresh token is spent, so keep the new tokens even if the Keychain write fails.
-        cached = fresh
+        // The old refresh token is spent now: keep the new tokens in memory whatever the Keychain does.
         do {
-            try store.save(fresh)
-            persistedRefreshToken = fresh.refreshToken
+            switch try store.save(fresh, ifStoredRefreshTokenIs: persistedRefreshToken) {
+            case .saved:
+                persistedRefreshToken = fresh.refreshToken
+            case .replaced:
+                throw markReplaced()
+            }
+        } catch let error as PaperclipError where error == Self.replacedError {
+            throw error
         } catch {
             Self.logger.error("Couldn't store refreshed OIDC tokens: \(String(describing: error), privacy: .public)")
         }
+        cached = fresh
         return fresh
+    }
+
+    private func markReplaced() -> PaperclipError {
+        replaced = true
+        cached = nil
+        return Self.replacedError
     }
 }
