@@ -217,23 +217,23 @@ def build_target(key, options)
   match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
   sync_code_signing(**match_params)
 
-  write_telemetry_secrets
-
-  # The project is generated, so signing settings go onto a fresh copy.
-  sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
-
-  update_code_signing_settings(
-    path: PROJECT,
-    targets: [t[:target]],
-    build_configurations: ["Release"],
-    use_automatic_signing: false,
-    team_id: TEAM_ID,
-    code_sign_identity: "Apple Distribution",
-    bundle_identifier: APP_IDENTIFIER,
-    profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
-  )
-
   begin
+    write_telemetry_secrets
+
+    # The project is generated, so signing settings go onto a fresh copy.
+    sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
+
+    update_code_signing_settings(
+      path: PROJECT,
+      targets: [t[:target]],
+      build_configurations: ["Release"],
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: APP_IDENTIFIER,
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
+    )
+
     build_app(
       project: PROJECT,
       scheme: t[:target],
