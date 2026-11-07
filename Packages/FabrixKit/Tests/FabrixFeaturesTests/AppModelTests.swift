@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixCore
 import Foundation
 @testable import FabrixFeatures
@@ -67,6 +68,19 @@ struct AppModelTests {
         #expect(connector.calls.isEmpty)
         #expect(model.isOnboarding)
         #expect(model.connectError != nil)
+    }
+
+    @Test(arguments: [
+        CancellationError() as any Error,
+        ASWebAuthenticationSessionError(.canceledLogin),
+        URLError(.cancelled),
+    ])
+    func cancelledSignInLeavesNoError(cancellation: any Error) async {
+        let connector = RecordingConnector(error: cancellation)
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+        await model.connect(ConnectForm(address: "f.example", method: .oidc, issuer: "auth.example", clientID: "c"))
+        #expect(model.isOnboarding)
+        #expect(model.connectError == nil)
     }
 
     @Test func connectorFailureStaysInOnboardingWithTheMessage() async {
@@ -290,17 +304,21 @@ struct ConnectCall: Equatable {
 final class RecordingConnector: FactoryConnector {
     private(set) var calls: [ConnectCall] = []
     private(set) var authenticators = 0
-    private let failure: String?
+    private let error: (any Error)?
     var saved: [Factory.ID: FactoryConnection] = [:]
 
     init(failure: String? = nil) {
-        self.failure = failure
+        error = failure.map { ConnectFailure(message: $0) }
+    }
+
+    init(error: any Error) {
+        self.error = error
     }
 
     func connect(baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?) async throws -> FactoryConnection {
         calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth))
         if webAuthenticator != nil { authenticators += 1 }
-        if let failure { throw ConnectFailure(message: failure) }
+        if let error { throw error }
         let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
         let connection = FactoryConnection(factory: factory, service: DemoFactoryService())
         saved[factory.id] = connection

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import FabrixCore
 import Foundation
 import Observation
@@ -111,7 +112,8 @@ public final class AppModel {
             connectError = nil
             await refresh()
         } catch {
-            connectError = error.localizedDescription
+            // Closing the sign-in sheet is a choice, not a failure.
+            connectError = Self.isCancellation(error) ? nil : error.localizedDescription
         }
     }
 
@@ -230,7 +232,10 @@ public final class AppModel {
 
     /// A cancelled request (the scene went inactive, the view went away) is not a failure.
     private static func isCancellation(_ error: any Error) -> Bool {
-        error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled
+        error is CancellationError
+            || (error as? URLError)?.code == .cancelled
+            || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+            || Task.isCancelled
     }
 
     /// Responses arrive out of order: a slow poll can land after a newer refresh, or after
