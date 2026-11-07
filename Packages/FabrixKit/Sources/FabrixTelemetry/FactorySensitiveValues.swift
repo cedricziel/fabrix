@@ -2,7 +2,7 @@ import FabrixCore
 import Observation
 import Synchronization
 
-/// Feeds the names and hosts of saved factories to the exporter and follows changes to the store.
+/// Feeds the names, hosts and custom header values of saved factories to the exporter and follows changes to the store.
 @MainActor
 public final class FactorySensitiveValues: SensitiveValueSource {
     private let store: FactoryStore
@@ -21,6 +21,10 @@ public final class FactorySensitiveValues: SensitiveValueSource {
         let factories = withObservationTracking { store.factories } onChange: { [weak self] in
             Task { @MainActor in self?.track() }
         }
-        values.withLock { $0 = factories.flatMap { [$0.name, $0.baseURL.host()].compactMap(\.self) } }
+        let listed = factories.flatMap { factory in
+            [factory.name, factory.baseURL.host()].compactMap(\.self)
+                + ((try? store.customHeaders(for: factory)) ?? []).map(\.value)
+        }
+        values.withLock { $0 = listed }
     }
 }
