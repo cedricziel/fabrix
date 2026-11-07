@@ -44,6 +44,7 @@ public final class AppModel {
     private var commitTimers: [Approval.ID: Task<Void, Never>] = [:]
 
     private static let demoKey = "fabrix.exploringDemo"
+    private static let factoryKey = "fabrix.currentFactoryID"
 
     /// - Parameters:
     ///   - connection: a factory restored from a previous launch; skips onboarding.
@@ -57,7 +58,7 @@ public final class AppModel {
         self.connector = connector
         self.defaults = defaults
         self.undoWindow = undoWindow
-        if let connection = connection ?? (defaults.bool(forKey: Self.demoKey) ? .demo() : nil) {
+        if let connection = connection ?? restoredConnection() {
             use(connection)
         }
     }
@@ -76,13 +77,20 @@ public final class AppModel {
         connector != nil
     }
 
+    /// The demo, or the factory connected at the last launch.
+    private func restoredConnection() -> FactoryConnection? {
+        if defaults.bool(forKey: Self.demoKey) { return .demo() }
+        return defaults.string(forKey: Self.factoryKey).flatMap { connector?.restore(factoryID: $0) }
+    }
+
     public func exploreDemo() async {
         defaults.set(true, forKey: Self.demoKey)
+        defaults.removeObject(forKey: Self.factoryKey)
         use(.demo())
         await refresh()
     }
 
-    func connect(_ form: ConnectForm) async {
+    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async {
         guard let connector else { return }
         let request: (baseURL: URL, auth: FactoryAuth)
         do {
@@ -94,7 +102,12 @@ public final class AppModel {
         isConnecting = true
         defer { isConnecting = false }
         do {
-            try use(await connector.connect(baseURL: request.baseURL, auth: request.auth))
+            let connection = try await connector.connect(
+                baseURL: request.baseURL, auth: request.auth, webAuthenticator: webAuthenticator
+            )
+            use(connection)
+            defaults.set(connection.factory.id, forKey: Self.factoryKey)
+            defaults.removeObject(forKey: Self.demoKey)
             connectError = nil
             await refresh()
         } catch {
@@ -106,8 +119,11 @@ public final class AppModel {
         lastError = nil
     }
 
+    /// Leaves the current factory. A connected factory stays saved, with its credentials,
+    /// in the connector's store; it just isn't reopened on the next launch.
     public func disconnect() {
         defaults.removeObject(forKey: Self.demoKey)
+        defaults.removeObject(forKey: Self.factoryKey)
         generation += 1
         commitTimers.values.forEach { $0.cancel() }
         commitTimers = [:]

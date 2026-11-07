@@ -26,10 +26,15 @@ public enum FactoryAuth: Hashable, Sendable {
     case oidcWithPaperclip(issuer: URL, clientID: String, apiKey: String)
 }
 
-/// Turns the onboarding form into a live factory. The app passes one in once server
-/// connections ship; without it the form stays visible but disabled.
-public protocol FactoryConnector: Sendable {
-    func connect(baseURL: URL, auth: FactoryAuth) async throws -> FactoryConnection
+/// Turns the onboarding form into a live factory and reopens saved ones.
+/// Without one the form stays visible but disabled.
+@MainActor
+public protocol FactoryConnector: AnyObject {
+    /// - Parameter webAuthenticator: Shows the identity provider's login page for OIDC.
+    func connect(baseURL: URL, auth: FactoryAuth, webAuthenticator: (any WebAuthenticator)?) async throws -> FactoryConnection
+
+    /// A saved factory from an earlier launch, or nil if it is gone.
+    func restore(factoryID: Factory.ID) -> FactoryConnection?
 }
 
 struct ConnectForm: Equatable {
