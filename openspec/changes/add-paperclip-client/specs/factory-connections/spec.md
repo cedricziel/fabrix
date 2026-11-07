@@ -1,0 +1,83 @@
+## Purpose
+
+Lets the user connect Fabrix to Paperclip servers ("factories"), keeps those connections across launches, and provides a live factory service for each one.
+
+## ADDED Requirements
+
+### Requirement: Validate before saving
+
+The app SHALL save a factory only after an authenticated call to its server succeeds with the chosen auth configuration.
+
+#### Scenario: Valid board key
+
+- **WHEN** the user connects to `https://paperclip.example.com` with a board API key the server accepts
+- **THEN** the factory is saved with that address
+- **AND** the key is stored in the Keychain, not in preferences
+
+#### Scenario: Rejected credential
+
+- **WHEN** the server answers `401` to the validation call
+- **THEN** connecting fails with an unauthorized error carrying the server's message
+- **AND** no factory and no secret is saved
+
+### Requirement: Server address input
+
+The app SHALL accept a server address with or without a scheme and with or without a trailing `/api`, and SHALL reject anything that is not an http or https URL with a host.
+
+#### Scenario: Bare host
+
+- **WHEN** the user enters `paperclip.example.com`
+- **THEN** the factory is saved as `https://paperclip.example.com`
+
+#### Scenario: Address with the API suffix
+
+- **WHEN** the user enters `http://localhost:3100/api/`
+- **THEN** the factory is saved as `http://localhost:3100`
+
+#### Scenario: Unusable address
+
+- **WHEN** the user enters `file:///etc/passwd`
+- **THEN** connecting fails with an invalid-server-address error before any network call
+
+### Requirement: Saved factories persist
+
+The app SHALL keep saved factories, their display names and their auth configuration across relaunches.
+
+#### Scenario: Relaunch
+
+- **WHEN** the app restarts after a factory was saved
+- **THEN** the factory list contains the same factory with the same ID, name and address
+
+#### Scenario: Default display name
+
+- **WHEN** the user connects without entering a name
+- **THEN** the factory is named after the server's host
+
+### Requirement: Reconnecting updates in place
+
+Connecting to an address that is already saved SHALL update that factory instead of adding a second one.
+
+#### Scenario: New key for a saved server
+
+- **WHEN** the user connects again to a saved server with a new key and a new name
+- **THEN** the factory keeps its ID
+- **AND** its name and stored key are replaced
+
+### Requirement: Removing a factory
+
+Removing a factory SHALL delete its record and every secret stored for it.
+
+#### Scenario: Remove
+
+- **WHEN** the user removes a saved factory
+- **THEN** it disappears from the list, also after relaunch
+- **AND** its board key and OIDC tokens are deleted from the Keychain
+
+### Requirement: Live service per factory
+
+The app SHALL provide a factory service for each saved factory that authenticates with that factory's stored configuration.
+
+#### Scenario: Stored key is used
+
+- **WHEN** the app asks for a saved factory's service and lists companies
+- **THEN** the request carries that factory's stored board key
