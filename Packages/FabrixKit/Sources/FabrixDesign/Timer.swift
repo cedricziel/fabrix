@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A live run's elapsed time, "02:13", kept current by the system without
-/// re-rendering the view. VoiceOver reads it as words: "2 minutes ago".
+/// A live run's elapsed time, "2:13", kept current by the system without
+/// re-rendering the view. VoiceOver reads it as words: "2 minutes, 13 seconds".
 public struct ElapsedText: View {
     private let since: Date
 
@@ -14,10 +14,14 @@ public struct ElapsedText: View {
         min(since, now)...Date.distantFuture
     }
 
+    nonisolated static func accessibilityLabel(since: Date) -> Text {
+        Text(since, style: .relative)
+    }
+
     public var body: some View {
         Text(timerInterval: Self.interval(since: since, now: .now), countsDown: false)
             .monospacedDigit()
-            .accessibilityLabel(Text(since, format: .relative(presentation: .numeric, unitsStyle: .wide)))
+            .accessibilityLabel(Self.accessibilityLabel(since: since))
     }
 }
 

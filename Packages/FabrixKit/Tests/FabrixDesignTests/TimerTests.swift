@@ -1,5 +1,6 @@
 @testable import FabrixDesign
 import Foundation
+import SwiftUI
 import Testing
 
 struct TimerTests {
@@ -8,6 +9,11 @@ struct TimerTests {
     @Test func countsUpFromTheStart() {
         let start = now.addingTimeInterval(-133)
         #expect(ElapsedText.interval(since: start, now: now).lowerBound == start)
+    }
+
+    @Test func voiceOverReadsALiveDuration() {
+        let start = now.addingTimeInterval(-133)
+        #expect(ElapsedText.accessibilityLabel(since: start) == Text(start, style: .relative))
     }
 
     @Test func aStartInTheFutureCountsFromNow() {

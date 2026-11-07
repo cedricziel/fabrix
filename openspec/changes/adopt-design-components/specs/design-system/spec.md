@@ -49,7 +49,7 @@ A live run's elapsed time SHALL update every second without the screen re-render
 #### Scenario: VoiceOver on a timer
 
 - **WHEN** VoiceOver focuses a run timer that started two minutes ago
-- **THEN** it reads the time as words, such as "2 minutes ago"
+- **THEN** it reads the time as words that keep counting, such as "2 minutes, 13 seconds"
 
 ### Requirement: Reduce Motion
 
