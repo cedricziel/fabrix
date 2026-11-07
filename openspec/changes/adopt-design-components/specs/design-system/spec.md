@@ -35,7 +35,7 @@ Every user-facing string SHALL be a key in the string catalog of the module that
 
 ### Requirement: Components ship with previews
 
-Every public FabrixDesign component SHALL have an Xcode preview that shows its states in light and dark appearance.
+Every public FabrixDesign component SHALL have an Xcode preview that shows its states. Components added from this change on SHALL also have a dark-appearance preview.
 
 #### Scenario: New component
 
