@@ -69,9 +69,9 @@ public struct RootView: View {
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
         .confirmationDialog(
-            "Forget \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingForget, titleVisibility: .visible
+            "Remove \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {
-            Button("Forget Factory", role: .destructive) { model.forgetFactory() }
+            Button("Remove Factory", role: .destructive) { Task { await model.removeOpenFactory() } }
         } message: {
             Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.")
         }

@@ -91,14 +91,16 @@ public final class AppModel {
         await refresh()
     }
 
-    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async {
-        guard let connector else { return }
+    /// - Returns: Whether the factory is now open.
+    @discardableResult
+    func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async -> Bool {
+        guard let connector else { return false }
         let request: (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader])
         do {
             request = try form.validated()
         } catch {
             connectError = error.message
-            return
+            return false
         }
         isConnecting = true
         defer { isConnecting = false }
@@ -111,20 +113,39 @@ public final class AppModel {
             defaults.removeObject(forKey: Self.demoKey)
             connectError = nil
             await refresh()
+            return true
         } catch {
             // Closing the sign-in sheet is a choice, not a failure.
             connectError = Self.isCancellation(error) ? nil : error.localizedDescription
+            return false
         }
     }
 
-    /// A real factory can be forgotten; the demo has nothing saved.
-    public var canForgetFactory: Bool {
-        connector != nil && factory != nil && factory?.id != FactoryConnection.demo().factory.id
+    var factoryMenu: FactoryMenu {
+        FactoryMenu(saved: connector?.factories ?? [], open: factory, companies: companies, selectedCompanyID: snapshot?.company.id)
     }
 
-    /// Deletes the current factory and its credentials, then returns to onboarding.
-    func forgetFactory() {
-        guard canForgetFactory, let connector, let factory else { return }
+    /// Opens a saved factory or the demo, and remembers it for the next launch.
+    func open(_ target: Factory) async {
+        guard target.id != factory?.id else { return }
+        if target.id == FactoryConnection.demo().factory.id {
+            await exploreDemo()
+            return
+        }
+        guard let connection = connector?.restore(factoryID: target.id) else {
+            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.")
+            return
+        }
+        use(connection)
+        defaults.set(connection.factory.id, forKey: Self.factoryKey)
+        defaults.removeObject(forKey: Self.demoKey)
+        await refresh()
+    }
+
+    /// Deletes the open factory and its credentials, then opens the next saved factory,
+    /// or onboarding when none is left. The demo has nothing saved and can't be removed.
+    func removeOpenFactory() async {
+        guard factoryMenu.canRemove, let connector, let factory else { return }
         do {
             try connector.forget(factoryID: factory.id)
         } catch {
@@ -132,6 +153,9 @@ public final class AppModel {
             return
         }
         disconnect()
+        if let next = connector.factories.first {
+            await open(next)
+        }
     }
 
     public func dismissError() {

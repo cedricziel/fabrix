@@ -70,7 +70,7 @@ final class Navigator {
     var tab = CompactTab.factory
     var tabPaths: [CompactTab: NavigationPath] = [:]
     var showingNewTask = false
-    var confirmingForget = false
+    var confirmingRemove = false
     var isCompact = false
 
     func open(_ section: AppSection) {

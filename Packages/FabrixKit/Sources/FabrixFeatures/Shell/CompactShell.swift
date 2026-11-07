@@ -38,10 +38,10 @@ private struct TabStack: View {
                                         Label(section.title, systemImage: section.systemImage)
                                     }
                                 }
-                                if tab == .factory, model.canForgetFactory {
+                                if tab == .factory, model.factoryMenu.canRemove {
                                     Divider()
-                                    Button("Forget Factory…", systemImage: "trash", role: .destructive) {
-                                        navigator.confirmingForget = true
+                                    Button("Remove Factory…", systemImage: "trash", role: .destructive) {
+                                        navigator.confirmingRemove = true
                                     }
                                 }
                             } label: {

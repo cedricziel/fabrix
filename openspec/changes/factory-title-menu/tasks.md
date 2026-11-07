@@ -1,8 +1,8 @@
 ## 1. Switching model (PR 1)
 
 - [x] 1.1 Propose and validate this change
-- [ ] 1.2 `FactoryMenu` built from saved factories, open factory, companies and selection (`Logic/FactoryMenu.swift`); tests `FactoryMenuTests`
-- [ ] 1.3 `FactoryConnector.factories`, `AppModel` switching and removal with fallback (`Logic/Connecting.swift`, `Logic/StoreConnector.swift`, `AppModel.swift`); tests in `FactorySwitchingTests`
+- [x] 1.2 `FactoryMenu` built from saved factories, open factory, companies and selection (`Logic/FactoryMenu.swift`); tests `FactoryMenuTests`
+- [x] 1.3 `FactoryConnector.factories`, `AppModel` switching and removal with fallback (`Logic/Connecting.swift`, `Logic/StoreConnector.swift`, `AppModel.swift`); tests in `FactorySwitchingTests`
 
 ## 2. Title menu (PR 2)
 

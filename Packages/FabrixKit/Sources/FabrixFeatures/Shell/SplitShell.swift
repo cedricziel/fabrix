@@ -98,9 +98,9 @@ private struct FactoryRow: View {
         }
         .selectionDisabled()
         .contextMenu {
-            if model.canForgetFactory {
-                Button("Forget Factory…", systemImage: "trash", role: .destructive) {
-                    navigator.confirmingForget = true
+            if model.factoryMenu.canRemove {
+                Button("Remove Factory…", systemImage: "trash", role: .destructive) {
+                    navigator.confirmingRemove = true
                 }
             }
         }
