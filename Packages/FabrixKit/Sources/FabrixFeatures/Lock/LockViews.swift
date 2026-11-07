@@ -64,6 +64,7 @@ private struct LockScreen: View {
             Text("Fabrix is locked")
                 .font(.fabrix(.body))
                 .foregroundStyle(Palette.steel)
+                .accessibilityAddTraits(.isHeader)
             Button {
                 Task { await lock.unlock() }
             } label: {
