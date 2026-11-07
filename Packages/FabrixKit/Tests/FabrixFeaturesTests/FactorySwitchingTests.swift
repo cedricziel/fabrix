@@ -260,4 +260,30 @@ struct FactorySwitchingTests {
         #expect(windowB.agent("cto")?.status == .paused)
         #expect(connector.factories.count == 1)
     }
+
+    @Test func cancellingAConnectLeavesNoError() async {
+        let connector = RecordingConnector()
+        connector.delay = .seconds(5)
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+
+        let connecting = Task { await model.connect(ConnectForm(address: "slow.example", method: .paperclip, apiKey: "k")) }
+        while !model.isConnecting { await Task.yield() }
+        connecting.cancel()
+        let opened = await connecting.value
+
+        #expect(!opened)
+        #expect(!model.isConnecting)
+        #expect(model.isOnboarding)
+        #expect(model.connectError == nil)
+    }
+
+    @Test func leavingOrExploringClearsAnOldConnectError() async {
+        let connector = RecordingConnector(failure: "Unauthorized")
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+        await model.connect(ConnectForm(address: "f.example", method: .paperclip, apiKey: "bad"))
+        #expect(model.connectError == "Unauthorized")
+
+        await model.exploreDemo()
+        #expect(model.connectError == nil)
+    }
 }

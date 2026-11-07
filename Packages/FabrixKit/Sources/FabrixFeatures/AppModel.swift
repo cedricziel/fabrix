@@ -173,6 +173,7 @@ public final class AppModel {
 
     public func exploreDemo() async {
         await commitStagedDecisions()
+        connectError = nil
         defaults.set(true, forKey: Self.demoKey)
         defaults.removeObject(forKey: Self.factoryKey)
         use(.demo())
@@ -570,6 +571,7 @@ public final class AppModel {
         connectionProblem = nil
         lastRefreshedAt = nil
         actionError = nil
+        connectError = nil
     }
 
     /// Signed out where `signInAgain` can't help: the connect form opens with the factory's address filled in.

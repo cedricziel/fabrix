@@ -45,6 +45,7 @@ struct ConnectFactoryForm: View {
     @Environment(AppModel.self) private var model
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @State private var form = ConnectForm()
+    @State private var connecting: Task<Void, Never>?
     var onConnected: () -> Void = {}
 
     private static let addressExample = "https://factory.example.com"
@@ -59,33 +60,37 @@ struct ConnectFactoryForm: View {
                     .font(.callout)
                     .foregroundStyle(Palette.steel)
             }
-            LabeledField(.features("Factory address")) {
-                TextField(Self.addressExample, text: $form.address)
-                    .urlEntry()
-            }
-            Picker(.features("Sign in with"), selection: $form.method) {
-                ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.menu)
-            if form.method.usesOIDC {
-                LabeledField(.features("OIDC issuer")) {
-                    TextField(Self.issuerExample, text: $form.issuer).urlEntry()
+            Group {
+                LabeledField(.features("Factory address")) {
+                    TextField(Self.addressExample, text: $form.address)
+                        .urlEntry()
                 }
-                LabeledField(.features("Client ID")) {
-                    TextField(Self.clientIDExample, text: $form.clientID).autocorrectionDisabled()
+                Picker(.features("Sign in with"), selection: $form.method) {
+                    ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
                 }
-            }
-            if form.method.usesAPIKey {
-                LabeledField(.features("Paperclip API key")) {
-                    SecureField(.features("Paste the key from your Paperclip board"), text: $form.apiKey)
-                        .textContentType(.password)
+                .pickerStyle(.menu)
+                if form.method.usesOIDC {
+                    LabeledField(.features("OIDC issuer")) {
+                        TextField(Self.issuerExample, text: $form.issuer).urlEntry()
+                    }
+                    LabeledField(.features("Client ID")) {
+                        TextField(Self.clientIDExample, text: $form.clientID).autocorrectionDisabled()
+                    }
+                }
+                if form.method.usesAPIKey {
+                    LabeledField(.features("Paperclip API key")) {
+                        SecureField(.features("Paste the key from your Paperclip board"), text: $form.apiKey)
+                            .textContentType(.password)
+                    }
                 }
                 Text("Create one with `paperclipai token board create` on a signed-in machine.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
                     .textSelection(.enabled)
             }
+            .disabled(model.isConnecting)
             AdvancedSection(headers: $form.headers)
+                .disabled(model.isConnecting)
             if let error = model.connectError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
@@ -105,6 +110,11 @@ struct ConnectFactoryForm: View {
                 .buttonStyle(.fabrixPrimary)
                 .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
             }
+            if model.isConnecting, model.browserSignIn == nil {
+                Button(.features("Cancel")) { connecting?.cancel() }
+                    .buttonStyle(.fabrixSecondary)
+                    .frame(maxWidth: .infinity)
+            }
             if !model.canConnect {
                 Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.", bundle: .module)
                     .font(.footnote)
@@ -119,12 +129,16 @@ struct ConnectFactoryForm: View {
                 form = ConnectForm(reconnecting: reconnect)
             }
         }
+        .onChange(of: form) { model.clearConnectError() }
+        .onChange(of: model.connectError) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
     }
 
     private func connect() {
         guard model.canConnect, !form.address.isEmpty, !model.isConnecting else { return }
         let authenticator = SessionAuthenticator(session: webAuthenticationSession)
-        Task {
+        connecting = Task {
             if await model.connect(form, webAuthenticator: authenticator) { onConnected() }
         }
     }

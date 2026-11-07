@@ -64,7 +64,7 @@ private struct AppRoot: View {
             } else {
                 switch model.loadState {
                 case .loading:
-                    ProgressView()
+                    ConnectingView()
                 case .loaded:
                     Group {
                         if isCompact {
@@ -249,3 +249,25 @@ struct PreviewHost<Content: View>: View {
 }
 
 #Preview("Demo") { RootView(model: .demo()) }
+
+/// The first load of a factory: says which factory, and offers a way out if it takes long.
+private struct ConnectingView: View {
+    @Environment(AppModel.self) private var model
+    @State private var offersEscape = false
+
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+            Text("Connecting to \(model.factory?.name ?? String(localized: "the factory", bundle: .module))…", bundle: .module)
+                .foregroundStyle(Palette.steel)
+            if offersEscape {
+                Button(.features("Choose another factory")) { model.disconnect() }
+                    .buttonStyle(.fabrixSecondary)
+            }
+        }
+        .task {
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation { offersEscape = true }
+        }
+    }
+}
