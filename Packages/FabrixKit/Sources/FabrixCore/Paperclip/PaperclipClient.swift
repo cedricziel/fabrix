@@ -178,8 +178,8 @@ public struct PaperclipClient: Sendable {
             (data, response) = try await load(auth.authorize(request))
         }
         let status = response?.statusCode ?? 0
-        if (300 ..< 400).contains(status), let location = response?.value(forHTTPHeaderField: "Location") {
-            throw PaperclipError.server(status: status, message: "The server redirected to \(location). Connect to that address instead.")
+        if let origin = SameOriginRedirects.refusedOrigin(response) {
+            throw PaperclipError.server(status: status, message: "The server redirected to \(origin). Connect to that address instead.")
         }
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
@@ -232,12 +232,36 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
         newRequest request: URLRequest
     ) async -> URLRequest? {
         guard let from = response.url, let to = request.url else { return nil }
-        return Self.origin(of: from) == Self.origin(of: to) ? request : nil
+        return Origin(from) == Origin(to) ? request : nil
     }
 
-    private static func origin(of url: URL) -> String {
-        let scheme = url.scheme?.lowercased() ?? ""
-        let port = url.port ?? (scheme == "https" ? 443 : 80)
-        return "\(scheme)://\(url.host()?.lowercased() ?? ""):\(port)"
+    /// Where a refused redirect pointed. Error messages show only this, since the full URL can carry tokens.
+    static func refusedOrigin(_ response: HTTPURLResponse?) -> Origin? {
+        guard let response, (300 ..< 400).contains(response.statusCode),
+              let location = response.value(forHTTPHeaderField: "Location"),
+              let target = URL(string: location, relativeTo: response.url)
+        else { return nil }
+        return Origin(target.absoluteURL)
+    }
+
+    struct Origin: Equatable, CustomStringConvertible {
+        let scheme: String
+        let host: String
+        let port: Int
+
+        init(_ url: URL) {
+            scheme = url.scheme?.lowercased() ?? ""
+            host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) ?? ""
+            port = url.port ?? Self.defaultPort(scheme)
+        }
+
+        var description: String {
+            let host = host.contains(":") ? "[\(host)]" : host
+            return port == Self.defaultPort(scheme) ? "\(scheme)://\(host)" : "\(scheme)://\(host):\(port)"
+        }
+
+        private static func defaultPort(_ scheme: String) -> Int {
+            scheme == "https" ? 443 : 80
+        }
     }
 }
