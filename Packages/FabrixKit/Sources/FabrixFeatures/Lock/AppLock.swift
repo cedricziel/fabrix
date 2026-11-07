@@ -100,11 +100,14 @@ public final class AppLock {
         return true
     }
 
-    /// The first-connect offer: true once, while the lock is off and the device can authenticate.
-    public func offerAfterConnect() -> Bool {
-        guard !settings.wasOffered, !settings.isEnabled, canAuthenticate else { return false }
+    /// The first-connect offer is due: never shown, the lock is off and the device can authenticate.
+    public var shouldOfferLock: Bool {
+        !settings.wasOffered && !settings.isEnabled && canAuthenticate
+    }
+
+    /// Call when the offer is actually on screen, so a sheet that couldn't present doesn't use it up.
+    public func markOffered() {
         settings.wasOffered = true
-        return true
     }
 
     // MARK: Scene

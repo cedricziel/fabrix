@@ -245,9 +245,12 @@ struct AppLockTests {
     @Test func offerAppearsExactlyOnce() {
         let defaults = freshDefaults()
         let lock = AppLock(defaults: defaults, authenticator: StubAuthenticator())
-        #expect(lock.offerAfterConnect())
-        #expect(!lock.offerAfterConnect())
-        #expect(!AppLock(defaults: defaults, authenticator: StubAuthenticator()).offerAfterConnect())
+        #expect(lock.shouldOfferLock)
+        // Due until the sheet is actually on screen.
+        #expect(lock.shouldOfferLock)
+        lock.markOffered()
+        #expect(!lock.shouldOfferLock)
+        #expect(!AppLock(defaults: defaults, authenticator: StubAuthenticator()).shouldOfferLock)
         #expect(!lock.settings.isEnabled)
     }
 
@@ -255,9 +258,9 @@ struct AppLockTests {
         let authenticator = StubAuthenticator()
         authenticator.canAuthenticate = false
         let lock = AppLock(defaults: freshDefaults(), authenticator: authenticator)
-        #expect(!lock.offerAfterConnect())
+        #expect(!lock.shouldOfferLock)
         authenticator.canAuthenticate = true
-        #expect(lock.offerAfterConnect())
+        #expect(lock.shouldOfferLock)
     }
 
     @Test func confirmationIsSkippedWhileOff() async {
