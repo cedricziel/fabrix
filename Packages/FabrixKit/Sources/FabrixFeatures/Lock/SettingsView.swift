@@ -10,6 +10,16 @@ public struct SettingsView: View {
     }
 
     public var body: some View {
+        if lock.isLocked {
+            // The Mac Settings window sits outside the locked main window.
+            BrandCover { Text("Unlock Fabrix to change settings.").foregroundStyle(Palette.steel) }
+                .frame(minWidth: 460, minHeight: 240)
+        } else {
+            form
+        }
+    }
+
+    private var form: some View {
         Form {
             Section {
                 Toggle("Lock Fabrix", isOn: isEnabled)
