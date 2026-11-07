@@ -138,4 +138,13 @@ struct PaperclipClientTests {
         #expect(try await client.signInStatus(challenge) == expected)
         #expect(recorder.requests.first?.url?.query() == "token=pcp_cli_auth_abc")
     }
+
+    @Test(arguments: [
+        (#"1e19"#, "1e+19"), (#"42"#, "42"), (#"-3"#, "-3"), (#"1.5"#, "1.5"), (#""Designer""#, "Designer"),
+    ])
+    func rendersJSONValuesAsText(json: String, expected: String) throws {
+        let value = try JSONDecoder().decode(JSONValue.self, from: Data(json.utf8))
+
+        #expect(value.text == expected)
+    }
 }

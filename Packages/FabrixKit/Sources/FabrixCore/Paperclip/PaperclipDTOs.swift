@@ -126,7 +126,7 @@ enum JSONValue: Decodable {
     var text: String? {
         switch self {
         case let .string(value): value.isEmpty ? nil : value
-        case let .number(value): value.rounded() == value ? String(Int(value)) : String(value)
+        case let .number(value): Int(exactly: value).map(String.init) ?? String(value)
         default: nil
         }
     }
