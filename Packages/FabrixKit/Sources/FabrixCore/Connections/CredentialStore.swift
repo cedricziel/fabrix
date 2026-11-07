@@ -35,17 +35,26 @@ public struct KeychainCredentialStore: CredentialStore {
     }
 
     public func setCredential(_ credential: String?, for factoryID: Factory.ID) throws {
-        let deleteStatus = SecItemDelete(baseQuery(factoryID) as CFDictionary)
-        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else {
-            throw KeychainError(status: deleteStatus)
+        guard let credential else {
+            let status = SecItemDelete(baseQuery(factoryID) as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
+            return
         }
-        guard let credential else { return }
 
-        var item = baseQuery(factoryID)
-        item[kSecValueData as String] = Data(credential.utf8)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let status = SecItemAdd(item as CFDictionary, nil)
-        guard status == errSecSuccess else { throw KeychainError(status: status) }
+        let attributes: [String: Any] = [
+            kSecValueData as String: Data(credential.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let updateStatus = SecItemUpdate(baseQuery(factoryID) as CFDictionary, attributes as CFDictionary)
+        switch updateStatus {
+        case errSecSuccess:
+            return
+        case errSecItemNotFound:
+            let status = SecItemAdd(baseQuery(factoryID).merging(attributes) { $1 } as CFDictionary, nil)
+            guard status == errSecSuccess else { throw KeychainError(status: status) }
+        default:
+            throw KeychainError(status: updateStatus)
+        }
     }
 
     private func baseQuery(_ factoryID: Factory.ID) -> [String: Any] {
