@@ -76,7 +76,7 @@ struct AppModelProjectsTests {
         let model = model(service)
         await model.refresh()
         #expect(model.loadState == .loaded)
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem == nil && model.actionError == nil)
         guard case let .failed(_, last) = model.projectsState else {
             Issue.record("expected failed, got \(model.projectsState)")
             return
@@ -113,7 +113,7 @@ struct AppModelProjectsTests {
         await model.refresh()
         #expect(model.projectsState == .unsupported)
         #expect(!model.supportsProjects)
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem == nil && model.actionError == nil)
     }
 
     @Test func unsupportedIsNotAskedAgain() async {

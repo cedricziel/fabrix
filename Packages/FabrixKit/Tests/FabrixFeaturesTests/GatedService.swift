@@ -11,6 +11,8 @@ actor GatedService: FactoryService {
     private var heldWaiters: [CheckedContinuation<Void, Never>] = []
     private let failingDecisions: Set<Approval.ID>
     private var failingSnapshots = false
+    private var failingPauses = false
+    private var companiesError: (any Error)?
     private(set) var snapshotCalls = 0
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
@@ -20,6 +22,8 @@ actor GatedService: FactoryService {
 
     func holdNextSnapshot() { holdNext = true }
     func failSnapshots(_ failing: Bool) { failingSnapshots = failing }
+    func failPauses(_ failing: Bool) { failingPauses = failing }
+    func failCompanies(with error: (any Error)?) { companiesError = error }
 
     /// Returns once a snapshot response is being held.
     func waitUntilHolding() async {
@@ -34,6 +38,7 @@ actor GatedService: FactoryService {
 
     func companies() async throws -> [Company] {
         try Task.checkCancellation()
+        if let companiesError { throw companiesError }
         return try await inner.companies()
     }
 
@@ -66,6 +71,7 @@ actor GatedService: FactoryService {
 
     func pause(agentID: Agent.ID) async throws {
         try Task.checkCancellation()
+        if failingPauses { throw PaperclipError.conflict("Agent is not invokable in its current state") }
         try await inner.pause(agentID: agentID)
     }
     func setCompanyPaused(_ paused: Bool, companyID: Company.ID) async throws {

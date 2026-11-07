@@ -104,7 +104,7 @@ struct FactorySwitchingTests {
         await model.removeOpenFactory()
 
         #expect(model.factory?.name == "one.example")
-        #expect(model.lastError == "Keychain locked")
+        #expect(model.actionError == "Keychain locked")
     }
 
     @Test func removingTheDemoDoesNothing() async {

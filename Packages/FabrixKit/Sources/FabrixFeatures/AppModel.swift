@@ -56,7 +56,6 @@ public final class AppModel {
     }
 
     public private(set) var loadState: LoadState = .loading
-    public private(set) var lastError: String?
     private(set) var projectsState = ProjectsState.loading {
         didSet {
             if projectsState != oldValue {
@@ -67,6 +66,13 @@ public final class AppModel {
 
     var taskProjectFilter = ProjectFilter.all
     private var projectsByID: [Project.ID: Project] = [:]
+    /// Why the open factory can't be refreshed; cleared by the next successful refresh.
+    private(set) var connectionProblem: ConnectionProblem?
+    /// When the shown data last arrived from the factory.
+    private(set) var lastRefreshedAt: Date?
+    /// Why the user's last action failed. Polls never clear it; Dismiss or retrying does.
+    private(set) var actionError: String?
+    private var dismissedIssue: ConnectionIssue?
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -404,12 +410,30 @@ public final class AppModel {
         signedOutReason = if case .signInRequired = error as? PaperclipError { .identityProviderSessionEnded } else { .boardKeyRejected }
     }
 
+    /// Records a failed refresh as connection health. A rejected key asks for sign-in instead of
+    /// failing every refresh. Assigning only on change keeps observers (and VoiceOver) quiet while
+    /// the same problem repeats on every poll.
     private func report(_ error: any Error) {
-        if isSignedOut(error) {
-            markSignedOut(by: error)
-            lastError = nil
-        } else {
-            lastError = error.localizedDescription
+        guard !markSignedOutIfRejected(error), let issue = ConnectionIssue(classifying: error) else { return }
+        setConnectionProblem(ConnectionProblem(issue: issue, detail: error.localizedDescription))
+    }
+
+    /// Records a failed action. Like a refresh, a rejected key means signed out.
+    private func reportAction(_ error: any Error) {
+        guard !markSignedOutIfRejected(error) else { return }
+        actionError = error.localizedDescription
+    }
+
+    private func markSignedOutIfRejected(_ error: any Error) -> Bool {
+        guard isSignedOut(error) else { return false }
+        markSignedOut(by: error)
+        setConnectionProblem(ConnectionProblem(issue: .signedOut, detail: error.localizedDescription))
+        return true
+    }
+
+    private func setConnectionProblem(_ problem: ConnectionProblem?) {
+        if problem != connectionProblem {
+            connectionProblem = problem
         }
     }
 
@@ -446,7 +470,7 @@ public final class AppModel {
             restored = nil
         }
         guard let connection = restored else {
-            lastError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.", bundle: .module)
+            actionError = String(localized: "\(target.name) couldn't be opened. Remove it and add it again.", bundle: .module)
             return
         }
         use(connection)
@@ -464,7 +488,7 @@ public final class AppModel {
         do {
             try connector.forget(factoryID: factory.id)
         } catch {
-            lastError = error.localizedDescription
+            actionError = error.localizedDescription
             return
         }
         await leaveForNextFactory()
@@ -502,8 +526,18 @@ public final class AppModel {
         connectError = nil
     }
 
-    public func dismissError() {
-        lastError = nil
+    func dismissActionError() {
+        actionError = nil
+    }
+
+    /// The connection problem unless the user dismissed this kind of problem already.
+    var visibleConnectionProblem: ConnectionProblem? {
+        connectionProblem.flatMap { $0.issue == dismissedIssue ? nil : $0 }
+    }
+
+    /// Hides the current connection problem until a different kind of problem appears.
+    func dismissConnectionProblem() {
+        dismissedIssue = connectionProblem?.issue
     }
 
     /// Leaves the current factory. A connected factory stays saved, with its credentials,
@@ -525,7 +559,9 @@ public final class AppModel {
         projectsUnsupported = false
         taskProjectFilter = .all
         loadState = .loading
-        lastError = nil
+        connectionProblem = nil
+        lastRefreshedAt = nil
+        actionError = nil
     }
 
     /// Staged decisions belong to the open factory. Callers send them before switching,
@@ -539,7 +575,8 @@ public final class AppModel {
         signedOutReason = nil
         keyExpiry = nil
         checkedKeyExpiry = false
-        lastError = nil
+        connectionProblem = nil
+        actionError = nil
     }
 
     private func use(_ connection: FactoryConnection) {
@@ -563,7 +600,9 @@ public final class AppModel {
         projectsState = .loading
         projectsUnsupported = false
         taskProjectFilter = .all
-        lastError = nil
+        connectionProblem = nil
+        lastRefreshedAt = nil
+        actionError = nil
         loadState = .loading
     }
 
@@ -598,7 +637,8 @@ public final class AppModel {
             }
             desk.settle(with: fresh?.approvals ?? [])
             lastRefresh = clock.now
-            lastError = nil
+            lastRefreshedAt = .now
+            connectionProblem = nil
             loadState = fresh == nil ? .empty : .loaded
             await checkKeyExpiry(service)
             if let id = fresh?.company.id {
@@ -651,12 +691,12 @@ public final class AppModel {
             let fresh = try await service.snapshot(companyID: company.id)
             guard selectedCompanyID == company.id, accept(request) else { return }
             snapshot = fresh
-            lastError = nil
+            actionError = nil
             await loadProjects(companyID: company.id)
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             selectedCompanyID = snapshot?.company.id
-            report(error)
+            reportAction(error)
             if let id = snapshot?.company.id {
                 await loadProjects(companyID: id)
             }
@@ -858,7 +898,7 @@ public final class AppModel {
         guard !needsSignIn else { return }
         await refresh()
         guard session == generation, let failure = messages.values.first else { return }
-        lastError = failure
+        actionError = failure
     }
 
     // MARK: Agents and company
@@ -878,11 +918,13 @@ public final class AppModel {
 
     private func perform(_ action: (any FactoryService) async throws -> Void) async {
         guard let service else { return }
+        actionError = nil
         do {
             try await action(service)
             await refresh()
         } catch {
-            report(error)
+            guard !Self.isCancellation(error) else { return }
+            reportAction(error)
         }
     }
 

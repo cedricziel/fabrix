@@ -243,7 +243,8 @@ struct BrowserSignInTests {
 
         #expect(model.needsSignIn)
         #expect(model.signedOutReason == .boardKeyRejected)
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem?.issue == .signedOut)
+        #expect(model.actionError == nil)
         let callsAfterRejection = rejecting.calls.withLock { $0 }
         await model.refresh()
         #expect(rejecting.calls.withLock { $0 } == callsAfterRejection)
@@ -267,7 +268,7 @@ struct BrowserSignInTests {
         let model = await relaunched(RecordingConnector(), service: rejecting, usesBoardKey: false)
 
         #expect(!model.needsSignIn)
-        #expect(model.lastError != nil)
+        #expect(model.connectionProblem != nil)
     }
 
     @Test func signingInAgainKeepsTheFactory() async {
@@ -306,7 +307,7 @@ struct BrowserSignInTests {
         await model.refresh()
 
         #expect(!model.needsSignIn)
-        #expect(model.lastError != nil)
+        #expect(model.connectionProblem != nil)
     }
 
     // MARK: - Re-entering lost header values
@@ -503,7 +504,7 @@ struct BrowserSignInTests {
 
         #expect(model.needsSignIn)
         #expect(model.signedOutReason == .identityProviderSessionEnded)
-        #expect(model.lastError == nil)
+        #expect(model.connectionProblem?.issue == .signedOut)
     }
 
     @Test(arguments: [(true, ConnectForm.Method.oidcWithBrowser), (false, .oidc)])
