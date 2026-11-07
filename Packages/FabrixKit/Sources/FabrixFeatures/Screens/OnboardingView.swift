@@ -76,6 +76,10 @@ struct ConnectFactoryForm: View {
                     SecureField("Paste the key from your Paperclip board", text: $form.apiKey)
                         .textContentType(.password)
                 }
+                Text("Create one with `paperclipai token board create` on a signed-in machine.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.muted)
+                    .textSelection(.enabled)
             }
             AdvancedSection(headers: $form.headers)
             if let error = model.connectError {
