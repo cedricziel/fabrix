@@ -2,11 +2,16 @@
 # Throwaway Paperclip server in Docker for validating Fabrix against a real API.
 #   scripts/paperclip-sandbox.sh up      start (prints the base URL)
 #   scripts/paperclip-sandbox.sh url     print the base URL of the running sandbox
+#   scripts/paperclip-sandbox.sh image   print the image ID and reference the sandbox runs
 #   scripts/paperclip-sandbox.sh logs    follow server logs
 #   scripts/paperclip-sandbox.sh down    stop and delete the container and its data
 set -euo pipefail
 
 NAME="${PAPERCLIP_SANDBOX_NAME:-fabrix-paperclip-sandbox}"
+if [[ ! "$NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$ ]]; then
+  echo "Invalid PAPERCLIP_SANDBOX_NAME: $NAME" >&2
+  exit 2
+fi
 IMAGE="${PAPERCLIP_IMAGE:-ghcr.io/paperclipai/paperclip:latest}"
 STATE_DIR="${TMPDIR:-/tmp}/$NAME"
 
@@ -36,7 +41,7 @@ case "${1:-}" in
     base="$(url)"
     docker exec "$NAME" true
     for _ in $(seq 1 90); do
-      if curl -fsS "$base/api/health" >/dev/null 2>&1; then
+      if curl -fsS --max-time 5 "$base/api/health" >/dev/null 2>&1; then
         echo "$base"
         exit 0
       fi
@@ -46,13 +51,14 @@ case "${1:-}" in
     exit 1
     ;;
   url) url ;;
+  image) docker inspect --format '{{.Image}} {{.Config.Image}}' "$NAME" ;;
   logs) docker logs -f "$NAME" ;;
   down)
     docker rm -f "$NAME" >/dev/null 2>&1 || true
     rm -rf "$STATE_DIR"
     ;;
   *)
-    echo "usage: $0 up|url|logs|down" >&2
+    echo "usage: $0 up|url|image|logs|down" >&2
     exit 2
     ;;
 esac
