@@ -21,8 +21,8 @@
 
 ## 4. Task board (PR 4)
 
-- [ ] 4.1 Group tasks into status columns (`Logic/TaskBoard.swift`); tests `TaskBoardTests`
-- [ ] 4.2 Board, compact list and task details (`Screens/TasksView.swift`); no test, visual only
+- [x] 4.1 Group tasks into status columns (`Logic/TaskBoard.swift`); tests `TaskBoardTests`
+- [x] 4.2 Board, compact list and task details (`Screens/TasksView.swift`); no test, visual only
 
 ## 5. Agents and org chart (PR 5)
 

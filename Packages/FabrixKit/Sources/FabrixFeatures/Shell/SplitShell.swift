@@ -31,7 +31,7 @@ struct SectionScreen: View {
     var body: some View {
         switch section {
         case .overview: OverviewView()
-        case .tasks: SectionPlaceholder(section: section)
+        case .tasks: TasksView()
         case .agents: SectionPlaceholder(section: section)
         case .orgChart: SectionPlaceholder(section: section)
         case .approvals: ApprovalsView()
