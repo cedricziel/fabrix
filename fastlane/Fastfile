@@ -14,6 +14,7 @@ TARGETS = {
     target: "FabrixiOS",
     match_platform: "ios",
     upload_platform: "ios",
+    review_platform: "IOS",
     destination: "generic/platform=iOS",
     artifact: "#{OUTPUT_DIR}/Fabrix.ipa",
   },
@@ -21,6 +22,7 @@ TARGETS = {
     target: "FabrixMac",
     match_platform: "macos",
     upload_platform: "osx",
+    review_platform: "MAC_OS",
     destination: "generic/platform=macOS",
     artifact: "#{OUTPUT_DIR}/Fabrix.pkg",
   },
@@ -101,6 +103,7 @@ lane :distribute_public_beta do |options|
   public_beta_group
   beta = public_beta_params
   UI.user_error!("Set REVIEW_CONTACT_* to distribute to the public beta") if beta.empty?
+  expire_builds_waiting_for_review(t[:review_platform])
   upload_to_testflight(**beta.merge(
     api_key: api_key,
     app_identifier: APP_IDENTIFIER,
@@ -115,7 +118,7 @@ desc "Update the TestFlight test information (description, feedback email, priva
 desc "  privacy_url:<url>  override the privacy policy URL"
 lane :sync_beta_info do |options|
   load_app_store_connect_api_key
-  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
   attributes = {
     description: beta_description,
     privacyPolicyUrl: options[:privacy_url] || PRIVACY_URL
@@ -207,6 +210,7 @@ def release_target(key, options)
   api_key = load_app_store_connect_api_key
   public_beta_group
   beta = public_beta_params
+  expire_builds_waiting_for_review(t[:review_platform]) unless beta.empty?
   params = beta.merge(
     api_key: api_key,
     app_identifier: APP_IDENTIFIER,
@@ -232,6 +236,23 @@ def public_beta_group
     )
 end
 
+# Beta App Review accepts one waiting submission per version and platform, and
+# iOS and macOS share a version, so only this platform's waiting builds expire.
+def expire_builds_waiting_for_review(platform)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER) || UI.user_error!("No App Store Connect app for #{APP_IDENTIFIER}")
+  app.get_builds(
+    filter: {
+      "betaAppReviewSubmission.betaReviewState" => "WAITING_FOR_REVIEW",
+      "expired" => false,
+      "preReleaseVersion.platform" => platform
+    },
+    includes: "betaAppReviewSubmission,preReleaseVersion"
+  ).each do |build|
+    UI.important("Expiring #{platform} build #{build.version}, which is still waiting for Beta App Review")
+    build.expire!
+  end
+end
+
 def beta_description
   File.read(File.join(__dir__, "metadata", "beta", "description.txt")).strip
 end
@@ -240,7 +261,6 @@ def public_beta_params
   description = beta_description
   params = {
     wait_processing_timeout_duration: 1800,
-    reject_build_waiting_for_review: true,
     distribute_external: true,
     groups: [PUBLIC_BETA_GROUP],
     notify_external_testers: true,
