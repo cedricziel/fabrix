@@ -138,13 +138,19 @@ public final class FactoryStore {
     @discardableResult
     public func completeSignIn(_ challenge: SignInChallenge, name: String? = nil) async throws -> Factory {
         let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
-        let client = PaperclipClient(
-            baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: challenge.customHeaders), session: session
-        )
+        let client = challengeClient(challenge, oidc: staged?.provider)
         while true {
             // The app may have been in the background for longer than the request lives.
             if let expiresAt = challenge.expiresAt, expiresAt <= .now { throw PaperclipError.signInExpired }
-            switch try await client.signInStatus(challenge) {
+            let status: SignInChallenge.Status
+            do {
+                status = try await client.signInStatus(challenge)
+            } catch let PaperclipError.transport(code) where code != .cancelled {
+                // A dropped connection, e.g. right after returning from the background, isn't an answer.
+                try await Task.sleep(for: challenge.pollInterval)
+                continue
+            }
+            switch status {
             case .approved:
                 return try await validateAndSave(
                     baseURL: challenge.serverURL, auth: FactoryAuthConfiguration(oidc: challenge.frontDoor, usesBoardKey: true),
@@ -155,6 +161,16 @@ public final class FactoryStore {
             case .pending: try await Task.sleep(for: challenge.pollInterval)
             }
         }
+    }
+
+    /// Cancels a browser sign-in on the server, so a later approval can't activate its key.
+    public func cancelSignIn(_ challenge: SignInChallenge) async throws {
+        let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
+        try await challengeClient(challenge, oidc: staged?.provider).cancelSignIn(challenge)
+    }
+
+    private func challengeClient(_ challenge: SignInChallenge, oidc: OIDCAuthProvider?) -> PaperclipClient {
+        PaperclipClient(baseURL: challenge.serverURL, auth: Self.chain(oidc: oidc, boardKey: nil, headers: challenge.customHeaders), session: session)
     }
 
     private func signInToIdentityProvider(_ settings: OIDCSettings, webAuthenticator: (any WebAuthenticator)?) async throws -> OIDCTokens {

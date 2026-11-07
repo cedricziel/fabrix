@@ -527,4 +527,39 @@ struct FactoryStoreTests {
         #expect(throws: PaperclipError.missingHeaderValues(["X-Proxy-Token"])) { try store.customHeaders(for: factory) }
         #expect(throws: PaperclipError.missingHeaderValues(["X-Proxy-Token"])) { try store.service(for: factory) }
     }
+
+    @Test func browserSignInRetriesTransportErrorsUntilApproved() async throws {
+        let polls = Mutex(0)
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], dynamicRoutes: [
+            "GET /api/cli-auth/challenges/ch-1": { _ in
+                let count = polls.withLock { $0 += 1; return $0 }
+                // Returning from the background often drops the first requests.
+                if count < 3 { throw URLError(.networkConnectionLost) }
+                return .json(#"{"id":"ch-1","status":"approved"}"#)
+            },
+        ])
+        let store = store(server)
+        let challenge = SignInChallenge(
+            serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL,
+            pollInterval: .zero, expiresAt: .now + 60
+        )
+
+        let factory = try await store.completeSignIn(challenge)
+
+        #expect(polls.withLock { $0 } == 3)
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func cancellingABrowserSignInTellsTheServer() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /api/cli-auth/challenges/ch-1/cancel": .json(#"{"status":"cancelled","cancelled":true}"#)], recorder: recorder)
+        let store = store(server)
+        let challenge = SignInChallenge(
+            serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero
+        )
+
+        try await store.cancelSignIn(challenge)
+
+        #expect(recorder.last("POST", "/api/cli-auth/challenges/ch-1/cancel") != nil)
+    }
 }
