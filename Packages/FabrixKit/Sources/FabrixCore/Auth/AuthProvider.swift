@@ -10,17 +10,21 @@ public protocol AuthProvider: Sendable {
 /// A request the server rejected with `401`, as it was sent.
 public struct UnauthorizedResponse: Sendable {
     public var request: URLRequest
+    public var response: HTTPURLResponse?
     public var body: Data
 
-    public init(request: URLRequest, body: Data) {
+    public init(request: URLRequest, response: HTTPURLResponse?, body: Data) {
         self.request = request
+        self.response = response
         self.body = body
     }
 
-    /// Paperclip answers its own `401`s with `{"error": "…"}` JSON. A reverse proxy in front answers
-    /// with a page or redirect instead, so a Paperclip `401` says nothing about the proxy's token.
+    /// Paperclip answers its own `401`s with `{"error": "…"}` JSON and never sends `WWW-Authenticate`.
+    /// Proxies answer with a page, a redirect, or a bearer challenge (`WWW-Authenticate`), even when
+    /// their body is JSON like `{"error":"invalid_token"}`.
     public var isFromPaperclip: Bool {
-        (try? JSONDecoder().decode(ErrorBodyDTO.self, from: body)) != nil
+        response?.value(forHTTPHeaderField: "WWW-Authenticate") == nil
+            && (try? JSONDecoder().decode(ErrorBodyDTO.self, from: body)) != nil
     }
 }
 

@@ -26,17 +26,28 @@ final class FlakyCredentialStore: CredentialStore {
 }
 
 extension UnauthorizedResponse {
-    /// A 401 from a reverse proxy: not Paperclip's JSON error shape.
-    static func fromProxy(sentWith header: String = "Authorization", value: String? = nil) -> UnauthorizedResponse {
-        var request = URLRequest(url: URL(string: "https://paperclip.test/api/companies")!)
+    private static func make(header: String, value: String?, body: String, responseHeaders: [String: String]) -> UnauthorizedResponse {
+        let url = URL(string: "https://paperclip.test/api/companies")!
+        var request = URLRequest(url: url)
         request.setValue(value, forHTTPHeaderField: header)
-        return UnauthorizedResponse(request: request, body: Data("<html>401 Unauthorized</html>".utf8))
+        let response = HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: responseHeaders)
+        return UnauthorizedResponse(request: request, response: response, body: Data(body.utf8))
+    }
+
+    /// A 401 from a reverse proxy that answers with a page.
+    static func fromProxy(sentWith header: String = "Authorization", value: String? = nil) -> UnauthorizedResponse {
+        make(header: header, value: value, body: "<html>401 Unauthorized</html>", responseHeaders: ["Content-Type": "text/html"])
+    }
+
+    /// A 401 from JWT middleware in a proxy: Paperclip-like JSON, but with `WWW-Authenticate`.
+    static func fromJWTProxy(sentWith header: String = "Authorization", value: String? = nil) -> UnauthorizedResponse {
+        make(header: header, value: value, body: #"{"error":"invalid_token"}"#, responseHeaders: [
+            "Content-Type": "application/json", "WWW-Authenticate": #"Bearer error="invalid_token""#,
+        ])
     }
 
     /// A 401 from Paperclip itself, e.g. a revoked board key.
     static func fromPaperclip(sentWith header: String = "Authorization", value: String? = nil) -> UnauthorizedResponse {
-        var request = URLRequest(url: URL(string: "https://paperclip.test/api/companies")!)
-        request.setValue(value, forHTTPHeaderField: header)
-        return UnauthorizedResponse(request: request, body: Data(#"{"error":"Board authentication required"}"#.utf8))
+        make(header: header, value: value, body: #"{"error":"Board authentication required"}"#, responseHeaders: ["Content-Type": "application/json"])
     }
 }

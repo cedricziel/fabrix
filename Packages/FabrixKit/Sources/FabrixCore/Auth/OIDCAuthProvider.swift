@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// OIDC tokens kept as one JSON item in a `CredentialStore`.
 struct OIDCTokenStore: Sendable {
@@ -23,7 +24,12 @@ public actor OIDCAuthProvider: AuthProvider {
     private let flow: OIDCFlow
     private let now: @Sendable () -> Date
     private var cached: OIDCTokens?
+    /// The refresh token this provider last read from or wrote to the store. A different value in the
+    /// store means the factory was reconnected or removed, so this provider must not write again.
+    private var persistedRefreshToken: String?
+    private var replaced = false
     private var refreshing: Task<OIDCTokens, Error>?
+    private static let logger = Logger(subsystem: "com.cedricziel.fabrix", category: "auth")
 
     /// Refresh this long before the access token expires.
     private static let expiryMargin: TimeInterval = 60
@@ -57,29 +63,52 @@ public actor OIDCAuthProvider: AuthProvider {
     }
 
     private func current() throws -> OIDCTokens {
+        if replaced {
+            throw Self.replacedError
+        }
         if let cached {
             return cached
         }
         guard let stored = try store.load() else { throw PaperclipError.unauthorized("Sign in to the identity provider again.") }
         cached = stored
+        persistedRefreshToken = stored.refreshToken
         return stored
     }
 
+    private static let replacedError = PaperclipError.unauthorized("This factory was reconnected or removed. Open it again.")
+
+    /// One refresh at a time; every waiter gets the same tokens or the same error.
     private func refreshed(from tokens: OIDCTokens) async throws -> OIDCTokens {
         if let refreshing {
             return try await refreshing.value
         }
-        let task = Task { [flow] in try await flow.refresh(tokens) }
+        let task = Task { try await self.performRefresh(from: tokens) }
         refreshing = task
         defer { refreshing = nil }
+        return try await task.value
+    }
+
+    private func performRefresh(from tokens: OIDCTokens) async throws -> OIDCTokens {
+        let fresh: OIDCTokens
         do {
-            let fresh = try await task.value
-            // Keep rotated tokens in memory even if the Keychain write fails; the old refresh token is spent.
-            cached = fresh
-            try store.save(fresh)
-            return fresh
+            fresh = try await flow.refresh(tokens)
         } catch let OIDCError.provider(code, description) where code == "invalid_grant" {
             throw PaperclipError.unauthorized(description)
         }
+
+        guard let stored = try store.load(), stored.refreshToken == persistedRefreshToken else {
+            replaced = true
+            cached = nil
+            throw Self.replacedError
+        }
+        // The old refresh token is spent, so keep the new tokens even if the Keychain write fails.
+        cached = fresh
+        do {
+            try store.save(fresh)
+            persistedRefreshToken = fresh.refreshToken
+        } catch {
+            Self.logger.error("Couldn't store refreshed OIDC tokens: \(String(describing: error), privacy: .public)")
+        }
+        return fresh
     }
 }

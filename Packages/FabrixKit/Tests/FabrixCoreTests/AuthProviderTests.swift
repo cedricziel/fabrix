@@ -79,5 +79,6 @@ struct AuthProviderTests {
     @Test func recognizesPaperclipErrorBodies() {
         #expect(UnauthorizedResponse.fromPaperclip().isFromPaperclip)
         #expect(!UnauthorizedResponse.fromProxy().isFromPaperclip)
+        #expect(!UnauthorizedResponse.fromJWTProxy().isFromPaperclip)
     }
 }

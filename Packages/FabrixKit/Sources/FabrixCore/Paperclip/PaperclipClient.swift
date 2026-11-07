@@ -164,10 +164,12 @@ public struct PaperclipClient: Sendable {
         }
 
         let authorized = try await auth.authorize(request)
-        var (data, status) = try await load(authorized)
-        if status == 401, try await auth.refreshAfterUnauthorized(UnauthorizedResponse(request: authorized, body: data)) {
-            (data, status) = try await load(auth.authorize(request))
+        var (data, response) = try await load(authorized)
+        if response?.statusCode == 401,
+           try await auth.refreshAfterUnauthorized(UnauthorizedResponse(request: authorized, response: response, body: data)) {
+            (data, response) = try await load(auth.authorize(request))
         }
+        let status = response?.statusCode ?? 0
         guard (200 ..< 300).contains(status) else {
             let message = try? JSONDecoder().decode(ErrorBodyDTO.self, from: data).error
             throw PaperclipError(status: status, message: message)
@@ -175,10 +177,10 @@ public struct PaperclipClient: Sendable {
         return data
     }
 
-    private func load(_ request: URLRequest) async throws -> (Data, Int) {
+    private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
         do {
             let (data, response) = try await session.data(for: request)
-            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+            return (data, response as? HTTPURLResponse)
         } catch let error as URLError {
             throw PaperclipError.transport(error.code)
         }
