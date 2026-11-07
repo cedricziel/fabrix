@@ -103,7 +103,7 @@ private struct ApprovalCard<Actions: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .cardSurface()
+        .fabrixCard()
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }

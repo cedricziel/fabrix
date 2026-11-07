@@ -90,9 +90,7 @@ private struct TaskCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.hairline))
-        .selectionOutline(isSelected)
+        .fabrixCard(selected: isSelected)
     }
 }
 

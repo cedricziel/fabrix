@@ -95,10 +95,9 @@ private struct OrgNodeCard: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
-            .frame(width: 180, height: 68)
-            .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.hairline))
-            .selectionOutline(isSelected)
+            .frame(height: 68)
+            .fabrixCard(selected: isSelected)
+            .frame(width: 180)
             .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
@@ -127,7 +126,7 @@ private struct OrgSummary: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .cardSurface()
+            .fabrixCard()
         }
     }
 

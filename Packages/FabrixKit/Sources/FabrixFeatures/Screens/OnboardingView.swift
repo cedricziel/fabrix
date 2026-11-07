@@ -28,7 +28,7 @@ struct OnboardingView: View {
                         .buttonStyle(.fabrixSignal)
                 }
                 .padding(20)
-                .cardSurface()
+                .fabrixCard()
             }
             .padding(24)
             .frame(maxWidth: 520)
@@ -108,7 +108,7 @@ struct ConnectFactoryForm: View {
             }
         }
         .padding(20)
-        .cardSurface()
+        .fabrixCard()
         .onSubmit(connect)
         .onAppear {
             if let reconnect = model.reconnect, form.address.isEmpty {

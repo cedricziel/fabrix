@@ -149,9 +149,9 @@ private struct RecentRuns: View {
     let runs: [Run]
 
     var body: some View {
-        SectionCard(title: "Recent runs") {
+        SectionCard("Recent runs") {
             if runs.isEmpty {
-                EmptyRow(text: "No finished runs yet.")
+                EmptyRow("No finished runs yet.")
             }
             ForEach(runs) { run in
                 HStack(alignment: .top, spacing: 10) {

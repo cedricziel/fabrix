@@ -42,7 +42,7 @@ struct NoticeBanner<Action: View>: View {
         .padding(.leading, 14)
         .padding(.trailing, 4)
         .padding(.vertical, Self.verticalPadding)
-        .cardSurface()
+        .fabrixCard()
         .padding(.horizontal, 12)
         .padding(.top, 6)
         .transition(.move(edge: .top).combined(with: .opacity))

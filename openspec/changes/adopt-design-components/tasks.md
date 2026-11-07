@@ -1,7 +1,7 @@
 ## 1. Shared surfaces and pills (PR 1)
 
 - [x] 1.1 Propose and validate this change (`openspec/changes/adopt-design-components`); no test, spec only
-- [ ] 1.2 `SectionCard`, `EmptyRow`, `fabrixCard(selected:)` in FabrixDesign with previews; Features call sites renamed, `cardSurface`/`selectionOutline` removed (`FabrixDesign/Surfaces.swift`, `FabrixFeatures/Shell/Common.swift`, screens); no test, pure move
+- [x] 1.2 `SectionCard`, `EmptyRow`, `fabrixCard(selected:)` in FabrixDesign with previews; Features call sites renamed, `cardSurface`/`selectionOutline` removed (`FabrixDesign/Surfaces.swift`, `FabrixFeatures/Shell/Common.swift`, screens); no test, pure move
 - [ ] 1.3 `FabrixTextFieldStyle` and `LabeledField` in FabrixDesign; onboarding uses them (`FabrixDesign/Fields.swift`, `FabrixFeatures/Screens/OnboardingView.swift`); no test, pure move
 - [ ] 1.4 Generic tone `Pill`; `StatusPill` and the task status capsule use it (`FabrixDesign/Pill.swift`, `FabrixDesign/Status.swift`, `FabrixFeatures/Screens/TasksView.swift`); test `PillTests` for the tone mapping
 

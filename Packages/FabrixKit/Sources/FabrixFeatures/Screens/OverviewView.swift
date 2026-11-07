@@ -23,7 +23,7 @@ struct OverviewView: View {
                         DecisionsCard(waiting: waiting)
                             .frame(maxWidth: isWide ? 380 : .infinity)
                     }
-                    SectionCard(title: "Activity", action: ("All activity", { navigator.open(.activity) })) {
+                    SectionCard("Activity", actionTitle: "All activity", action: { navigator.open(.activity) }) {
                         ActivityRows(events: Array(snapshot.activity.prefix(5)))
                     }
                 }
@@ -130,9 +130,9 @@ private struct LiveRunsCard: View {
     let runs: [Run]
 
     var body: some View {
-        SectionCard(title: "Live runs") {
+        SectionCard("Live runs") {
             if runs.isEmpty {
-                EmptyRow(text: "No agent is running right now.")
+                EmptyRow("No agent is running right now.")
             }
             ForEach(runs) { run in
                 LiveRunRow(run: run)
@@ -188,9 +188,9 @@ private struct DecisionsCard: View {
     let waiting: [Approval]
 
     var body: some View {
-        SectionCard(title: "Needs your decision") {
+        SectionCard("Needs your decision") {
             if waiting.isEmpty {
-                EmptyRow(text: "Nothing is waiting on you.")
+                EmptyRow("Nothing is waiting on you.")
             }
             ForEach(waiting) { approval in
                 VStack(alignment: .leading, spacing: 8) {

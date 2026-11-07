@@ -8,7 +8,7 @@ struct ActivityView: View {
     var body: some View {
         ScrollView {
             ActivityRows(events: model.snapshot?.activity ?? [])
-                .cardSurface()
+                .fabrixCard()
                 .padding(20)
                 .frame(maxWidth: 900, alignment: .leading)
         }
@@ -22,7 +22,7 @@ struct ActivityRows: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if events.isEmpty {
-                EmptyRow(text: "No activity yet.")
+                EmptyRow("No activity yet.")
             }
             ForEach(events) { event in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
