@@ -277,4 +277,32 @@ struct PaperclipFactoryServiceTests {
         let body = try #require(recorder.last("PATCH", "/api/companies/\(companyID)")?.httpBody)
         #expect(try JSONSerialization.jsonObject(with: body) as? [String: String] == ["status": status])
     }
+
+    // MARK: - Board key expiry
+
+    @Test func reportsBoardKeyExpiry() async throws {
+        let keys = #"[{"id":"k-0","name":"old","expiresAt":"2026-11-01T00:00:00.000Z"},{"id":"k-1","name":"fabrix","expiresAt":"2026-12-01T00:00:00.000Z"}]"#
+        let service = service(["GET /api/cli-auth/me": .json(PaperclipFixtures.me), "GET /api/board-api-keys": .json(keys)])
+
+        #expect(try await service.credentialExpiry() == date("2026-12-01T00:00:00Z"))
+    }
+
+    @Test func noExpiryWhenTheKeyListIsUnavailable() async throws {
+        let service = service(["GET /api/cli-auth/me": .json(PaperclipFixtures.me), "GET /api/board-api-keys": .json(#"{"error":"Forbidden"}"#, status: 403)])
+
+        #expect(try await service.credentialExpiry() == nil)
+    }
+
+    @Test func noExpiryWithoutABoardKey() async throws {
+        let recorder = RequestRecorder()
+        let me = PaperclipFixtures.me.replacingOccurrences(of: #""keyId": "k-1""#, with: #""keyId": null"#)
+        let service = service(["GET /api/cli-auth/me": .json(me)], recorder: recorder)
+
+        #expect(try await service.credentialExpiry() == nil)
+        #expect(recorder.last("GET", "/api/board-api-keys") == nil)
+    }
+
+    @Test func demoServiceReportsNoExpiry() async throws {
+        #expect(try await DemoFactoryService().credentialExpiry() == nil)
+    }
 }

@@ -8,4 +8,12 @@ public protocol FactoryService: Sendable {
     func wake(agentID: Agent.ID) async throws
     func pause(agentID: Agent.ID) async throws
     func setCompanyPaused(_ paused: Bool, companyID: Company.ID) async throws
+    /// When the credential this service uses stops working, if the server says.
+    func credentialExpiry() async throws -> Date?
+}
+
+public extension FactoryService {
+    func credentialExpiry() async throws -> Date? {
+        nil
+    }
 }
