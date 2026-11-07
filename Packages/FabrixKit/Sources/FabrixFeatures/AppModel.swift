@@ -175,6 +175,10 @@ public final class AppModel {
         }
     }
 
+    func clearConnectError() {
+        connectError = nil
+    }
+
     public func dismissError() {
         lastError = nil
     }
