@@ -15,5 +15,9 @@ public struct ActionLabel: View {
             .opacity(isBusy ? 0 : 1)
             .overlay { if isBusy { ProgressView().controlSize(.small) } }
             .frame(maxWidth: .infinity)
+            // The hidden title would otherwise leave VoiceOver with only "in progress".
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(title))
+            .accessibilityValue(isBusy ? Text("In progress", bundle: .module) : Text(verbatim: ""))
     }
 }
