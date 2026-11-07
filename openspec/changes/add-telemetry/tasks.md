@@ -10,4 +10,10 @@
 ## 2. App and release wiring
 
 - [x] 2.1 Start telemetry from the app shells and flush on background (no test: app shell; `App/Shared/FabrixApp.swift`, `project.yml`)
-- [x] 2.2 Inject the ingest key at build time (no test: build config; `Config/Telemetry.xcconfig`, `fastlane/Fastfile`, workflows, `scripts/`)
+- [x] 2.2 Declare collected data and the UserDefaults reason (no test: manifest; `App/Shared/PrivacyInfo.xcprivacy`)
+- [x] 2.3 Read the secrets xcconfig only in Release (no test: build config; `Config/Telemetry-Release.xcconfig`, `project.yml`)
+
+## 3. Release key injection
+
+- [x] 3.1 Write, escape and delete the secrets xcconfig in fastlane; pass the OTLP secrets in both workflows (no test: build config; `fastlane/Fastfile`, workflows, `scripts/`)
+- [x] 3.2 Describe the telemetry in the privacy policy (no test: docs; `PRIVACY.md`)
