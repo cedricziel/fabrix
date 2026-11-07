@@ -205,7 +205,9 @@ public final class AppModel {
             let connection = try await connector.connect(
                 baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
             )
-            await finishConnecting(connection)
+            // Closed while connecting: don't open it. Once opening starts, it must not stop halfway.
+            try Task.checkCancellation()
+            await Task { await self.finishConnecting(connection) }.value
             return true
         } catch {
             // Closing the sign-in sheet is a choice, not a failure.

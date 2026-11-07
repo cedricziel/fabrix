@@ -129,6 +129,8 @@ struct ConnectFactoryForm: View {
                 form = ConnectForm(reconnecting: reconnect)
             }
         }
+        // Closing Add Factory mid-connect must not open the factory a moment later.
+        .onDisappear { connecting?.cancel() }
         .onChange(of: form) { model.clearConnectError() }
         .onChange(of: model.connectError) { _, message in
             if let message { AccessibilityNotification.Announcement(message).post() }
