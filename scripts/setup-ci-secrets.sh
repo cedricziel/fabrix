@@ -15,10 +15,20 @@ if ! op item get "fastlane-ci: match deploy key ($NAME)" --vault "$VAULT" >/dev/
   ssh-keygen -t ed25519 -N "" -C "fastlane-ci match ($NAME)" -f "$tmp/key" -q
   gh api -X POST "repos/$CERTS_REPO/keys" \
     -f title="$NAME CI (match, read-only)" -f key="$(cat "$tmp/key.pub")" -F read_only=true >/dev/null
-  op item create --category="Secure Note" --vault="$VAULT" \
-    --title="fastlane-ci: match deploy key ($NAME)" \
-    "private key[password]=$(cat "$tmp/key")" "public key[text]=$(cat "$tmp/key.pub")" \
-    "notesPlain=Read-only deploy key on $CERTS_REPO; private key stored as MATCH_DEPLOY_KEY secret in $REPO" >/dev/null
+  python3 - "$tmp/key" "$NAME" "$CERTS_REPO" "$REPO" <<'PY' | op item create --vault="$VAULT" - >/dev/null
+import json, sys
+key, name, certs, repo = sys.argv[1:]
+print(json.dumps({
+    "title": f"fastlane-ci: match deploy key ({name})",
+    "category": "SECURE_NOTE",
+    "fields": [
+        {"id": "notesPlain", "type": "STRING", "purpose": "NOTES",
+         "value": f"Read-only deploy key on {certs}; private key stored as MATCH_DEPLOY_KEY secret in {repo}"},
+        {"label": "private key", "type": "CONCEALED", "value": open(key).read()},
+        {"label": "public key", "type": "STRING", "value": open(key + ".pub").read().strip()},
+    ],
+}))
+PY
 fi
 op item get "fastlane-ci: match deploy key ($NAME)" --vault "$VAULT" --fields "label=private key" --reveal \
   | gh secret set MATCH_DEPLOY_KEY -R "$REPO"
