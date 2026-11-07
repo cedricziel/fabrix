@@ -1,32 +1,36 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Fabrix: native SwiftUI control room for Paperclip agent factories on macOS, iPadOS and iOS (CLAUDE.md).
+  Swift 6 strict concurrency, iOS/macOS 26 deployment targets, XcodeGen project.yml (project.yml).
+  Code lives in Packages/FabrixKit: FabrixCore (models, FactoryService seam, Paperclip client), FabrixDesign (tokens, components; no Core dependency), FabrixFeatures (screens, AppModel) (Package.swift).
+  Views talk only to FactoryService, never to the HTTP client (CLAUDE.md).
+  Tests use Swift Testing: `xcrun swift test --package-path Packages/FabrixKit`; never bare `swift` (CLAUDE.md, ci.yml).
+  CI gates on package tests plus iOS-simulator and macOS builds (.github/workflows/ci.yml).
+  Releases: release-please on conventional commits; TestFlight upload from CI via fastlane; build number = commit count (release-please.yml, testflight.yml, Fastfile).
+  PRs merge with merge commits; larger changes ship as gh stack chains (CLAUDE.md).
+  Design source: Claude Design canvas https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (CLAUDE.md).
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Name the platforms affected (macOS, iPadOS, iOS) and the FabrixKit target(s) touched.
+    - State whether the change alters the FactoryService protocol; any change there is additive unless the proposal justifies a break.
+  specs:
+    - Scenarios describe user-visible behavior or FactoryService behavior, not view layout.
+    - Every requirement that differs between compact (iPhone) and regular (iPad, Mac) width has a scenario for each.
+  design:
+    - Say which FabrixKit target owns each new type and confirm FabrixDesign still has no FabrixCore dependency.
+  tasks:
+    - Each task names the Swift Testing test that fails before it and passes after it, or says why the task has no test (pure refactor, assets, config).
+    - Each task lists the files or FabrixKit target it touches.
+    - Group tasks so each group can ship as one PR in a gh stack.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - Work red → green → refactor; only write tests that would catch a real regression.
+      - Commit once per task or smaller with a conventional-commit message, scopes core, design, features, telemetry, fastlane, ci, openspec.
+      - Before marking a task done, run `xcrun swift test --package-path Packages/FabrixKit`, then `xcodegen generate` and the FabrixiOS and FabrixMac xcodebuild commands from CLAUDE.md.
+  archive:
+    guidance:
+      - Archive as the last commit on the change's branch so one merge carries the code and the updated specs.
