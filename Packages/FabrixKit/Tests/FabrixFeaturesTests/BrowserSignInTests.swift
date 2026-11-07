@@ -500,6 +500,44 @@ struct BrowserSignInTests {
         #expect(model.needsSignIn)
     }
 
+    @Test func anEndedIdentityProviderSessionAsksToSignInAgainAndPausesPolling() async throws {
+        let service = CountingSignedOut()
+        let model = await relaunched(RecordingConnector(), service: service, usesBoardKey: false, usesOIDC: true)
+        let strip = try #require(ConnectionStatus(
+            model.connectionProblem, factory: "f", company: nil, lastRefreshedAt: nil, canSignIn: model.needsSignIn
+        ))
+        let callsWhenSignedOut = service.calls.withLock { $0 }
+
+        let polling = Task { await model.keepFresh(every: .milliseconds(5), staleAfter: .zero) }
+        try await Task.sleep(for: .milliseconds(60))
+        polling.cancel()
+
+        #expect(model.needsSignIn)
+        #expect(strip.action == .signIn)
+        #expect(service.calls.withLock { $0 } == callsWhenSignedOut)
+    }
+
+    @Test func reconnectKeepsDecisionsHeldWhileSignedOut() async throws {
+        let connector = RecordingConnector()
+        let model = await relaunched(connector, service: RejectingDecisions(), usesBoardKey: false)
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+        await model.commitStagedDecisions()
+        #expect(model.isSignedOutWithoutSignIn)
+        #expect(model.decisionErrors.isEmpty)
+
+        model.reconnectWithNewCredentials()
+        let renewed = RecordingDecisions()
+        connector.service = renewed
+        var form = try ConnectForm(reconnecting: #require(model.reconnect))
+        form.method = .paperclip
+        form.apiKey = "new"
+        await model.connect(form)
+
+        #expect(renewed.decided.withLock { $0 } == [approval.id])
+        #expect(model.reconnect == nil)
+    }
+
     @Test func expiredProxySessionOnABoardKeyFactoryAsksToSignInAgain() async {
         let model = await relaunched(RecordingConnector(), service: ProxySignedOut(), usesBoardKey: true, usesOIDC: true)
 
@@ -526,6 +564,21 @@ struct BrowserSignInTests {
 }
 
 /// Loads nothing because the proxy session in front of Paperclip ended.
+private final class CountingSignedOut: FactoryService {
+    let calls = Mutex(0)
+
+    func companies() async throws -> [Company] {
+        calls.withLock { $0 += 1 }
+        throw PaperclipError.signInRequired("Session expired")
+    }
+
+    func snapshot(companyID _: Company.ID) async throws -> CompanySnapshot { throw PaperclipError.signInRequired(nil) }
+    func decide(approvalID _: Approval.ID, approve _: Bool) async throws {}
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
+}
+
 private struct ProxySignedOut: FactoryService {
     func companies() async throws -> [Company] { throw PaperclipError.signInRequired("Session expired") }
     func snapshot(companyID _: Company.ID) async throws -> CompanySnapshot { throw PaperclipError.signInRequired(nil) }

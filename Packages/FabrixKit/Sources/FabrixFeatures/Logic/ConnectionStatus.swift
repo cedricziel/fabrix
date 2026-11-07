@@ -6,6 +6,8 @@ struct ConnectionStatus: Equatable {
     enum Action: Equatable {
         case retry
         case signIn
+        /// Signed out where Fabrix can't sign in again by itself: enter credentials again.
+        case reconnect
     }
 
     var tone: StatusStrip.Tone
@@ -26,7 +28,7 @@ struct ConnectionStatus: Equatable {
         case .signedOut:
             tone = .blocking
             title = String(localized: "Signed out of \(factory)", bundle: .module)
-            action = canSignIn ? .signIn : .retry
+            action = canSignIn ? .signIn : .reconnect
         case .noAccess:
             tone = .blocking
             title = String(localized: "No access to \(company ?? factory)", bundle: .module)
@@ -67,6 +69,32 @@ struct ConnectionStatus: Equatable {
             formatter.unitsStyle = .full
             formatter.dateTimeStyle = .named
             return String(localized: "Updated \(formatter.localizedString(for: min(date, now), relativeTo: now))", bundle: .module)
+        }
+    }
+}
+
+/// The sidebar's at-a-glance health of the open factory.
+struct FactoryHealth: Equatable {
+    var style: StatusStyle
+    var label: String
+
+    init(_ problem: ConnectionProblem?) {
+        switch problem?.issue {
+        case nil:
+            style = .running
+            label = String(localized: "Online", bundle: .module)
+        case .unreachable:
+            style = .paused
+            label = String(localized: "Offline", bundle: .module)
+        case .signedOut:
+            style = .blocked
+            label = String(localized: "Signed out", bundle: .module)
+        case .noAccess:
+            style = .blocked
+            label = String(localized: "No access", bundle: .module)
+        case .serverProblem, .unsupported:
+            style = .needsYou
+            label = String(localized: "Server problem", bundle: .module)
         }
     }
 }

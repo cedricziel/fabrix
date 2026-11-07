@@ -87,6 +87,43 @@ struct ConnectionIssueTests {
 
         #expect(!model.isRefreshing)
     }
+
+    @Test func onlyARequestedRefreshShowsAsRetrying() async {
+        let service = GatedService()
+        let model = model(service)
+        await model.refresh()
+
+        await service.holdNextSnapshot()
+        let poll = Task { await model.refresh() }
+        await service.waitUntilHolding()
+        #expect(model.isRefreshing)
+        #expect(!model.isRetrying)
+        await service.release()
+        await poll.value
+
+        await service.holdNextSnapshot()
+        let retry = Task { await model.retry() }
+        await service.waitUntilHolding()
+        #expect(model.isRetrying)
+        await service.release()
+        await retry.value
+        #expect(!model.isRetrying)
+    }
+
+    @Test func reconnectFillsTheFormAndKeepsTheFactoryOpen() async throws {
+        let service = GatedService()
+        let model = model(service)
+        await model.refresh()
+        await service.failCompanies(with: PaperclipError.unauthorized(nil))
+        await model.refresh()
+        let factory = try #require(model.factory)
+
+        model.reconnectWithNewCredentials()
+
+        #expect(!model.isOnboarding)
+        #expect(model.factory == factory)
+        #expect(model.reconnect?.factory == factory)
+    }
 }
 
 struct ConnectionStatusTests {
@@ -129,12 +166,25 @@ struct ConnectionStatusTests {
         #expect(strip.detail == nil)
     }
 
-    @Test func signedOutWithoutABoardKeyOffersRetryInstead() throws {
+    @Test(arguments: [
+        (ConnectionIssue?.none, StatusStyle.running, "Online"),
+        (.unreachable, .paused, "Offline"),
+        (.signedOut, .blocked, "Signed out"),
+        (.noAccess, .blocked, "No access"),
+        (.serverProblem(status: 502), .needsYou, "Server problem"),
+    ])
+    func sidebarHealthFollowsTheConnection(issue: ConnectionIssue?, style: StatusStyle, label: String) {
+        let health = FactoryHealth(issue.map { ConnectionProblem(issue: $0, detail: "") })
+        #expect(health.style == style)
+        #expect(health.label == label)
+    }
+
+    @Test func signedOutWithoutABoardKeyOffersReconnect() throws {
         let strip = try #require(ConnectionStatus(
             ConnectionProblem(issue: .signedOut, detail: ""), factory: "58lab", company: nil,
             lastRefreshedAt: nil, canSignIn: false, now: now, locale: locale
         ))
-        #expect(strip.action == .retry)
+        #expect(strip.action == .reconnect)
     }
 
     @Test func anExpiringKeyAsksToSignInAgain() {

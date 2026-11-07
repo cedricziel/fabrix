@@ -140,6 +140,7 @@ struct AddFactorySheet: View {
             ScrollView {
                 ConnectFactoryForm { dismiss() }
                     .padding(20)
+                    .onDisappear { model.forgetReconnect() }
             }
             .background(Palette.paper)
             .navigationTitle(.features("Add Factory"))

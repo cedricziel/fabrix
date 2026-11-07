@@ -74,6 +74,8 @@ public final class AppModel {
     private(set) var actionError: String?
     /// True while a refresh is in flight, for Retry and the Mac toolbar's Refresh.
     private(set) var isRefreshing = false
+    /// A refresh the user asked for; background polls don't set it, so buttons only spin when tapped.
+    private(set) var isRetrying = false
     public private(set) var connectError: String?
     public private(set) var isConnecting = false
     public private(set) var browserSignIn: BrowserSignInState?
@@ -432,6 +434,14 @@ public final class AppModel {
         return true
     }
 
+    /// Like `markSignedOutIfRejected`, and also for credentials only Reconnect can replace.
+    private func holdIfSignedOut(_ error: any Error) -> Bool {
+        if markSignedOutIfRejected(error) { return true }
+        guard ConnectionIssue(classifying: error) == .signedOut else { return false }
+        setConnectionProblem(ConnectionProblem(issue: .signedOut, detail: error.localizedDescription))
+        return true
+    }
+
     private func setConnectionProblem(_ problem: ConnectionProblem?) {
         if problem != connectionProblem {
             connectionProblem = problem
@@ -561,6 +571,25 @@ public final class AppModel {
         actionError = nil
     }
 
+    /// Signed out where `signInAgain` can't help: the connect form opens with the factory's address filled in.
+    /// The factory stays open, so decisions held while signed out go out once it reconnects.
+    func reconnectWithNewCredentials() {
+        guard let factory, isSignedOutWithoutSignIn else { return }
+        reconnect = ReconnectNeeded(
+            factory: factory, headerNames: [],
+            reason: String(localized: "Your sign-in to \(factory.name) ended. Enter your credentials again to continue.", bundle: .module)
+        )
+    }
+
+    /// The factory rejects its credentials and "Sign in again" can't renew them.
+    var isSignedOutWithoutSignIn: Bool {
+        connectionProblem?.issue == .signedOut && !needsSignIn
+    }
+
+    func forgetReconnect() {
+        reconnect = nil
+    }
+
     /// Staged decisions belong to the open factory. Callers send them before switching,
     /// and anything still staged is dropped here so it can never reach the next factory.
     /// Swaps in new credentials for the open factory without dropping what is on screen.
@@ -668,6 +697,14 @@ public final class AppModel {
 
     /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
     /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
+    /// A refresh the user asked for, shown on the button they tapped.
+    func retry() async {
+        guard !isRetrying else { return }
+        isRetrying = true
+        defer { isRetrying = false }
+        await refresh()
+    }
+
     public func keepFresh(every interval: Duration = .seconds(20), staleAfter: Duration? = nil) async {
         let isStale = lastRefresh.map { $0.duration(to: clock.now) >= (staleAfter ?? interval) } ?? true
         if loadState != .loaded || isStale {
@@ -856,7 +893,7 @@ public final class AppModel {
 
     private func commit(_ ids: [Approval.ID]) async {
         // Signed out, every decision would bounce; they stay staged until signing in again.
-        guard let service, !needsSignIn else { return }
+        guard let service, !needsSignIn, !isSignedOutWithoutSignIn else { return }
         let verdicts = ids.compactMap { id -> (Approval.ID, Bool)? in
             commitTimers.removeValue(forKey: id)?.cancel()
             return desk.beginCommit(id).map { (id, $0) }
@@ -884,7 +921,7 @@ public final class AppModel {
         let verdictByID = Dictionary(uniqueKeysWithValues: verdicts)
         var messages: [Approval.ID: String] = [:]
         for (id, error) in failures {
-            if let approve = verdictByID[id], markSignedOutIfRejected(error) {
+            if let approve = verdictByID[id], holdIfSignedOut(error) {
                 // The key was rejected, not the decision: keep it for after signing in again.
                 desk.stage(id, approve: approve)
             } else {
@@ -893,7 +930,7 @@ public final class AppModel {
             }
         }
         decisionErrors.merge(messages) { _, new in new }
-        guard !needsSignIn else { return }
+        guard !needsSignIn, !isSignedOutWithoutSignIn else { return }
         await refresh()
         guard session == generation, let failure = messages.values.first else { return }
         actionError = failure

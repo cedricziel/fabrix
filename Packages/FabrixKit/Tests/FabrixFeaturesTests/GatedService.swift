@@ -14,6 +14,7 @@ actor GatedService: FactoryService {
     private var failingPauses = false
     private var companiesError: (any Error)?
     private(set) var snapshotCalls = 0
+    private(set) var companiesCalls = 0
 
     init(_ inner: any FactoryService = DemoFactoryService(), failingDecisions: Set<Approval.ID> = []) {
         self.inner = inner
@@ -38,6 +39,7 @@ actor GatedService: FactoryService {
 
     func companies() async throws -> [Company] {
         try Task.checkCancellation()
+        companiesCalls += 1
         if let companiesError { throw companiesError }
         return try await inner.companies()
     }

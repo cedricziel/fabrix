@@ -5,6 +5,7 @@ import SwiftUI
 /// with when the shown data last arrived and a way to act on it.
 struct ConnectionStatusBar: View {
     @Environment(AppModel.self) private var model
+    @Environment(Navigator.self) private var navigator
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -27,7 +28,7 @@ struct ConnectionStatusBar: View {
         let factory = model.factory?.name ?? "Fabrix"
         if let problem = ConnectionStatus(
             model.connectionProblem, factory: factory, company: model.snapshot?.company.name,
-            lastRefreshedAt: model.lastRefreshedAt, canSignIn: model.canSignInAgain, now: now
+            lastRefreshedAt: model.lastRefreshedAt, canSignIn: model.needsSignIn, now: now
         ) {
             return problem
         }
@@ -35,15 +36,22 @@ struct ConnectionStatusBar: View {
     }
 
     private func isBusy(_ action: ConnectionStatus.Action?) -> Bool {
-        action == .signIn ? model.browserSignIn != nil : model.isRefreshing
+        switch action {
+        case .signIn: model.browserSignIn != nil
+        case .reconnect: false
+        case .retry, nil: model.isRetrying
+        }
     }
 
     private func perform(_ action: ConnectionStatus.Action?) {
         switch action {
         case .signIn:
             Task { await model.signInAgain() }
+        case .reconnect:
+            model.reconnectWithNewCredentials()
+            navigator.showingAddFactory = true
         case .retry, nil:
-            Task { await model.refresh() }
+            Task { await model.retry() }
         }
     }
 
@@ -51,6 +59,7 @@ struct ConnectionStatusBar: View {
         switch action {
         case .retry: String(localized: "Retry", bundle: .module)
         case .signIn: String(localized: "Sign in again", bundle: .module)
+        case .reconnect: String(localized: "Reconnect", bundle: .module)
         }
     }
 }

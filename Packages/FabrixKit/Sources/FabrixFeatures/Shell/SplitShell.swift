@@ -72,6 +72,11 @@ private struct Sidebar: View {
                 Section(.features("Projects")) { ProjectsSidebarGroup() }
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            if let factory = model.factory {
+                FactoryHealthRow(name: factory.name, health: FactoryHealth(model.connectionProblem))
+            }
+        }
     }
 
     private var selection: Binding<SidebarItem?> {
@@ -92,6 +97,24 @@ private struct Sidebar: View {
         case .tasks: model.snapshot?.tasks.count(where: \.status.isOpen) ?? 0
         default: 0
         }
+    }
+}
+
+private struct FactoryHealthRow: View {
+    let name: String
+    let health: FactoryHealth
+
+    var body: some View {
+        HStack(spacing: 8) {
+            StatusDot(health.style, size: 8)
+            Text(name).lineLimit(1)
+            Spacer(minLength: 4)
+            Text(health.label).foregroundStyle(Palette.muted)
+        }
+        .font(.caption)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -132,15 +155,15 @@ struct CompanyToolbar: ToolbarContent {
     #if os(macOS)
     private var refreshButton: some View {
         Button {
-            Task { await model.refresh() }
+            Task { await model.retry() }
         } label: {
-            if model.isRefreshing {
+            if model.isRetrying {
                 ProgressView().controlSize(.small)
             } else {
                 Label(.features("Refresh"), systemImage: "arrow.clockwise")
             }
         }
-        .disabled(model.isRefreshing)
+        .disabled(model.isRetrying)
         .help(Text("Refresh (⌘R)", bundle: .module))
     }
     #endif
