@@ -66,26 +66,13 @@ private struct ProjectFilterToken: View {
                 nil
             }
             HStack(spacing: 10) {
-                HStack(spacing: 6) {
-                    if let project {
-                        ProjectSwatch(colorHex: project.colorHex)
-                        Text(project.name)
-                    } else {
-                        Text("No project")
-                    }
-                    Button("Show all projects", systemImage: "xmark.circle.fill") {
-                        model.taskProjectFilter = .all
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Palette.steel)
-                    .frame(minWidth: 28, minHeight: 28)
+                FilterChip(
+                    project?.name ?? String(localized: "No project"),
+                    clearLabel: String(localized: "Show all projects"),
+                    onClear: { model.taskProjectFilter = .all }
+                ) {
+                    if let project { ProjectSwatch(colorHex: project.colorHex) }
                 }
-                .font(.subheadline.weight(.semibold))
-                .padding(.leading, 12)
-                .padding(.trailing, 4)
-                .background(Palette.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(Palette.hairline))
                 Text("^[\(model.visibleTasks.count) task](inflect: true)").font(.caption).foregroundStyle(Palette.steel)
                 Spacer()
                 if let project {
