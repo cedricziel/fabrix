@@ -34,7 +34,7 @@ private struct FactoryTitle: ViewModifier {
                     }
                     .menuIndicator(.visible)
                     .fixedSize()
-                    .help(LocalizedStringResource("Switch factory or company", bundle: .module))
+                    .help(.features("Switch factory or company"))
                 }
             }
         #else
@@ -70,7 +70,7 @@ struct FactoryMenuContent: View {
                 }
             }
         }
-        Section(LocalizedStringResource("Factories", bundle: .module)) {
+        Section(.features("Factories")) {
             ForEach(menu.factories) { item in
                 Toggle(item.factory.name, isOn: binding(selected: item.isOpen) {
                     Task { await model.open(item.factory) }
@@ -78,9 +78,9 @@ struct FactoryMenuContent: View {
             }
         }
         Section {
-            Button(LocalizedStringResource("Add Factory…", bundle: .module), systemImage: "plus") { navigator.showingAddFactory = true }
+            Button(.features("Add Factory…"), systemImage: "plus") { navigator.showingAddFactory = true }
             if menu.canRemove {
-                Button(LocalizedStringResource("Remove Factory…", bundle: .module), systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
+                Button(.features("Remove Factory…"), systemImage: "trash", role: .destructive) { navigator.confirmingRemove = true }
             }
         }
     }
@@ -116,7 +116,7 @@ public struct FactoryCommands: Commands {
             if let model, let navigator, !model.isOnboarding {
                 FactoryMenuContent(model: model, navigator: navigator, showsShortcuts: true)
             } else {
-                Button(LocalizedStringResource("Add Factory…", bundle: .module)) {}.disabled(true)
+                Button(.features("Add Factory…")) {}.disabled(true)
             }
         }
     }

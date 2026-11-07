@@ -47,6 +47,10 @@ struct ConnectFactoryForm: View {
     @State private var form = ConnectForm()
     var onConnected: () -> Void = {}
 
+    private static let addressExample = "https://factory.example.com"
+    private static let issuerExample = "https://auth.example.com"
+    private static let clientIDExample = "fabrix"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Connect a factory").font(.headline)
@@ -59,21 +63,21 @@ struct ConnectFactoryForm: View {
                 TextField("https://factory.example.com", text: $form.address)
                     .urlEntry()
             }
-            Picker(LocalizedStringResource("Sign in with", bundle: .module), selection: $form.method) {
+            Picker(.features("Sign in with"), selection: $form.method) {
                 ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.menu)
             if form.method.usesOIDC {
-                LabeledField(LocalizedStringResource("OIDC issuer", bundle: .module)) {
-                    TextField("https://auth.example.com", text: $form.issuer).urlEntry()
+                LabeledField(.features("OIDC issuer")) {
+                    TextField(Self.issuerExample, text: $form.issuer).urlEntry()
                 }
-                LabeledField(LocalizedStringResource("Client ID", bundle: .module)) {
-                    TextField("fabrix", text: $form.clientID).autocorrectionDisabled()
+                LabeledField(.features("Client ID")) {
+                    TextField(Self.clientIDExample, text: $form.clientID).autocorrectionDisabled()
                 }
             }
             if form.method.usesAPIKey {
-                LabeledField(LocalizedStringResource("Paperclip API key", bundle: .module)) {
-                    SecureField(LocalizedStringResource("Paste the key from your Paperclip board", bundle: .module), text: $form.apiKey)
+                LabeledField(.features("Paperclip API key")) {
+                    SecureField(.features("Paste the key from your Paperclip board"), text: $form.apiKey)
                         .textContentType(.password)
                 }
                 Text("Create one with `paperclipai token board create` on a signed-in machine.")
@@ -138,10 +142,10 @@ struct AddFactorySheet: View {
                     .padding(20)
             }
             .background(Palette.paper)
-            .navigationTitle(LocalizedStringResource("Add Factory", bundle: .module))
+            .navigationTitle(.features("Add Factory"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(LocalizedStringResource("Cancel", bundle: .module)) { dismiss() }
+                    Button(.features("Cancel")) { dismiss() }
                 }
             }
         }
@@ -186,15 +190,15 @@ private struct AdvancedSection: View {
     @State private var isExpanded = false
 
     var body: some View {
-        DisclosureGroup(LocalizedStringResource("Advanced", bundle: .module), isExpanded: $isExpanded) {
+        DisclosureGroup(.features("Advanced"), isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: Spacing.s) {
-                FieldTitle(LocalizedStringResource("Custom headers", bundle: .module))
+                FieldTitle(.features("Custom headers"))
                 ForEach($headers) { $row in
                     HStack(spacing: Spacing.s) {
-                        TextField(LocalizedStringResource("Header name", bundle: .module), text: $row.name)
+                        TextField(.features("Header name"), text: $row.name)
                             .plainEntry()
                             .textFieldStyle(.fabrix)
-                        SecureField(LocalizedStringResource("Value", bundle: .module), text: $row.value)
+                        SecureField(.features("Value"), text: $row.value)
                             .textFieldStyle(.fabrix)
                         Button {
                             headers.removeAll { $0.id == row.id }
@@ -202,13 +206,13 @@ private struct AdvancedSection: View {
                             Image(systemName: "minus.circle.fill").foregroundStyle(Palette.halt)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(LocalizedStringResource("Remove header", bundle: .module))
+                        .accessibilityLabel(.features("Remove header"))
                     }
                 }
                 Button {
                     headers.append(ConnectForm.HeaderRow())
                 } label: {
-                    Label(LocalizedStringResource("Add header", bundle: .module), systemImage: "plus.circle.fill")
+                    Label(.features("Add header"), systemImage: "plus.circle.fill")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Palette.signal)

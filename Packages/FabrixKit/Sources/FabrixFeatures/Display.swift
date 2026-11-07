@@ -5,13 +5,13 @@ import SwiftUI
 extension TaskStatus {
     var title: LocalizedStringResource {
         switch self {
-        case .backlog: LocalizedStringResource("Backlog", bundle: .module)
-        case .todo: LocalizedStringResource("Todo", bundle: .module)
-        case .inProgress: LocalizedStringResource("In progress", bundle: .module)
-        case .inReview: LocalizedStringResource("In review", bundle: .module)
-        case .blocked: LocalizedStringResource("Blocked", bundle: .module)
-        case .done: LocalizedStringResource("Done", bundle: .module)
-        case .cancelled: LocalizedStringResource("Cancelled", bundle: .module)
+        case .backlog: .features("Backlog")
+        case .todo: .features("Todo")
+        case .inProgress: .features("In progress")
+        case .inReview: .features("In review")
+        case .blocked: .features("Blocked")
+        case .done: .features("Done")
+        case .cancelled: .features("Cancelled")
         }
     }
 

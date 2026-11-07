@@ -112,9 +112,9 @@ private struct OrgSummary: View {
         if let snapshot = model.snapshot {
             let metrics = OverviewMetrics(snapshot: snapshot, waiting: model.waitingApprovals)
             HStack(spacing: 28) {
-                stat(LocalizedStringResource("Agents", bundle: .module), "\(metrics.agentsTotal)")
-                stat(LocalizedStringResource("Working now", bundle: .module), "\(metrics.agentsWorking)")
-                stat(LocalizedStringResource("Pending hires", bundle: .module), "\(metrics.waitingByKind[.hire] ?? 0)", color: Palette.signal)
+                stat(.features("Agents"), "\(metrics.agentsTotal)")
+                stat(.features("Working now"), "\(metrics.agentsWorking)")
+                stat(.features("Pending hires"), "\(metrics.waitingByKind[.hire] ?? 0)", color: Palette.signal)
                 if metrics.spend.fraction != nil {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Company spend · \(Money.usage(metrics.spend))", bundle: .module)

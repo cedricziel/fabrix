@@ -16,7 +16,7 @@ struct ErrorBanner: View {
                         .contentShape(.rect)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(LocalizedStringResource("Dismiss", bundle: .module))
+                .accessibilityLabel(.features("Dismiss"))
             }
         }
     }

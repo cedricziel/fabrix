@@ -29,7 +29,7 @@ struct SplitShell: View {
             }
             .refreshable { await model.refresh() }
         }
-        .searchable(text: $model.searchText, placement: .toolbar, prompt: LocalizedStringResource("Search tasks, agents", bundle: .module))
+        .searchable(text: $model.searchText, placement: .toolbar, prompt: .features("Search tasks, agents"))
         .toolbar { CompanyToolbar() }
     }
 }
@@ -96,12 +96,12 @@ struct CompanyToolbar: ToolbarContent {
             Button {
                 Task { await model.setCompanyPaused(!company.isPaused) }
             } label: {
-                Label(company.isPaused ? LocalizedStringResource("Resume company", bundle: .module) : LocalizedStringResource("Pause company", bundle: .module),
+                Label(company.isPaused ? .features("Resume company") : .features("Pause company"),
                       systemImage: company.isPaused ? "play.fill" : "pause.fill")
             }
             .help(company.isPaused
-                ? LocalizedStringResource("Resume every agent in \(company.name)", bundle: .module)
-                : LocalizedStringResource("Pause every agent in \(company.name)", bundle: .module))
+                ? .features("Resume every agent in \(company.name)")
+                : .features("Pause every agent in \(company.name)"))
         }
     }
 
@@ -109,7 +109,7 @@ struct CompanyToolbar: ToolbarContent {
         Button {
             navigator.showingNewTask = true
         } label: {
-            Label(LocalizedStringResource("New task", bundle: .module), systemImage: "plus")
+            Label(.features("New task"), systemImage: "plus")
         }
         .keyboardShortcut("n", modifiers: .command)
     }

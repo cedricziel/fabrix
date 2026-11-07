@@ -66,7 +66,7 @@ struct AgentDetailView: View {
             .background(Palette.paper)
             .navigationTitle(agent.name)
         } else {
-            ContentUnavailableView(LocalizedStringResource("Agent not found", bundle: .module), systemImage: "person.crop.circle.badge.questionmark")
+            ContentUnavailableView(.features("Agent not found"), systemImage: "person.crop.circle.badge.questionmark")
         }
     }
 
@@ -77,12 +77,12 @@ struct AgentDetailView: View {
                 Text(agent.name).font(.title2.weight(.semibold))
                 HStack(spacing: 4) {
                     StatusPill(model.status(of: agent).style)
-                    Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board"))", bundle: .module)
+                    Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board", bundle: .module))", bundle: .module)
                         .font(.caption)
                         .foregroundStyle(Palette.steel)
                 }
                 if let role = agent.role, let adapter = agent.adapter {
-                    Text("\(role) · \(adapter)", bundle: .module).font(.caption.monospaced()).foregroundStyle(Palette.muted)
+                    Text(verbatim: "\(role) · \(adapter)").font(.caption.monospaced()).foregroundStyle(Palette.muted)
                 }
             }
         }
@@ -149,9 +149,9 @@ private struct RecentRuns: View {
     let runs: [Run]
 
     var body: some View {
-        SectionCard(LocalizedStringResource("Recent runs", bundle: .module)) {
+        SectionCard(.features("Recent runs")) {
             if runs.isEmpty {
-                EmptyRow(LocalizedStringResource("No finished runs yet.", bundle: .module))
+                EmptyRow(.features("No finished runs yet."))
             }
             ForEach(runs) { run in
                 HStack(alignment: .top, spacing: 10) {
@@ -161,7 +161,7 @@ private struct RecentRuns: View {
                             .lineLimit(1)
                         HStack(spacing: 0) {
                             Text(run.startedAt, format: .dateTime.hour().minute())
-                            if let summary = run.summary { Text(" · \(summary)", bundle: .module) }
+                            if let summary = run.summary { Text(verbatim: " · \(summary)") }
                         }
                         .font(.caption)
                         .foregroundStyle(Palette.muted)

@@ -66,7 +66,7 @@ private struct ColumnHeader: View {
         HStack(spacing: 8) {
             Circle().fill(status.color).frame(width: 8, height: 8)
             Text(status.title).font(.subheadline.weight(.semibold))
-            Text("\(count)", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
+            Text(count, format: .number).font(.caption).foregroundStyle(Palette.muted)
         }
         .padding(.horizontal, 4)
         .accessibilityElement(children: .combine)
@@ -155,7 +155,7 @@ struct TaskDetailView: View {
         if let task = model.task(taskID) {
             TaskDetailContent(task: task)
         } else {
-            ContentUnavailableView(LocalizedStringResource("Task not found", bundle: .module), systemImage: "rectangle.slash")
+            ContentUnavailableView(.features("Task not found"), systemImage: "rectangle.slash")
         }
     }
 }
@@ -195,7 +195,7 @@ private struct TaskDetailContent: View {
                 }
                 if let assignee {
                     HStack(spacing: 8) {
-                        Button(LocalizedStringResource("Wake agent", bundle: .module)) { Task { await model.wake(assignee) } }
+                        Button(.features("Wake agent")) { Task { await model.wake(assignee) } }
                             .buttonStyle(.fabrixPrimary)
                             .disabled(model.status(of: assignee) == .running)
                         NavigationLink(value: assignee.id) { Text("Open agent", bundle: .module) }
