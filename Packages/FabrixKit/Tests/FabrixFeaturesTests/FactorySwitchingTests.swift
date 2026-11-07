@@ -190,4 +190,17 @@ struct FactorySwitchingTests {
         #expect(sent?.approvals.first { $0.id == approval.id }?.state == .rejected)
         #expect(model.waitingApprovals.contains { $0.id == approval.id })
     }
+
+    @Test func aSecondConnectWhileOneIsRunningIsIgnored() async {
+        let connector = RecordingConnector()
+        connector.delay = .milliseconds(100)
+        let model = AppModel(connector: connector, defaults: freshDefaults())
+
+        async let first = model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        async let second = model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        let results = await [first, second]
+
+        #expect(connector.calls.count == 1)
+        #expect(results.filter { $0 }.count == 1)
+    }
 }

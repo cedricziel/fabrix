@@ -39,7 +39,7 @@ private struct FactoryTitle: ViewModifier {
             }
         #else
         content
-            .navigationTitle(title ?? LocalizedStringKey(companyName))
+            .navigationTitle(title.map { Text($0) } ?? Text(companyName))
             .navigationSubtitle(model.factory?.name ?? "")
             .toolbarTitleMenu {
                 FactoryMenuContent(model: model, navigator: navigator)

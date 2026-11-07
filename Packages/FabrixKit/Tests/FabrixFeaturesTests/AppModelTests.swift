@@ -322,6 +322,7 @@ final class RecordingConnector: FactoryConnector {
     private var order: [Factory.ID] = []
     /// Shared by every connection, so tests can see what reached the factory.
     var service: (any FactoryService)?
+    var delay: Duration?
 
     var factories: [Factory] {
         order.compactMap { saved[$0]?.factory }
@@ -339,6 +340,7 @@ final class RecordingConnector: FactoryConnector {
         baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
     ) async throws -> FactoryConnection {
         calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth, headers: headers))
+        if let delay { try await Task.sleep(for: delay) }
         if webAuthenticator != nil { authenticators += 1 }
         if let error { throw error }
         let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)

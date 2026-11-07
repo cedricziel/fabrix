@@ -95,7 +95,7 @@ public final class AppModel {
     /// - Returns: Whether the factory is now open.
     @discardableResult
     func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async -> Bool {
-        guard let connector else { return false }
+        guard let connector, !isConnecting else { return false }
         let request: (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader])
         do {
             request = try form.validated()
