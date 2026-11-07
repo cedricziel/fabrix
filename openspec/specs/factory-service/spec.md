@@ -51,6 +51,11 @@ The app SHALL provide a factory service backed by a Paperclip server. It SHALL l
 - **THEN** the snapshot contains its agents without terminated ones, its issues as tasks, its pending approvals, its recent runs and its recent activity
 - **AND** monthly spend and budget come from the company, with a zero budget shown as no budget
 
+#### Scenario: Approval changes status while the snapshot loads
+
+- **WHEN** an approval moves from `pending` to `revision_requested` between the two approval requests, so both answers contain it
+- **THEN** the snapshot lists it once
+
 #### Scenario: Unknown agent or issue status from a newer server
 
 - **WHEN** the server sends an agent or issue status this version of Fabrix does not know

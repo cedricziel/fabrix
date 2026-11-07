@@ -46,7 +46,7 @@ The app SHALL accept a server address with or without a scheme and with or witho
 
 ### Requirement: Credentials only over trusted transport
 
-The app SHALL send a board key or OIDC token, and SHALL run browser sign-in (including polling the sign-in request), only over HTTPS or over plain HTTP to this machine or a private network. Private networks are loopback, `.local` and `.localhost` names, literal RFC 1918 IPv4 addresses (exactly four numeric parts, so `192.168.1.1.example.com` is not one), `100.64.0.0/10` (Tailscale), link-local, and IPv6 unique-local addresses.
+The app SHALL send a board key or OIDC token, SHALL run browser sign-in (including polling the sign-in request), and SHALL talk to an OIDC issuer and token endpoint, only over HTTPS or over plain HTTP to this machine or a private network. Private networks are loopback, `.local` and `.localhost` names, literal RFC 1918 IPv4 addresses (exactly four numeric parts, so `192.168.1.1.example.com` is not one), `100.64.0.0/10` (Tailscale), link-local, and IPv6 unique-local addresses.
 
 #### Scenario: Board key to a remote server over HTTP
 
@@ -56,7 +56,18 @@ The app SHALL send a board key or OIDC token, and SHALL run browser sign-in (inc
 #### Scenario: Redirect to another address
 
 - **WHEN** the server or the identity provider answers a credential-bearing request with a redirect to a different scheme, host or port
-- **THEN** the app does not follow it and reports the new address, so no credential or sign-in token reaches that address
+- **THEN** the app does not follow it, so no credential or sign-in token reaches that address
+- **AND** the error names only the new origin (scheme, host and port), never the full address, which can carry a token
+
+#### Scenario: OIDC issuer on a remote server over HTTP
+
+- **WHEN** the user connects with an OIDC issuer like `http://idp.example.com`
+- **THEN** connecting fails with an insecure-connection error before the provider is contacted or its login page is shown
+
+#### Scenario: OIDC sign-in in front of an insecure server
+
+- **WHEN** the user connects to `http://paperclip.example.com` with OIDC
+- **THEN** connecting fails with an insecure-connection error before the provider's login page is shown
 
 #### Scenario: Board key to a server on the local network
 
