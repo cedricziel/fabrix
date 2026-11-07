@@ -155,4 +155,39 @@ struct FactorySwitchingTests {
         await model.leaveIfRemoved()
         #expect(model.factory?.name == "Demo factory")
     }
+
+    @Test func switchingFactorySendsStagedDecisionsToTheFactoryTheyBelongTo() async throws {
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .milliseconds(50))
+        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        await model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+        let one = try #require(connector.factories.first)
+        let two = try #require(connector.factories.last)
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        await model.open(one)
+        try await Task.sleep(for: .milliseconds(200))
+
+        let sentToTwo = try await connector.saved[two.id]?.service.snapshot(companyID: "atlas")
+        let sentToOne = try await connector.saved[one.id]?.service.snapshot(companyID: "atlas")
+        #expect(sentToTwo?.approvals.first { $0.id == approval.id }?.state == .approved)
+        #expect(sentToOne?.approvals.first { $0.id == approval.id }?.state == .pending)
+        #expect(model.waitingApprovals.contains { $0.id == approval.id })
+    }
+
+    @Test func switchingToTheDemoSendsStagedDecisionsFirst() async throws {
+        let connector = RecordingConnector()
+        let model = AppModel(connector: connector, defaults: freshDefaults(), undoWindow: .seconds(60))
+        await model.connect(ConnectForm(address: "one.example", apiKey: "k"))
+        let one = try #require(connector.factories.first)
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: false)
+
+        await model.exploreDemo()
+
+        let sent = try await connector.saved[one.id]?.service.snapshot(companyID: "atlas")
+        #expect(sent?.approvals.first { $0.id == approval.id }?.state == .rejected)
+        #expect(model.waitingApprovals.contains { $0.id == approval.id })
+    }
 }

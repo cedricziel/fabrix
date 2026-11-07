@@ -85,6 +85,7 @@ public final class AppModel {
     }
 
     public func exploreDemo() async {
+        await commitStagedDecisions()
         defaults.set(true, forKey: Self.demoKey)
         defaults.removeObject(forKey: Self.factoryKey)
         use(.demo())
@@ -104,6 +105,7 @@ public final class AppModel {
         }
         isConnecting = true
         defer { isConnecting = false }
+        await commitStagedDecisions()
         do {
             let connection = try await connector.connect(
                 baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
@@ -128,6 +130,7 @@ public final class AppModel {
     /// Opens a saved factory or the demo, and remembers it for the next launch.
     func open(_ target: Factory) async {
         guard target.id != factory?.id else { return }
+        await commitStagedDecisions()
         if target.id == FactoryConnection.demo().factory.id {
             await exploreDemo()
             return
@@ -194,7 +197,13 @@ public final class AppModel {
         lastError = nil
     }
 
+    /// Staged decisions belong to the open factory. Callers send them before switching,
+    /// and anything still staged is dropped here so it can never reach the next factory.
     private func use(_ connection: FactoryConnection) {
+        commitTimers.values.forEach { $0.cancel() }
+        commitTimers = [:]
+        desk = ApprovalDesk()
+        decisionErrors = [:]
         generation += 1
         lastRefresh = nil
         selectedCompanyID = nil
