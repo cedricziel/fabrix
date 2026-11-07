@@ -43,7 +43,7 @@ private struct TabStack: View {
                                 Divider()
                                 SettingsButton()
                             } label: {
-                                Label("More", systemImage: "ellipsis.circle")
+                                Label(LocalizedStringResource("More", bundle: .module), systemImage: "ellipsis.circle")
                             }
                         }
                     }
@@ -68,7 +68,7 @@ private struct SearchField: ViewModifier {
 
     func body(content: Content) -> some View {
         if enabled {
-            content.searchable(text: $text, prompt: "Search")
+            content.searchable(text: $text, prompt: LocalizedStringResource("Search", bundle: .module))
         } else {
             content
         }

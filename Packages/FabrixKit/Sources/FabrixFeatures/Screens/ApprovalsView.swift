@@ -14,9 +14,9 @@ struct ApprovalsView: View {
         let decided = model.decidedApprovals
         ScrollView {
             VStack(spacing: 12) {
-                Picker("Show", selection: $filter) {
-                    Text("Waiting · \(waiting.count)").tag(Filter.waiting)
-                    Text("Decided · \(decided.count)").tag(Filter.decided)
+                Picker(LocalizedStringResource("Show", bundle: .module), selection: $filter) {
+                    Text("Waiting · \(waiting.count)", bundle: .module).tag(Filter.waiting)
+                    Text("Decided · \(decided.count)", bundle: .module).tag(Filter.decided)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -25,23 +25,23 @@ struct ApprovalsView: View {
                 switch filter {
                 case .waiting:
                     if waiting.isEmpty {
-                        ContentUnavailableView("Nothing waiting", systemImage: "checkmark.circle",
-                                               description: Text("Your agents will ping you here."))
+                        ContentUnavailableView(LocalizedStringResource("Nothing waiting", bundle: .module), systemImage: "checkmark.circle",
+                                               description: Text("Your agents will ping you here.", bundle: .module))
                     }
                     ForEach(waiting) { approval in
                         ApprovalCard(approval: approval) {
                             if let error = model.decisionErrors[approval.id] {
-                                Label("Your decision wasn't sent: \(error)", systemImage: "exclamationmark.triangle.fill")
+                                Label(LocalizedStringResource("Your decision wasn't sent: \(error)", bundle: .module), systemImage: "exclamationmark.triangle.fill")
                                     .font(.footnote)
                                     .foregroundStyle(Palette.halt)
                             }
                             HStack(spacing: 10) {
                                 Button { decide(approval, true) } label: {
-                                        Text("Approve").frame(maxWidth: .infinity)
+                                        Text("Approve", bundle: .module).frame(maxWidth: .infinity)
                                     }
                                     .buttonStyle(.fabrixPrimary)
                                 Button { decide(approval, false) } label: {
-                                        Text("Reject").frame(maxWidth: .infinity)
+                                        Text("Reject", bundle: .module).frame(maxWidth: .infinity)
                                     }
                                     .buttonStyle(.fabrixSecondary)
                             }
@@ -49,19 +49,19 @@ struct ApprovalsView: View {
                     }
                 case .decided:
                     if decided.isEmpty {
-                        ContentUnavailableView("No decisions yet", systemImage: "tray",
-                                               description: Text("Approvals you decide show up here."))
+                        ContentUnavailableView(LocalizedStringResource("No decisions yet", bundle: .module), systemImage: "tray",
+                                               description: Text("Approvals you decide show up here.", bundle: .module))
                     }
                     ForEach(decided) { decided in
                         ApprovalCard(approval: decided.approval) {
                             HStack {
-                                Label(decided.approved ? "Approved" : "Rejected",
+                                Label(decided.approved ? LocalizedStringResource("Approved", bundle: .module) : LocalizedStringResource("Rejected", bundle: .module),
                                       systemImage: decided.approved ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(decided.approved ? Palette.done : Palette.halt)
                                 Spacer()
                                 if decided.canUndo {
-                                    Button("Undo") { withAnimation { model.undo(decided.id) } }
+                                    Button(LocalizedStringResource("Undo", bundle: .module)) { withAnimation { model.undo(decided.id) } }
                                         .buttonStyle(.fabrixSecondary)
                                 }
                             }
@@ -90,7 +90,7 @@ private struct ApprovalCard<Actions: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 KindTag(title: approval.kind.label)
-                Text("\(approval.requestedBy) · \(approval.createdAt, format: .relative(presentation: .named))")
+                Text("\(approval.requestedBy) · \(approval.createdAt, format: .relative(presentation: .named))", bundle: .module)
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
             }

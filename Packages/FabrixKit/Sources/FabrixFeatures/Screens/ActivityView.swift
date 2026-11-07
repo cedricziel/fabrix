@@ -22,7 +22,7 @@ struct ActivityRows: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if events.isEmpty {
-                EmptyRow("No activity yet.")
+                EmptyRow(LocalizedStringResource("No activity yet.", bundle: .module))
             }
             ForEach(events) { event in
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -30,7 +30,7 @@ struct ActivityRows: View {
                         .font(.caption.monospaced())
                         .foregroundStyle(Palette.muted)
                         .frame(minWidth: 44, alignment: .leading)
-                    Text("**\(event.actor)** \(event.summary)")
+                    Text("**\(event.actor)** \(event.summary)", bundle: .module)
                         .foregroundStyle(Palette.steel)
                 }
                 .padding(.horizontal, 16)

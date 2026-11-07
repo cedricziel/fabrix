@@ -19,4 +19,5 @@ The audit (component audit, slices 1–3) lists five feature-local visuals and f
 ## Risks / Trade-offs
 
 - Every literal in Features changes, which conflicts with sessions editing screens. Mitigation: the change is mechanical and lands as its own PR at the top of the stack.
-- `swift build` doesn't extract strings; the catalogs are filled by an Xcode build, so a string added without building stays missing from the catalog until the next Xcode build. It still shows in English because the key is the English text.
+- An English-only catalog compiles to no `.strings` file, because each key is its own English text, so a test can't tell a module-bundle lookup from the fallback. The tests check which bundle each resource points at instead.
+- `swift build` doesn't extract strings, and `xcodebuild` doesn't write them back; the catalogs are filled by an Xcode build, run `xcrun xcstringstool sync` with the build's `.stringsdata` files, or build in Xcode. A string added without that stays missing from the catalog. It still shows in English because the key is the English text.

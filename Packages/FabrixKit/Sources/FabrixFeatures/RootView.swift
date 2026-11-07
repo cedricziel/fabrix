@@ -62,24 +62,24 @@ public struct RootView: View {
                     // The title menu stays reachable so another factory can be opened or this one removed.
                     NavigationStack {
                         ContentUnavailableView {
-                            Label("No companies yet", systemImage: "building.2")
+                            Label(LocalizedStringResource("No companies yet", bundle: .module), systemImage: "building.2")
                         } description: {
-                            Text("This factory has no companies.")
+                            Text("This factory has no companies.", bundle: .module)
                         } actions: {
-                            Button("Choose another factory") { model.disconnect() }
+                            Button(LocalizedStringResource("Choose another factory", bundle: .module)) { model.disconnect() }
                         }
                         .factoryTitle()
                     }
                 case let .failed(message):
                     NavigationStack {
                         ContentUnavailableView {
-                            Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
+                            Label(LocalizedStringResource("Can't reach the factory", bundle: .module), systemImage: "exclamationmark.triangle")
                         } description: {
                             Text(message)
                         } actions: {
-                            Button("Try again") { Task { await model.refresh() } }
+                            Button(LocalizedStringResource("Try again", bundle: .module)) { Task { await model.refresh() } }
                                 .buttonStyle(.fabrixPrimary)
-                            Button("Choose another factory") { model.disconnect() }
+                            Button(LocalizedStringResource("Choose another factory", bundle: .module)) { model.disconnect() }
                         }
                         .factoryTitle()
                     }
@@ -106,11 +106,12 @@ public struct RootView: View {
             }
         }
         .confirmationDialog(
-            "Remove \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingRemove, titleVisibility: .visible
+            Text("Remove \(model.factory?.name ?? String(localized: "this factory", bundle: .module))?", bundle: .module),
+            isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {
-            Button("Remove Factory", role: .destructive) { Task { await model.removeOpenFactory() } }
+            Button(LocalizedStringResource("Remove Factory", bundle: .module), role: .destructive) { Task { await model.removeOpenFactory() } }
         } message: {
-            Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.")
+            Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.", bundle: .module)
         }
         .appLock(lock)
         .onChange(of: model.connectCount) {

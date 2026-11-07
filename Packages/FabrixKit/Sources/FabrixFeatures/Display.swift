@@ -3,15 +3,15 @@ import FabrixDesign
 import SwiftUI
 
 extension TaskStatus {
-    var title: LocalizedStringKey {
+    var title: LocalizedStringResource {
         switch self {
-        case .backlog: "Backlog"
-        case .todo: "Todo"
-        case .inProgress: "In progress"
-        case .inReview: "In review"
-        case .blocked: "Blocked"
-        case .done: "Done"
-        case .cancelled: "Cancelled"
+        case .backlog: LocalizedStringResource("Backlog", bundle: .module)
+        case .todo: LocalizedStringResource("Todo", bundle: .module)
+        case .inProgress: LocalizedStringResource("In progress", bundle: .module)
+        case .inReview: LocalizedStringResource("In review", bundle: .module)
+        case .blocked: LocalizedStringResource("Blocked", bundle: .module)
+        case .done: LocalizedStringResource("Done", bundle: .module)
+        case .cancelled: LocalizedStringResource("Cancelled", bundle: .module)
         }
     }
 
@@ -30,10 +30,10 @@ extension TaskStatus {
 extension ApprovalKind {
     var label: String {
         switch self {
-        case .hire: String(localized: "Hire")
-        case .strategy: String(localized: "Strategy")
-        case .budget: String(localized: "Budget")
-        case .other: String(localized: "Other")
+        case .hire: String(localized: "Hire", bundle: .module)
+        case .strategy: String(localized: "Strategy", bundle: .module)
+        case .budget: String(localized: "Budget", bundle: .module)
+        case .other: String(localized: "Other", bundle: .module)
         }
     }
 }

@@ -23,7 +23,7 @@ struct OverviewView: View {
                         DecisionsCard(waiting: waiting)
                             .frame(maxWidth: isWide ? 380 : .infinity)
                     }
-                    SectionCard("Activity", actionTitle: "All activity", action: { navigator.open(.activity) }) {
+                    SectionCard(LocalizedStringResource("Activity", bundle: .module), actionTitle: LocalizedStringResource("All activity", bundle: .module), action: { navigator.open(.activity) }) {
                         ActivityRows(events: Array(snapshot.activity.prefix(5)))
                     }
                 }
@@ -56,7 +56,7 @@ private struct CompanyHeader: View {
 
     @ViewBuilder private var mission: some View {
         if let mission = company.mission {
-            Text("Mission: \(mission)")
+            Text("Mission: \(mission)", bundle: .module)
                 .font(.callout)
                 .foregroundStyle(Palette.steel)
         }
@@ -75,7 +75,7 @@ private struct StatePill: View {
     }
 
     private var heartbeat: String? {
-        company.heartbeatMinutes.map { String(localized: "heartbeat every \($0) min") }
+        company.heartbeatMinutes.map { String(localized: "heartbeat every \($0) min", bundle: .module) }
     }
 }
 
@@ -84,31 +84,31 @@ private struct MetricGrid: View {
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
-            MetricCard(String(localized: "Agents working"), value: "\(metrics.agentsWorking)", total: "/ \(metrics.agentsTotal)") {
+            MetricCard(LocalizedStringResource("Agents working", bundle: .module), value: "\(metrics.agentsWorking)", total: "/ \(metrics.agentsTotal)") {
                 Text(Self.join([
-                    (metrics.agentsIdle, String(localized: "\(metrics.agentsIdle) idle")),
-                    (metrics.agentsPaused, String(localized: "\(metrics.agentsPaused) paused")),
+                    (metrics.agentsIdle, String(localized: "\(metrics.agentsIdle) idle", bundle: .module)),
+                    (metrics.agentsPaused, String(localized: "\(metrics.agentsPaused) paused", bundle: .module)),
                 ]))
             }
-            MetricCard(String(localized: "Open tasks"), value: "\(metrics.openTasks)") {
+            MetricCard(LocalizedStringResource("Open tasks", bundle: .module), value: "\(metrics.openTasks)") {
                 Text(Self.join([
-                    (metrics.tasksBlocked, String(localized: "\(metrics.tasksBlocked) blocked")),
-                    (metrics.tasksInReview, String(localized: "\(metrics.tasksInReview) in review")),
+                    (metrics.tasksBlocked, String(localized: "\(metrics.tasksBlocked) blocked", bundle: .module)),
+                    (metrics.tasksInReview, String(localized: "\(metrics.tasksInReview) in review", bundle: .module)),
                 ]))
             }
             MetricCard(
-                String(localized: "Waiting on you"), value: "\(metrics.waitingCount)", emphasis: metrics.waitingCount > 0
+                LocalizedStringResource("Waiting on you", bundle: .module), value: "\(metrics.waitingCount)", emphasis: metrics.waitingCount > 0
             ) {
-                Text(metrics.waitingCount > 0 ? waitingSummary : String(localized: "All clear"))
+                Text(metrics.waitingCount > 0 ? waitingSummary : String(localized: "All clear", bundle: .module))
             }
             MetricCard(
-                String(localized: "Spend this month"), value: Money.dollars(metrics.spend.spentCents),
+                LocalizedStringResource("Spend this month", bundle: .module), value: Money.dollars(metrics.spend.spentCents),
                 total: metrics.spend.capCents.map { "/ \(Money.dollars($0))" }
             ) {
                 if metrics.spend.fraction != nil {
                     BudgetBar(metrics.spend, height: 6).padding(.top, 4)
                 } else {
-                    Text("No company cap")
+                    Text("No company cap", bundle: .module)
                 }
             }
         }
@@ -130,9 +130,9 @@ private struct LiveRunsCard: View {
     let runs: [Run]
 
     var body: some View {
-        SectionCard("Live runs") {
+        SectionCard(LocalizedStringResource("Live runs", bundle: .module)) {
             if runs.isEmpty {
-                EmptyRow("No agent is running right now.")
+                EmptyRow(LocalizedStringResource("No agent is running right now.", bundle: .module))
             }
             ForEach(runs) { run in
                 LiveRunRow(run: run)
@@ -188,15 +188,15 @@ private struct DecisionsCard: View {
     let waiting: [Approval]
 
     var body: some View {
-        SectionCard("Needs your decision") {
+        SectionCard(LocalizedStringResource("Needs your decision", bundle: .module)) {
             if waiting.isEmpty {
-                EmptyRow("Nothing is waiting on you.")
+                EmptyRow(LocalizedStringResource("Nothing is waiting on you.", bundle: .module))
             }
             ForEach(waiting) { approval in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
                         KindTag(title: approval.kind.label)
-                        Text("from \(approval.requestedBy)")
+                        Text("from \(approval.requestedBy)", bundle: .module)
                             .font(.caption)
                             .foregroundStyle(Palette.muted)
                     }
@@ -204,7 +204,7 @@ private struct DecisionsCard: View {
                     HStack(spacing: 8) {
                         Button("Approve") { Task { await model.decide(approval, approve: true, confirmingWith: lock) } }
                             .buttonStyle(.fabrixPrimary)
-                        Button("Open") { navigator.open(.approvals) }
+                        Button(LocalizedStringResource("Open", bundle: .module)) { navigator.open(.approvals) }
                             .buttonStyle(.fabrixSecondary)
                     }
                 }

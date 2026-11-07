@@ -66,7 +66,7 @@ private struct ColumnHeader: View {
         HStack(spacing: 8) {
             Circle().fill(status.color).frame(width: 8, height: 8)
             Text(status.title).font(.subheadline.weight(.semibold))
-            Text("\(count)").font(.caption).foregroundStyle(Palette.muted)
+            Text("\(count)", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
         }
         .padding(.horizontal, 4)
         .accessibilityElement(children: .combine)
@@ -104,11 +104,11 @@ private struct AssigneeLine: View {
                 AvatarBadge(agent.initials, size: 22)
                 Text(agent.name).font(.caption).foregroundStyle(Palette.steel)
             } else {
-                Text("Unassigned").font(.caption).foregroundStyle(Palette.muted)
+                Text("Unassigned", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
             }
             Spacer(minLength: 0)
             if model.liveRun(for: task) != nil {
-                Text("running").font(.caption2.weight(.semibold)).foregroundStyle(Palette.run)
+                Text("running", bundle: .module).font(.caption2.weight(.semibold)).foregroundStyle(Palette.run)
             }
         }
     }
@@ -155,7 +155,7 @@ struct TaskDetailView: View {
         if let task = model.task(taskID) {
             TaskDetailContent(task: task)
         } else {
-            ContentUnavailableView("Task not found", systemImage: "rectangle.slash")
+            ContentUnavailableView(LocalizedStringResource("Task not found", bundle: .module), systemImage: "rectangle.slash")
         }
     }
 }
@@ -178,27 +178,27 @@ private struct TaskDetailContent: View {
                 Text(task.title).font(.title3.weight(.semibold))
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                     GridRow {
-                        Text("Assignee").foregroundStyle(Palette.muted)
-                        Text(assignee?.name ?? String(localized: "Unassigned")).fontWeight(.medium)
+                        Text("Assignee", bundle: .module).foregroundStyle(Palette.muted)
+                        Text(assignee?.name ?? String(localized: "Unassigned", bundle: .module)).fontWeight(.medium)
                     }
                     GridRow {
-                        Text("Updated").foregroundStyle(Palette.muted)
+                        Text("Updated", bundle: .module).foregroundStyle(Palette.muted)
                         Text(task.updatedAt, format: .relative(presentation: .named))
                     }
                 }
                 if let run = model.liveRun(for: task) {
                     HStack {
-                        Text("Running for")
+                        Text("Running for", bundle: .module)
                         ElapsedText(since: run.startedAt).font(.body.monospaced())
                     }
                     .foregroundStyle(Palette.run)
                 }
                 if let assignee {
                     HStack(spacing: 8) {
-                        Button("Wake agent") { Task { await model.wake(assignee) } }
+                        Button(LocalizedStringResource("Wake agent", bundle: .module)) { Task { await model.wake(assignee) } }
                             .buttonStyle(.fabrixPrimary)
                             .disabled(model.status(of: assignee) == .running)
-                        NavigationLink(value: assignee.id) { Text("Open agent") }
+                        NavigationLink(value: assignee.id) { Text("Open agent", bundle: .module) }
                             .buttonStyle(.fabrixSecondary)
                     }
                 }

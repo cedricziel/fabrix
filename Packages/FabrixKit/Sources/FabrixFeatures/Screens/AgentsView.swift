@@ -47,12 +47,12 @@ struct AgentDetailView: View {
                     RecentRuns(runs: runs.filter { !$0.isLive })
                     HStack(spacing: 10) {
                         Button { Task { await model.pause(agent) } } label: {
-                            Text("Pause").frame(maxWidth: .infinity)
+                            Text("Pause", bundle: .module).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.fabrixSecondary)
                             .disabled(model.status(of: agent) == .paused)
                         Button { Task { await model.wake(agent) } } label: {
-                            Text("Wake now").frame(maxWidth: .infinity)
+                            Text("Wake now", bundle: .module).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.fabrixSignal)
                             .disabled(model.status(of: agent) == .running)
@@ -66,7 +66,7 @@ struct AgentDetailView: View {
             .background(Palette.paper)
             .navigationTitle(agent.name)
         } else {
-            ContentUnavailableView("Agent not found", systemImage: "person.crop.circle.badge.questionmark")
+            ContentUnavailableView(LocalizedStringResource("Agent not found", bundle: .module), systemImage: "person.crop.circle.badge.questionmark")
         }
     }
 
@@ -77,12 +77,12 @@ struct AgentDetailView: View {
                 Text(agent.name).font(.title2.weight(.semibold))
                 HStack(spacing: 4) {
                     StatusPill(model.status(of: agent).style)
-                    Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board"))")
+                    Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board"))", bundle: .module)
                         .font(.caption)
                         .foregroundStyle(Palette.steel)
                 }
                 if let role = agent.role, let adapter = agent.adapter {
-                    Text("\(role) · \(adapter)").font(.caption.monospaced()).foregroundStyle(Palette.muted)
+                    Text("\(role) · \(adapter)", bundle: .module).font(.caption.monospaced()).foregroundStyle(Palette.muted)
                 }
             }
         }
@@ -96,7 +96,7 @@ private struct CurrentRunCard: View {
         Card(style: .inverse) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Current run").font(.caption.weight(.semibold)).textCase(.uppercase)
+                    Text("Current run", bundle: .module).font(.caption.weight(.semibold)).textCase(.uppercase)
                     Spacer()
                     ElapsedText(since: run.startedAt).font(.title3.monospaced().weight(.medium))
                 }
@@ -123,23 +123,23 @@ private struct BudgetSection: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Budget this month").font(.subheadline.weight(.semibold))
+                Text("Budget this month", bundle: .module).font(.subheadline.weight(.semibold))
                 Spacer()
                 Text(Money.usage(agent.budget)).font(.subheadline.monospaced())
             }
             if let fraction = agent.budget.fraction {
                 BudgetBar(agent.budget)
                 if agent.budget.isNearCap {
-                    Text("Near cap: agent pauses automatically at 100%")
+                    Text("Near cap: agent pauses automatically at 100%", bundle: .module)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Palette.signalInk)
                 } else {
-                    Text("\(fraction, format: .percent.precision(.fractionLength(0))) used")
+                    Text("\(fraction, format: .percent.precision(.fractionLength(0))) used", bundle: .module)
                         .font(.caption)
                         .foregroundStyle(Palette.muted)
                 }
             } else {
-                Text("No monthly cap").font(.caption).foregroundStyle(Palette.muted)
+                Text("No monthly cap", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
             }
         }
     }
@@ -149,9 +149,9 @@ private struct RecentRuns: View {
     let runs: [Run]
 
     var body: some View {
-        SectionCard("Recent runs") {
+        SectionCard(LocalizedStringResource("Recent runs", bundle: .module)) {
             if runs.isEmpty {
-                EmptyRow("No finished runs yet.")
+                EmptyRow(LocalizedStringResource("No finished runs yet.", bundle: .module))
             }
             ForEach(runs) { run in
                 HStack(alignment: .top, spacing: 10) {
@@ -161,7 +161,7 @@ private struct RecentRuns: View {
                             .lineLimit(1)
                         HStack(spacing: 0) {
                             Text(run.startedAt, format: .dateTime.hour().minute())
-                            if let summary = run.summary { Text(" · \(summary)") }
+                            if let summary = run.summary { Text(" · \(summary)", bundle: .module) }
                         }
                         .font(.caption)
                         .foregroundStyle(Palette.muted)

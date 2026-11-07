@@ -13,6 +13,6 @@
 
 ## 3. String catalogs and bundle wiring (PR 3)
 
-- [ ] 3.1 `Localizable.xcstrings` in FabrixDesign and FabrixFeatures, processed (`Package.swift`, `Resources/`); test `LocalizationBundleTests` resolves a string from each module bundle
-- [ ] 3.2 Features literals pass `bundle: .module` (every screen); no new test, covered by 3.1
+- [x] 3.1 `Localizable.xcstrings` in FabrixDesign and FabrixFeatures, processed and filled from an Xcode build (`Package.swift`, `Resources/`); no test, resources
+- [x] 3.2 Features literals pass `bundle: .module` (every screen); tests `LocalizationBundleTests` in both test targets check that a Features and a Design string look up their own module bundle
 - [ ] 3.3 Archive the change
