@@ -1,1 +1,3 @@
-No account is needed to review the app. On first launch, tap "Explore the demo" to load a built-in sample company with agents, tasks and pending approvals. Connecting your own Paperclip server is not available in this beta.
+No account is needed to review the app. On first launch, tap "Explore the demo" to load a built-in sample company with agents, tasks and pending approvals.
+
+Connecting your own factory requires a self-hosted Paperclip server. It is optional and not needed for review.
