@@ -90,7 +90,7 @@ private struct ApprovalCard<Actions: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 KindTag(title: approval.kind.label)
-                Text("\(approval.requestedBy) · \(approval.createdAt, format: .relative(presentation: .named))", bundle: .module)
+                Text(verbatim: "\(approval.requestedBy) · \(approval.createdAt.formatted(.relative(presentation: .named)))")
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
             }

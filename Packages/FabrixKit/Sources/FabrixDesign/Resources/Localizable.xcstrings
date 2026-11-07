@@ -1,50 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    " %@" : {
-
-    },
-    "%@%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@%2$@"
-          }
-        }
-      }
-    },
-    "1 hire · 1 strategy · 1 budget" : {
-
-    },
-    "2 idle · 1 paused" : {
-
-    },
-    "412" : {
-
-    },
-    "ATL-142 · claude-code · 07:41 · $6.12" : {
-
-    },
-    "ATL-151" : {
-
-    },
-    "Activity" : {
-
-    },
-    "Agents working" : {
-
-    },
-    "All runs" : {
-
-    },
-    "Approve" : {
-
-    },
     "Blocked" : {
-
-    },
-    "Body regular. Agents report, you decide." : {
 
     },
     "Budget" : {
@@ -53,31 +10,7 @@
     "Budget used" : {
 
     },
-    "CTO · ATL-142" : {
-
-    },
-    "Caption" : {
-
-    },
-    "Disabled" : {
-
-    },
     "Done" : {
-
-    },
-    "EYEBROW" : {
-
-    },
-    "Factory address" : {
-
-    },
-    "Halt" : {
-
-    },
-    "Headline semibold" : {
-
-    },
-    "Hide" : {
 
     },
     "Hire" : {
@@ -86,97 +19,16 @@
     "Idle" : {
 
     },
-    "Large title 34" : {
-
-    },
-    "Live runs" : {
-
-    },
     "Needs you" : {
-
-    },
-    "Needs your decision" : {
-
-    },
-    "Neutral" : {
-
-    },
-    "No activity yet." : {
-
-    },
-    "Not editable" : {
-
-    },
-    "Nothing is waiting on you." : {
-
-    },
-    "Offline cache for task list" : {
-
-    },
-    "Open" : {
-
-    },
-    "Paperclip API key" : {
-
-    },
-    "Paste the key from your Paperclip board" : {
-
-    },
-    "Pause" : {
 
     },
     "Paused" : {
 
     },
-    "Run" : {
-
-    },
     "Running" : {
 
     },
-    "Selected card" : {
-
-    },
-    "Selected card · tap to toggle" : {
-
-    },
-    "Show" : {
-
-    },
-    "Signal" : {
-
-    },
-    "Slides in from the top, or fades with Reduce Motion" : {
-
-    },
-    "Spend this month" : {
-
-    },
     "Strategy" : {
-
-    },
-    "Subheadline" : {
-
-    },
-    "Title 22 · Metrics $412" : {
-
-    },
-    "Unselected card" : {
-
-    },
-    "Waiting on you" : {
-
-    },
-    "Wake now" : {
-
-    },
-    "With a mark" : {
-
-    },
-    "heartbeat every 5 min" : {
-
-    },
-    "https://factory.example.com" : {
 
     }
   },

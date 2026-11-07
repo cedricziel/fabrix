@@ -1,26 +1,10 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    " · %@" : {
-
-    },
     "%@ couldn't be opened. Remove it and add it again." : {
 
     },
     "%@ used" : {
-
-    },
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
-    },
-    "%lld" : {
 
     },
     "%lld blocked" : {
@@ -34,16 +18,6 @@
     },
     "%lld paused" : {
 
-    },
-    "**%@** %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "**%1$@** %2$@"
-          }
-        }
-      }
     },
     "A control room for your Paperclip factories. Agents report, you decide." : {
 
@@ -339,6 +313,9 @@
     "Strategy" : {
 
     },
+    "Switch factory or company" : {
+
+    },
     "Task not found" : {
 
     },
@@ -393,19 +370,10 @@
     "Your decision wasn't sent: %@" : {
 
     },
-    "fabrix" : {
-
-    },
     "from %@" : {
 
     },
     "heartbeat every %lld min" : {
-
-    },
-    "https://auth.example.com" : {
-
-    },
-    "https://factory.example.com" : {
 
     },
     "running" : {
