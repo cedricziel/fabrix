@@ -6,7 +6,7 @@
 
 ## 2. FabrixFeatures: connect form (PR: headers/ui)
 
-- [ ] 2.1 Header rows in `ConnectForm` and the `headers` parameter on `FactoryConnector` and `StoreConnector` (`Logic/Connecting.swift`, `Logic/StoreConnector.swift`, `AppModel.swift`); tests `ConnectFormTests.blankHeaderRowsAreDropped`, `AppModelTests.connectingPassesCustomHeaders`
-- [ ] 2.2 Advanced section with the Custom headers list (`Screens/OnboardingView.swift`); no test, layout only, checked in both app builds
-- [ ] 2.3 Check a board-key connect with a custom header against the `/validate` sandbox
-- [ ] 2.4 Archive the change
+- [x] 2.1 Header rows in `ConnectForm` and the `headers` parameter on `FactoryConnector` and `StoreConnector` (`Logic/Connecting.swift`, `Logic/StoreConnector.swift`, `AppModel.swift`); tests `ConnectFormTests.blankHeaderRowsAreDropped`, `AppModelTests.connectingPassesCustomHeaders`
+- [x] 2.2 Advanced section with the Custom headers list (`Screens/OnboardingView.swift`); no test, layout only, checked in both app builds
+- [x] 2.3 Check a board-key connect with a custom header against the `/validate` sandbox; test `SandboxContractTests.connectsWithACustomHeader`, run through a local proxy that logged the header name on every request
+- [x] 2.4 Archive the change
