@@ -660,7 +660,8 @@ public final class AppModel {
     }
 
     private func loadProjects(companyID: Company.ID) async {
-        guard let service else { return }
+        // A rejected key fails this request too; the sign-in prompt already says why.
+        guard let service, !needsSignIn else { return }
         let ticket = beginProjectsRequest()
         guard !projectsUnsupported else {
             apply(.unsupported, companyID: companyID, ticket: ticket)
