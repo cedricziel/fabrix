@@ -5,6 +5,7 @@ import SwiftUI
 public struct RootView: View {
     @State private var model: AppModel
     @State private var navigator = Navigator()
+    @State private var shutdownTask: UUID?
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
         @Environment(\.horizontalSizeClass) private var sizeClass
@@ -73,8 +74,14 @@ public struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if ScenePolicy.commitsDecisions(phase) {
-                Task { await model.commitStagedDecisions() }
+                ShutdownTasks.runInBackground()
             }
+        }
+        .onAppear {
+            shutdownTask = ShutdownTasks.register { [model] in await model.commitStagedDecisions() }
+        }
+        .onDisappear {
+            shutdownTask.map(ShutdownTasks.unregister)
         }
     }
 

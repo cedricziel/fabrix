@@ -5,6 +5,9 @@ import SwiftUI
 @main
 struct FabrixApp: App {
     private let factoryStore = FactoryStore()
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    #endif
 
     var body: some Scene {
         WindowGroup {
