@@ -20,6 +20,15 @@ struct OrgChartView: View {
             OrgSummary()
                 .padding([.horizontal, .bottom], 20)
         }
+        .overlay {
+            if agents.isEmpty {
+                ContentUnavailableView {
+                    Label(.features("No agents yet"), systemImage: "point.3.connected.trianglepath.dotted")
+                } description: {
+                    Text("Hire your first agent on your Paperclip board.", bundle: .module)
+                }
+            }
+        }
         .background(Palette.paper)
         .inspector(isPresented: $selectedID.isPresent()) {
             if let selectedID {

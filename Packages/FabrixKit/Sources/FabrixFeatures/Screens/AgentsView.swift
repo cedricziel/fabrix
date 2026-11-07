@@ -25,7 +25,12 @@ struct AgentsView: View {
             }
         }
         .overlay {
-            if model.visibleAgents.isEmpty { ContentUnavailableView.search }
+            EmptyStateView(
+                emptiness: ListEmptiness(
+                    total: model.snapshot?.agents.count ?? 0, visible: model.visibleAgents.count, query: model.searchText
+                ),
+                title: .features("No agents yet"), systemImage: "person.2", hint: .features("Hire your first agent on your Paperclip board.")
+            )
         }
     }
 }
@@ -71,7 +76,11 @@ struct AgentDetailView: View {
             .background(Palette.paper)
             .navigationTitle(agent.name)
         } else {
-            ContentUnavailableView(.features("Agent not found"), systemImage: "person.crop.circle.badge.questionmark")
+            ContentUnavailableView {
+                Label(.features("Agent not found"), systemImage: "person.crop.circle.badge.questionmark")
+            } description: {
+                Text("It was removed from the company on the board.", bundle: .module)
+            }
         }
     }
 

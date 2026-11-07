@@ -81,8 +81,15 @@ private struct AppRoot: View {
                         ContentUnavailableView {
                             Label(.features("No companies yet"), systemImage: "building.2")
                         } description: {
-                            Text("This factory has no companies.", bundle: .module)
+                            Text("Create a company on your Paperclip board, then refresh.", bundle: .module)
                         } actions: {
+                            Button {
+                                Task { await model.refresh() }
+                            } label: {
+                                if model.isRefreshing { ProgressView().controlSize(.small) } else { Text("Refresh", bundle: .module) }
+                            }
+                            .buttonStyle(.fabrixPrimary)
+                            .disabled(model.isRefreshing)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
                         .factoryTitle()
