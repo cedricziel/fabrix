@@ -81,7 +81,7 @@ struct FactoryStoreTests {
         let store = store(server)
         let factory = try await store.connect(url: server.baseURL, credential: "k")
 
-        try store.remove(factory)
+        store.remove(factory)
 
         #expect(store.factories.isEmpty)
         #expect(try credentials.credential(for: factory.id) == nil)
@@ -231,7 +231,7 @@ struct FactoryStoreTests {
         let factory = try await store.connect(url: paperclip.baseURL, auth: FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL)), boardKey: nil, webAuthenticator: FakeWebAuthenticator.approving())
         #expect(!credentials.isEmpty)
 
-        try store.remove(factory)
+        store.remove(factory)
 
         #expect(credentials.isEmpty)
         #expect(store.auth(for: factory) == FactoryAuthConfiguration.none)
@@ -245,6 +245,19 @@ struct FactoryStoreTests {
         }
         #expect(store.factories.isEmpty)
         #expect(credentials.isEmpty)
+    }
+
+    @Test func removeDropsTheFactoryEvenIfASecretCannotBeDeleted() async throws {
+        let flaky = FlakyCredentialStore()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = FactoryStore(defaults: defaults, credentials: flaky, session: paperclip.session)
+        let factory = try await store.connect(url: paperclip.baseURL, credential: "key")
+        flaky.failWrites { $0.hasSuffix(".oidc") }
+
+        store.remove(factory)
+
+        #expect(store.factories.isEmpty)
+        #expect(FactoryStore(defaults: defaults, credentials: flaky, session: paperclip.session).factories.isEmpty)
     }
 
     @Test func failedSecondSecretWriteRollsBackTheFirst() async throws {
@@ -361,7 +374,7 @@ struct FactoryStoreTests {
         let store = store(server)
         let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret", headers: PaperclipFixtures.proxyHeader)
 
-        try store.remove(factory)
+        store.remove(factory)
 
         #expect(credentials.isEmpty)
     }

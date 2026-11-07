@@ -198,15 +198,18 @@ public final class FactoryStore {
     }
 
     /// Forgets the factory and deletes its board key, custom header values and OIDC tokens.
-    public func remove(_ factory: Factory) throws {
-        try credentials.setCredential(nil, for: factory.id)
-        try credentials.setCredential(nil, for: Self.headersAccount(factory.id))
-        try oidcTokenStore(factory.id).save(nil)
+    ///
+    /// The record goes first, so a factory is never left listed without its secrets. Deleting the
+    /// secrets afterwards is best effort: a leftover Keychain item is unreachable and harmless.
+    public func remove(_ factory: Factory) {
         oidcProviders[factory.id] = nil
         authConfigurations[factory.id] = nil
         headerNames[factory.id] = nil
         factories.removeAll { $0.id == factory.id }
         save()
+        try? credentials.setCredential(nil, for: factory.id)
+        try? credentials.setCredential(nil, for: Self.headersAccount(factory.id))
+        try? oidcTokenStore(factory.id).save(nil)
     }
 
     /// A live `FactoryService` for a saved factory, authenticated with its stored configuration.

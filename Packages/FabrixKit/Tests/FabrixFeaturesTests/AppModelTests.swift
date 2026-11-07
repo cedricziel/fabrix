@@ -283,38 +283,6 @@ struct AppModelTests {
         #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
     }
 
-    @Test func forgettingAFactoryDeletesItAndReturnsToOnboarding() async {
-        let defaults = freshDefaults()
-        let connector = RecordingConnector()
-        let model = AppModel(connector: connector, defaults: defaults)
-        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
-        #expect(model.canForgetFactory)
-
-        model.forgetFactory()
-
-        #expect(model.isOnboarding)
-        #expect(connector.saved.isEmpty)
-        #expect(AppModel(connector: connector, defaults: defaults).isOnboarding)
-    }
-
-    @Test func failedForgetKeepsTheFactoryOpen() async {
-        let connector = RecordingConnector()
-        let model = AppModel(connector: connector, defaults: freshDefaults())
-        await model.connect(ConnectForm(address: "f.example", apiKey: "k"))
-        connector.forgetError = ConnectFailure(message: "Keychain locked")
-
-        model.forgetFactory()
-
-        #expect(!model.isOnboarding)
-        #expect(model.lastError == "Keychain locked")
-    }
-
-    @Test func theDemoCannotBeForgotten() async {
-        let model = AppModel(connector: RecordingConnector(), defaults: freshDefaults())
-        await model.exploreDemo()
-        #expect(!model.canForgetFactory)
-    }
-
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)
@@ -351,6 +319,14 @@ final class RecordingConnector: FactoryConnector {
     private(set) var authenticators = 0
     private let error: (any Error)?
     var saved: [Factory.ID: FactoryConnection] = [:]
+    private var order: [Factory.ID] = []
+    /// Shared by every connection, so tests can see what reached the factory.
+    var service: (any FactoryService)?
+    var delay: Duration?
+
+    var factories: [Factory] {
+        order.compactMap { saved[$0]?.factory }
+    }
 
     init(failure: String? = nil) {
         error = failure.map { ConnectFailure(message: $0) }
@@ -364,11 +340,13 @@ final class RecordingConnector: FactoryConnector {
         baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
     ) async throws -> FactoryConnection {
         calls.append(ConnectCall(url: baseURL.absoluteString, auth: auth, headers: headers))
+        if let delay { try await Task.sleep(for: delay) }
         if webAuthenticator != nil { authenticators += 1 }
         if let error { throw error }
         let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
-        let connection = FactoryConnection(factory: factory, service: DemoFactoryService())
+        let connection = FactoryConnection(factory: factory, service: service ?? DemoFactoryService())
         saved[factory.id] = connection
+        order.append(factory.id)
         return connection
     }
 

@@ -27,6 +27,10 @@ public final class StoreConnector: FactoryConnector {
         return try FactoryConnection(factory: factory, service: store.service(for: factory))
     }
 
+    public var factories: [Factory] {
+        store.factories
+    }
+
     public func restore(factoryID: Factory.ID) -> FactoryConnection? {
         guard let factory = store.factories.first(where: { $0.id == factoryID }),
               let service = try? store.service(for: factory)
@@ -36,7 +40,7 @@ public final class StoreConnector: FactoryConnector {
 
     public func forget(factoryID: Factory.ID) throws {
         guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return }
-        try store.remove(factory)
+        store.remove(factory)
     }
 
     static func configuration(for auth: FactoryAuth) -> (FactoryAuthConfiguration, boardKey: String?) {

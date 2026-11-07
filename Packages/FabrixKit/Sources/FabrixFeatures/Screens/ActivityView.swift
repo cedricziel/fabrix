@@ -13,7 +13,6 @@ struct ActivityView: View {
                 .frame(maxWidth: 900, alignment: .leading)
         }
         .background(Palette.paper)
-        .navigationTitle("Activity")
     }
 }
 

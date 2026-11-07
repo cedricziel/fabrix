@@ -4,8 +4,6 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
-    @State private var form = ConnectForm()
-    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
         ScrollView {
@@ -18,54 +16,7 @@ struct OnboardingView: View {
                         .foregroundStyle(Palette.steel)
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Connect a factory").font(.headline)
-                    LabeledField(title: "Factory address") {
-                        TextField("https://factory.example.com", text: $form.address)
-                            .urlEntry()
-                    }
-                    Picker("Sign in with", selection: $form.method) {
-                        ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    if form.method.usesOIDC {
-                        LabeledField(title: "OIDC issuer") {
-                            TextField("https://auth.example.com", text: $form.issuer).urlEntry()
-                        }
-                        LabeledField(title: "Client ID") {
-                            TextField("fabrix", text: $form.clientID).autocorrectionDisabled()
-                        }
-                    }
-                    if form.method.usesAPIKey {
-                        LabeledField(title: "Paperclip API key") {
-                            SecureField("Paste the key from your Paperclip board", text: $form.apiKey)
-                                .textContentType(.password)
-                        }
-                    }
-                    AdvancedSection(headers: $form.headers)
-                    if let error = model.connectError {
-                        Label(error, systemImage: "exclamationmark.triangle.fill")
-                            .font(.callout)
-                            .foregroundStyle(Palette.halt)
-                    }
-                    Button {
-                        connect()
-                    } label: {
-                        Group {
-                            if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.fabrixPrimary)
-                    .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
-                    if !model.canConnect {
-                        Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.muted)
-                    }
-                }
-                .padding(20)
-                .cardSurface()
+                ConnectFactoryForm()
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("No factory yet?").font(.headline)
@@ -85,13 +36,99 @@ struct OnboardingView: View {
             .padding(.top, 40)
         }
         .background(Palette.paper)
-        .onSubmit(connect)
+    }
+}
+
+/// Address, sign-in method, credentials and custom headers for a factory.
+/// Used by onboarding and by Add Factory.
+struct ConnectFactoryForm: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @State private var form = ConnectForm()
+    var onConnected: () -> Void = {}
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Connect a factory").font(.headline)
+            LabeledField(title: "Factory address") {
+                TextField("https://factory.example.com", text: $form.address)
+                    .urlEntry()
+            }
+            Picker("Sign in with", selection: $form.method) {
+                ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.menu)
+            if form.method.usesOIDC {
+                LabeledField(title: "OIDC issuer") {
+                    TextField("https://auth.example.com", text: $form.issuer).urlEntry()
+                }
+                LabeledField(title: "Client ID") {
+                    TextField("fabrix", text: $form.clientID).autocorrectionDisabled()
+                }
+            }
+            if form.method.usesAPIKey {
+                LabeledField(title: "Paperclip API key") {
+                    SecureField("Paste the key from your Paperclip board", text: $form.apiKey)
+                        .textContentType(.password)
+                }
+            }
+            AdvancedSection(headers: $form.headers)
+            if let error = model.connectError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(Palette.halt)
+            }
+            Button {
+                connect()
+            } label: {
+                Group {
+                    if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.fabrixPrimary)
+            .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
+            if !model.canConnect {
+                Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.muted)
+            }
+        }
+        .padding(20)
+        .cardSurface()
+            .onSubmit(connect)
     }
 
     private func connect() {
-        guard model.canConnect else { return }
+        guard model.canConnect, !form.address.isEmpty, !model.isConnecting else { return }
         let authenticator = SessionAuthenticator(session: webAuthenticationSession)
-        Task { await model.connect(form, webAuthenticator: authenticator) }
+        Task {
+            if await model.connect(form, webAuthenticator: authenticator) { onConnected() }
+        }
+    }
+}
+
+/// "Add Factory…" from the title menu, with the current factory still open behind it.
+struct AddFactorySheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                ConnectFactoryForm { dismiss() }
+                    .padding(20)
+            }
+            .background(Palette.paper)
+            .navigationTitle("Add Factory")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .frame(minWidth: 460, minHeight: 420)
+        .onAppear { model.clearConnectError() }
     }
 }
 
@@ -190,3 +227,9 @@ private struct AdvancedSection: View {
 }
 
 #Preview { OnboardingView().environment(AppModel(defaults: UserDefaults(suiteName: "preview.onboarding")!)) }
+
+#Preview("Add Factory") {
+    AddFactorySheet()
+        .environment(AppModel.demo())
+        .environment(Navigator())
+}

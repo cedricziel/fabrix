@@ -16,6 +16,8 @@ struct SplitShell: View {
         } detail: {
             NavigationStack(path: $navigator.path) {
                 SectionScreen(section: navigator.section)
+                    .id(model.snapshot?.company.id)
+                    .factoryTitle()
                     .fabrixDestinations()
             }
             .refreshable { await model.refresh() }
@@ -47,30 +49,12 @@ private struct Sidebar: View {
     var body: some View {
         @Bindable var navigator = navigator
         List(selection: Binding($navigator.section)) {
-            Section("Factories") {
-                if let factory = model.factory {
-                    FactoryRow(factory: factory)
-                }
-                ForEach(model.companies) { company in
-                    CompanyRow(company: company, isSelected: company.id == model.snapshot?.company.id)
-                }
-                Button {
-                    model.disconnect()
-                } label: {
-                    Label("Switch factory", systemImage: "arrow.left.arrow.right")
-                }
-                .foregroundStyle(Palette.muted)
-                .buttonStyle(.plain)
-            }
-            Section(model.snapshot?.company.name ?? "") {
-                ForEach(AppSection.allCases) { section in
-                    Label(section.title, systemImage: section.systemImage)
-                        .badge(badge(for: section))
-                        .tag(section)
-                }
+            ForEach(AppSection.allCases) { section in
+                Label(section.title, systemImage: section.systemImage)
+                    .badge(badge(for: section))
+                    .tag(section)
             }
         }
-        .navigationTitle(model.snapshot?.company.name ?? "Fabrix")
     }
 
     private func badge(for section: AppSection) -> Int {
@@ -82,79 +66,42 @@ private struct Sidebar: View {
     }
 }
 
-private struct FactoryRow: View {
-    @Environment(AppModel.self) private var model
-    @Environment(Navigator.self) private var navigator
-    let factory: Factory
-
-    var body: some View {
-        HStack(spacing: 8) {
-            StatusDot(factory.isOnline ? .done : .paused, size: 8)
-            Text(factory.name).fontWeight(.semibold)
-            Spacer()
-            Text(factory.isOnline ? "online" : "offline")
-                .font(.caption.monospaced())
-                .foregroundStyle(Palette.muted)
-        }
-        .selectionDisabled()
-        .contextMenu {
-            if model.canForgetFactory {
-                Button("Forget Factory…", systemImage: "trash", role: .destructive) {
-                    navigator.confirmingForget = true
-                }
-            }
-        }
-    }
-}
-
-private struct CompanyRow: View {
-    @Environment(AppModel.self) private var model
-    let company: Company
-    let isSelected: Bool
-
-    var body: some View {
-        Button {
-            Task { await model.select(company) }
-        } label: {
-            HStack {
-                Text(company.name).fontWeight(isSelected ? .semibold : .regular)
-                Spacer()
-                if company.isPaused {
-                    Text("paused").font(.caption).foregroundStyle(Palette.muted)
-                } else if isSelected, let count = model.snapshot?.agents.count {
-                    Text("\(count) agents").font(.caption).foregroundStyle(Palette.muted)
-                }
-            }
-            .padding(.leading, 16)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .selectionDisabled()
-    }
-}
-
 /// Pause company and New task, shared by the split view and the iPhone Factory tab.
 struct CompanyToolbar: ToolbarContent {
     @Environment(AppModel.self) private var model
     @Environment(Navigator.self) private var navigator
 
     var body: some ToolbarContent {
+        #if os(macOS)
+        // The leading edge belongs to navigation and the title menu.
+        ToolbarItem(placement: .secondaryAction) { pauseButton }
+        ToolbarItem(placement: .automatic) { newTaskButton }
+        #else
         ToolbarItemGroup(placement: .primaryAction) {
-            if let company = model.snapshot?.company {
-                Button {
-                    Task { await model.setCompanyPaused(!company.isPaused) }
-                } label: {
-                    Label(company.isPaused ? "Resume company" : "Pause company",
-                          systemImage: company.isPaused ? "play.fill" : "pause.fill")
-                }
-                .help(company.isPaused ? "Resume every agent in \(company.name)" : "Pause every agent in \(company.name)")
-            }
-            Button {
-                navigator.showingNewTask = true
-            } label: {
-                Label("New task", systemImage: "plus")
-            }
-            .keyboardShortcut("n", modifiers: .command)
+            pauseButton
+            newTaskButton
         }
+        #endif
+    }
+
+    @ViewBuilder private var pauseButton: some View {
+        if let company = model.snapshot?.company {
+            Button {
+                Task { await model.setCompanyPaused(!company.isPaused) }
+            } label: {
+                Label(company.isPaused ? "Resume company" : "Pause company",
+                      systemImage: company.isPaused ? "play.fill" : "pause.fill")
+            }
+            .help(company.isPaused ? "Resume every agent in \(company.name)" : "Pause every agent in \(company.name)")
+        }
+    }
+
+    private var newTaskButton: some View {
+        Button {
+            navigator.showingNewTask = true
+        } label: {
+            Label("New task", systemImage: "plus")
+        }
+        .keyboardShortcut("n", modifiers: .command)
     }
 }

@@ -21,7 +21,6 @@ struct OrgChartView: View {
                 .padding([.horizontal, .bottom], 20)
         }
         .background(Palette.paper)
-        .navigationTitle("Org chart")
         .inspector(isPresented: $selectedID.isPresent()) {
             if let selectedID {
                 AgentDetailView(agentID: selectedID)

@@ -48,3 +48,18 @@ struct ScenePolicyTests {
         #expect(ScenePolicy.commitsDecisions(.background))
     }
 }
+
+@MainActor
+struct NavigatorResetTests {
+    @Test func switchingContextReturnsEveryStackToItsRoot() {
+        let navigator = Navigator()
+        navigator.path.append("fe")
+        navigator.isCompact = true
+        navigator.open(.activity)
+
+        navigator.resetPaths()
+
+        #expect(navigator.path.isEmpty)
+        #expect(navigator.tabPaths.isEmpty)
+    }
+}

@@ -37,6 +37,9 @@ public protocol FactoryConnector: AnyObject {
         baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
     ) async throws -> FactoryConnection
 
+    /// Every factory saved on this device, in the order they were added.
+    var factories: [Factory] { get }
+
     /// A saved factory from an earlier launch, or nil if it is gone.
     func restore(factoryID: Factory.ID) -> FactoryConnection?
 

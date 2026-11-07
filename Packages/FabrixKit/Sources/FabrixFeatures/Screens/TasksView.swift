@@ -22,7 +22,6 @@ struct TasksView: View {
                     }
             }
         }
-        .navigationTitle("Tasks")
     }
 }
 

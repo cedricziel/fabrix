@@ -70,8 +70,15 @@ final class Navigator {
     var tab = CompactTab.factory
     var tabPaths: [CompactTab: NavigationPath] = [:]
     var showingNewTask = false
-    var confirmingForget = false
+    var confirmingRemove = false
+    var showingAddFactory = false
     var isCompact = false
+
+    /// A new factory or company starts every stack at its root.
+    func resetPaths() {
+        path = NavigationPath()
+        tabPaths = [:]
+    }
 
     func open(_ section: AppSection) {
         guard isCompact else {
@@ -90,6 +97,6 @@ extension View {
     /// Destinations every navigation stack in the app can push.
     func fabrixDestinations() -> some View {
         navigationDestination(for: Agent.ID.self) { AgentDetailView(agentID: $0) }
-            .navigationDestination(for: AppSection.self) { SectionScreen(section: $0) }
+            .navigationDestination(for: AppSection.self) { SectionScreen(section: $0).navigationTitle($0.title) }
     }
 }

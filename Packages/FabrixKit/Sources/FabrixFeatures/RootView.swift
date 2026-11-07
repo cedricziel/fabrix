@@ -40,38 +40,45 @@ public struct RootView: View {
                     .safeAreaInset(edge: .top) { ErrorBanner() }
                     .modifier(ErrorAnnouncer())
                 case .empty:
-                    ContentUnavailableView {
-                        Label("No companies yet", systemImage: "building.2")
-                    } description: {
-                        Text("This factory has no companies.")
-                    } actions: {
-                        Button("Choose another factory") { model.disconnect() }
+                    // The title menu stays reachable so another factory can be opened or this one removed.
+                    NavigationStack {
+                        ContentUnavailableView {
+                            Label("No companies yet", systemImage: "building.2")
+                        } description: {
+                            Text("This factory has no companies.")
+                        } actions: {
+                            Button("Choose another factory") { model.disconnect() }
+                        }
+                        .factoryTitle()
                     }
                 case let .failed(message):
-                    ContentUnavailableView {
-                        Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(message)
-                    } actions: {
-                        Button("Try again") { Task { await model.refresh() } }
-                            .buttonStyle(.fabrixPrimary)
-                        Button("Choose another factory") { model.disconnect() }
+                    NavigationStack {
+                        ContentUnavailableView {
+                            Label("Can't reach the factory", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            Text(message)
+                        } actions: {
+                            Button("Try again") { Task { await model.refresh() } }
+                                .buttonStyle(.fabrixPrimary)
+                            Button("Choose another factory") { model.disconnect() }
+                        }
+                        .factoryTitle()
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.paper)
-        .environment(model)
-        .environment(navigator)
-        .environment(\.isCompact, isCompact)
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
+        .sheet(isPresented: $navigator.showingAddFactory) { AddFactorySheet() }
+        .focusedSceneValue(\.appModel, model)
+        .focusedSceneValue(\.navigator, navigator)
         .confirmationDialog(
-            "Forget \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingForget, titleVisibility: .visible
+            "Remove \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {
-            Button("Forget Factory", role: .destructive) { model.forgetFactory() }
+            Button("Remove Factory", role: .destructive) { Task { await model.removeOpenFactory() } }
         } message: {
             Text("Fabrix deletes the saved address and credentials from this device. Your factory and its agents are not affected.")
         }
@@ -90,6 +97,16 @@ public struct RootView: View {
         .onDisappear {
             shutdownTask.map(ShutdownTasks.unregister)
         }
+        .onChange(of: SwitchContext(factoryID: model.factory?.id, companyID: model.snapshot?.company.id)) {
+            navigator.resetPaths()
+        }
+        .onChange(of: model.factoryMenu.factories.map(\.id)) {
+            Task { await model.leaveIfRemoved() }
+        }
+        // Last, so sheets, dialogs and popovers presented above inherit the same environment.
+        .environment(model)
+        .environment(navigator)
+        .environment(\.isCompact, isCompact)
     }
 
     private var isCompact: Bool {
@@ -111,6 +128,11 @@ enum ScenePolicy {
     static func commitsDecisions(_ phase: ScenePhase) -> Bool {
         phase == .background
     }
+}
+
+private struct SwitchContext: Equatable {
+    var factoryID: String?
+    var companyID: String?
 }
 
 private struct Polling: Equatable {
