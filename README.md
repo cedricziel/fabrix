@@ -8,7 +8,7 @@ Fabrix is a native control room for [Paperclip](https://github.com/paperclipai/p
 - work the task board
 - browse the org chart
 
-Demo mode loads sample data, so you can try the app without a server.
+Demo mode loads sample data, so you can try the app without a server. The current beta runs on the demo only; connecting your own server and most of the screens above are still in review.
 
 ## Try it on TestFlight
 
@@ -16,9 +16,9 @@ Join the public beta: https://testflight.apple.com/join/uQU3veF3
 
 The beta covers iPhone, iPad and Mac.
 
-## Connect your factory
+## Connect your factory (planned)
 
-Fabrix connects to a self-hosted Paperclip server. Sign in with either:
+Fabrix will connect to a self-hosted Paperclip server. Sign in with either:
 
 - a Paperclip board API key, or
 - OIDC, including when an OIDC proxy sits in front of Paperclip.
