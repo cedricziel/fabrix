@@ -90,12 +90,17 @@ private struct AppRoot: View {
                 case let .failed(message):
                     NavigationStack {
                         ContentUnavailableView {
-                            Label(.features("Can't reach the factory"), systemImage: "exclamationmark.triangle")
+                            Label(failedTitle, systemImage: "exclamationmark.triangle")
                         } description: {
                             Text(message)
                         } actions: {
-                            Button(.features("Try again")) { Task { await model.refresh() } }
-                                .buttonStyle(.fabrixPrimary)
+                            Button {
+                                Task { await model.refresh() }
+                            } label: {
+                                if model.isRefreshing { ProgressView().controlSize(.small) } else { Text("Try again", bundle: .module) }
+                            }
+                            .buttonStyle(.fabrixPrimary)
+                            .disabled(model.isRefreshing)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
                         .factoryTitle()
@@ -179,6 +184,14 @@ private struct AppRoot: View {
         guard lockOfferIsDue else { return }
         lockOfferIsDue = false
         offeringLock = lock.shouldOfferLock
+    }
+
+    /// The server may have answered (401, 403), so "can't reach" is only one of the titles.
+    private var failedTitle: String {
+        ConnectionStatus(
+            model.connectionProblem, factory: model.factory?.name ?? "the factory",
+            company: nil, lastRefreshedAt: nil
+        )?.title ?? String(localized: "Can't reach the factory", bundle: .module)
     }
 
     private var isCompact: Bool {
