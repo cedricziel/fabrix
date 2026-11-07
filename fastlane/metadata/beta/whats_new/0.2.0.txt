@@ -1,0 +1,14 @@
+New in 0.2.0
+
+- Connect your own Paperclip server: sign in with a Paperclip API key, single sign-on (OIDC), or both. Keys and tokens stay in the Keychain.
+- Overview, task board, agents with pause and wake, org chart, approvals and activity now run on your factory's live data.
+- Approve or reject with an 8-second undo. Decisions still waiting are sent before the app quits or goes to the background.
+- Forget a factory to remove it and its saved keys.
+- Dark mode.
+
+Please test
+- Connecting with a key or OIDC, then quitting and reopening (it reconnects to your last factory).
+- Approving and rejecting, including Undo.
+- What happens when the server is unreachable.
+
+No account is needed: "Explore the demo" shows sample data.
