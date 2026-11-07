@@ -23,7 +23,7 @@ settings:
 
 configFiles:
   Debug: Config/Telemetry.xcconfig
-  Release: Config/Telemetry.xcconfig
+  Release: Config/Telemetry-Release.xcconfig
 
 packages:
   FabrixKit:
