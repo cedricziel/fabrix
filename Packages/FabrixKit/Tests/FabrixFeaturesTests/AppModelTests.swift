@@ -74,6 +74,7 @@ struct AppModelTests {
         CancellationError() as any Error,
         ASWebAuthenticationSessionError(.canceledLogin),
         URLError(.cancelled),
+        PaperclipError.transport(.cancelled),
     ])
     func cancelledSignInLeavesNoError(cancellation: any Error) async {
         let connector = RecordingConnector(error: cancellation)

@@ -251,6 +251,7 @@ public final class AppModel {
     private static func isCancellation(_ error: any Error) -> Bool {
         error is CancellationError
             || (error as? URLError)?.code == .cancelled
+            || error as? PaperclipError == .transport(.cancelled)
             || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
             || Task.isCancelled
     }
