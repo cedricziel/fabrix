@@ -233,19 +233,23 @@ def build_target(key, options)
     profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
   )
 
-  build_app(
-    project: PROJECT,
-    scheme: t[:target],
-    configuration: "Release",
-    destination: t[:destination],
-    export_method: "app-store",
-    export_team_id: TEAM_ID,
-    output_directory: OUTPUT_DIR,
-    output_name: APP_NAME,
-    clean: true,
-    include_symbols: true,
-    xcargs: "MARKETING_VERSION=#{version.shellescape} CURRENT_PROJECT_VERSION=#{build_number.shellescape}"
-  )
+  begin
+    build_app(
+      project: PROJECT,
+      scheme: t[:target],
+      configuration: "Release",
+      destination: t[:destination],
+      export_method: "app-store",
+      export_team_id: TEAM_ID,
+      output_directory: OUTPUT_DIR,
+      output_name: APP_NAME,
+      clean: true,
+      include_symbols: true,
+      xcargs: "MARKETING_VERSION=#{version.shellescape} CURRENT_PROJECT_VERSION=#{build_number.shellescape}"
+    )
+  ensure
+    File.delete(TELEMETRY_SECRETS) if File.exist?(TELEMETRY_SECRETS)
+  end
 
   { version: version, build_number: build_number }
 end
@@ -341,7 +345,7 @@ def public_beta_params
 end
 
 # Bakes the SignalDB ingest key into Release builds via a gitignored xcconfig, so it never
-# shows up in xcodebuild arguments or logs.
+# shows up in xcodebuild arguments or logs. build_target deletes the file after the build.
 # Without both values the app runs with telemetry off.
 def write_telemetry_secrets
   endpoint = ENV["OTLP_ENDPOINT"].to_s.strip
