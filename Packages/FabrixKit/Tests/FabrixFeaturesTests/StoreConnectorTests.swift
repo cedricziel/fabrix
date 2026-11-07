@@ -29,9 +29,16 @@ struct StoreConnectorTests {
         #expect(throws: Never.self) { try configuration.validate() }
     }
 
-    @Test func unknownFactoryIsNotRestored() {
+    @Test func browserMethodsMapToSignInFrontDoors() throws {
+        #expect(StoreConnector.configuration(for: .browser) == (.boardKey, nil))
+        let (configuration, key) = StoreConnector.configuration(for: .oidcWithBrowser(issuer: issuer, clientID: "c"))
+        #expect(configuration.usesBoardKey && key == nil)
+        #expect(configuration.oidc?.tokenHeader == "X-Forwarded-Access-Token")
+    }
+
+    @Test func unknownFactoryIsNotRestored() throws {
         let store = FactoryStore(defaults: UserDefaults(suiteName: UUID().uuidString)!, credentials: InMemoryCredentialStore())
-        #expect(StoreConnector(store: store).restore(factoryID: "missing") == nil)
+        #expect(try StoreConnector(store: store).restore(factoryID: "missing") == nil)
     }
 
     @Test func forgettingAnUnknownFactoryIsANoOp() {

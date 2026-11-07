@@ -35,8 +35,19 @@ struct ConnectFormTests {
         #expect(try form.validated().auth == .oidcWithPaperclip(issuer: URL(string: "https://auth.example")!, clientID: "c", apiKey: "k"))
     }
 
+    @Test func browserSignInIsTheDefault() throws {
+        let form = ConnectForm(address: "f.example")
+        #expect(form.method == .browser)
+        #expect(try form.validated().auth == .browser)
+    }
+
+    @Test func oidcWithBrowserNeedsNoKey() throws {
+        let form = ConnectForm(address: "f.example", method: .oidcWithBrowser, issuer: "auth.example", clientID: "c")
+        #expect(try form.validated().auth == .oidcWithBrowser(issuer: URL(string: "https://auth.example")!, clientID: "c"))
+    }
+
     @Test func blankHeaderRowsAreDropped() throws {
-        var form = ConnectForm(address: "f.example", apiKey: "k")
+        var form = ConnectForm(address: "f.example", method: .paperclip, apiKey: "k")
         form.headers = [
             ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "secret"),
             ConnectForm.HeaderRow(name: "  ", value: ""),
@@ -47,14 +58,14 @@ struct ConnectFormTests {
     }
 
     @Test func rowsWithOnlyAValueAreKeptForCoreToReject() throws {
-        var form = ConnectForm(address: "f.example", apiKey: "k")
+        var form = ConnectForm(address: "f.example", method: .paperclip, apiKey: "k")
         form.headers = [ConnectForm.HeaderRow(name: "", value: "orphan")]
 
         #expect(try form.validated().headers == [CustomHeader(name: "", value: "orphan")])
     }
 
     @Test(arguments: [
-        (ConnectForm(address: "nope://x", apiKey: "k"), ConnectForm.Problem.address),
+        (ConnectForm(address: "nope://x", method: .paperclip, apiKey: "k"), ConnectForm.Problem.address),
         (ConnectForm(address: "f.example", method: .paperclip), .apiKey),
         (ConnectForm(address: "f.example", method: .oidc, clientID: "c"), .issuer),
         (ConnectForm(address: "f.example", method: .oidc, issuer: "auth.example"), .clientID),

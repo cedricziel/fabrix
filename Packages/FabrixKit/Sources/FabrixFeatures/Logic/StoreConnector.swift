@@ -24,7 +24,7 @@ public final class StoreConnector: FactoryConnector {
         let factory = try await store.connect(
             url: baseURL, auth: configuration, boardKey: boardKey, headers: headers, webAuthenticator: webAuthenticator
         )
-        return try FactoryConnection(factory: factory, service: store.service(for: factory))
+        return try connection(for: factory)
     }
 
     public var factories: [Factory] {
@@ -35,12 +35,39 @@ public final class StoreConnector: FactoryConnector {
         store.revision
     }
 
-    public func restore(factoryID: Factory.ID) -> FactoryConnection? {
-        guard let factory = store.factories.first(where: { $0.id == factoryID }),
-              let service = try? store.service(for: factory)
-        else { return nil }
-        return FactoryConnection(factory: factory, service: service)
+    public func restore(factoryID: Factory.ID) throws -> FactoryConnection? {
+        guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return nil }
+        do {
+            return try connection(for: factory)
+        } catch let error as PaperclipError {
+            guard case let .missingHeaderValues(names) = error else { return nil }
+            throw ReconnectNeeded(factory: factory, headerNames: names, reason: error.localizedDescription)
+        } catch {
+            return nil
+        }
     }
+
+    public func startBrowserSignIn(
+        baseURL: URL, auth: FactoryAuth, headers: [CustomHeader], webAuthenticator: (any WebAuthenticator)?
+    ) async throws -> SignInChallenge {
+        let (configuration, _) = Self.configuration(for: auth)
+        return try await store.startSignIn(
+            url: baseURL, clientName: Self.clientName, frontDoor: configuration.oidc, headers: headers, webAuthenticator: webAuthenticator
+        )
+    }
+
+    public func startReauthentication(factoryID: Factory.ID) async throws -> SignInChallenge {
+        guard let factory = store.factories.first(where: { $0.id == factoryID }) else { throw PaperclipError.notFound(nil) }
+        return try await store.startReauthentication(of: factory, clientName: Self.clientName)
+    }
+
+    public func completeBrowserSignIn(_ challenge: SignInChallenge) async throws -> FactoryConnection {
+        let factory = try await store.completeSignIn(challenge)
+        return try connection(for: factory)
+    }
+
+    /// How the request appears on Paperclip's approval page.
+    static let clientName = "Fabrix"
 
     public func forget(factoryID: Factory.ID) throws {
         guard let factory = store.factories.first(where: { $0.id == factoryID }) else { return }
@@ -49,18 +76,27 @@ public final class StoreConnector: FactoryConnector {
 
     static func configuration(for auth: FactoryAuth) -> (FactoryAuthConfiguration, boardKey: String?) {
         switch auth {
+        case .browser:
+            (.boardKey, nil)
         case let .paperclip(apiKey):
             (.boardKey, apiKey)
+        case let .oidcWithBrowser(issuer, clientID):
+            (proxyInFrontOfPaperclip(issuer: issuer, clientID: clientID), nil)
         case let .oidc(issuer, clientID):
             (FactoryAuthConfiguration(oidc: OIDCSettings(issuer: issuer, clientID: clientID, redirectURI: redirectURI)), nil)
         case let .oidcWithPaperclip(issuer, clientID, apiKey):
-            (
-                FactoryAuthConfiguration(
-                    oidc: OIDCSettings(issuer: issuer, clientID: clientID, redirectURI: redirectURI, tokenHeader: proxyTokenHeader),
-                    usesBoardKey: true
-                ),
-                apiKey
-            )
+            (proxyInFrontOfPaperclip(issuer: issuer, clientID: clientID), apiKey)
         }
+    }
+
+    private static func proxyInFrontOfPaperclip(issuer: URL, clientID: String) -> FactoryAuthConfiguration {
+        FactoryAuthConfiguration(
+            oidc: OIDCSettings(issuer: issuer, clientID: clientID, redirectURI: redirectURI, tokenHeader: proxyTokenHeader),
+            usesBoardKey: true
+        )
+    }
+
+    private func connection(for factory: Factory) throws -> FactoryConnection {
+        try FactoryConnection(factory: factory, service: store.service(for: factory), usesBoardKey: store.auth(for: factory).usesBoardKey)
     }
 }
