@@ -562,4 +562,56 @@ struct FactoryStoreTests {
 
         #expect(recorder.last("POST", "/api/cli-auth/challenges/ch-1/cancel") != nil)
     }
+
+    // MARK: - Signing in to the identity provider again
+
+    @Test func reauthenticationWithABrowserLogsInToTheIdentityProviderAgain() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProvider(recorder: idpRequests)
+        let recorder = RequestRecorder()
+        let paperclip = signInServer(recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_old", webAuthenticator: FakeWebAuthenticator.approving())
+        let tokenRequestsBefore = idpRequests.requests.filter { $0.url?.path() == "/token" }.count
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix", webAuthenticator: browser))
+
+        #expect(renewed.id == factory.id)
+        #expect(browser.authorizeURL != nil)
+        #expect(idpRequests.requests.filter { $0.url?.path() == "/token" }.count == tokenRequestsBefore + 1)
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func oidcOnlyFactorySignsInToTheIdentityProviderAgain() async throws {
+        let idp = identityProvider()
+        let recorder = RequestRecorder()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL))
+        let factory = try await store.connect(
+            url: paperclip.baseURL, auth: auth, boardKey: nil, name: "Proxy", headers: PaperclipFixtures.proxyHeader, webAuthenticator: FakeWebAuthenticator.approving()
+        )
+        try credentials.setCredential(nil, for: "\(factory.id).oidc")
+        let browser = FakeWebAuthenticator.approving()
+
+        let renewed = try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: browser)
+
+        #expect(renewed == factory)
+        #expect(browser.authorizeURL != nil)
+        #expect(try credentials.credential(for: "\(factory.id).oidc") != nil)
+        #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
+        #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "Authorization") == "Bearer access-1")
+    }
+
+    @Test func identityProviderSignInAgainNeedsOIDC() async throws {
+        let server = signInServer()
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "k")
+
+        await #expect(throws: PaperclipError.self) {
+            try await store.signInAgainToIdentityProvider(of: factory, webAuthenticator: FakeWebAuthenticator.approving())
+        }
+    }
 }
