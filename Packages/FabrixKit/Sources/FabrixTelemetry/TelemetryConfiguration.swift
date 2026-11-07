@@ -2,20 +2,13 @@ import Foundation
 
 /// Where and how to ship OTLP data. Built from Info.plist keys that CI fills at build time;
 /// any missing, blank or unexpanded value means telemetry stays off.
-public struct TelemetryConfiguration: Sendable, Equatable {
-    public var endpoint: URL
-    public var apiKey: String
-    public var tenantID: String
-    public var datasetID: String
+struct TelemetryConfiguration: Sendable, Equatable {
+    let endpoint: URL
+    let apiKey: String
+    let tenantID: String
+    let datasetID: String
 
-    public init(endpoint: URL, apiKey: String, tenantID: String, datasetID: String) {
-        self.endpoint = endpoint
-        self.apiKey = apiKey
-        self.tenantID = tenantID
-        self.datasetID = datasetID
-    }
-
-    public init?(infoDictionary: [String: Any]) {
+    init?(infoDictionary: [String: Any]) {
         func value(_ key: String) -> String? {
             guard let raw = (infoDictionary[key] as? String)?.trimmingCharacters(in: .whitespaces),
                   !raw.isEmpty, !raw.contains("$(")
@@ -28,7 +21,10 @@ public struct TelemetryConfiguration: Sendable, Equatable {
               let tenantID = value("FabrixOTLPTenantID"),
               let datasetID = value("FabrixOTLPDatasetID")
         else { return nil }
-        self.init(endpoint: endpoint, apiKey: apiKey, tenantID: tenantID, datasetID: datasetID)
+        self.endpoint = endpoint
+        self.apiKey = apiKey
+        self.tenantID = tenantID
+        self.datasetID = datasetID
     }
 
     var headers: [(String, String)] {

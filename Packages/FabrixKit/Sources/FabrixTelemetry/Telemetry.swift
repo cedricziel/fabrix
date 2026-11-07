@@ -3,6 +3,7 @@ import OpenTelemetryApi
 import OpenTelemetryProtocolExporterCommon
 import OpenTelemetryProtocolExporterHttp
 import OpenTelemetrySdk
+import ResourceExtension
 import Synchronization
 import URLSessionInstrumentation
 
@@ -11,14 +12,14 @@ public enum Telemetry {
     private static let runtime = Mutex<Runtime?>(nil)
     private static let sensitiveValues = SensitiveValues()
 
-    public static var isRunning: Bool {
+    static var isRunning: Bool {
         runtime.withLock { $0 != nil }
     }
 
     /// Starts exporting to SignalDB if the build carries an ingest key; otherwise does nothing.
     @discardableResult
-    public static func start(bundle: Bundle = .main, defaults: UserDefaults = .standard) -> Bool {
-        start(infoDictionary: bundle.infoDictionary ?? [:], defaults: defaults)
+    public static func start() -> Bool {
+        start(infoDictionary: Bundle.main.infoDictionary ?? [:])
     }
 
     @discardableResult
@@ -38,63 +39,45 @@ public enum Telemetry {
         sensitiveValues.insert(values)
     }
 
-    public static func log(_ message: String, severity: Severity = .info, attributes: [String: String] = [:]) {
-        runtime.withLock { $0 }?.logger.logRecordBuilder()
-            .setSeverity(severity)
-            .setBody(.string(message))
-            .setAttributes(attributes.mapValues(AttributeValue.string))
-            .emit()
-    }
-
+    /// Exports what is buffered, off the main thread and within the time the OS grants before suspending.
     public static func flush() {
-        runtime.withLock { $0 }?.flush()
+        guard let runtime = runtime.withLock({ $0 }) else { return }
+        #if os(macOS)
+            DispatchQueue.global(qos: .utility).async { runtime.flush() }
+        #else
+            ProcessInfo.processInfo.performExpiringActivity(withReason: "Flush telemetry") { expired in
+                if !expired {
+                    runtime.flush()
+                }
+            }
+        #endif
     }
 
     static func resourceAttributes(infoDictionary: [String: Any], defaults: UserDefaults) -> [String: AttributeValue] {
         let instanceKey = "fabrix.telemetry.instance-id"
-        let instanceID = defaults.string(forKey: instanceKey) ?? UUID().uuidString
-        defaults.set(instanceID, forKey: instanceKey)
+        let instanceID = defaults.string(forKey: instanceKey) ?? {
+            let id = UUID().uuidString
+            defaults.set(id, forKey: instanceKey)
+            return id
+        }()
         #if DEBUG
             let environment = "development"
         #else
             let environment = "production"
         #endif
-        return [
-            "service.name": .string("fabrix"),
-            "service.version": .string(infoDictionary["CFBundleShortVersionString"] as? String ?? "unknown"),
-            "service.instance.id": .string(instanceID),
-            "app.build": .string(infoDictionary["CFBundleVersion"] as? String ?? "unknown"),
-            "deployment.environment.name": .string(environment),
-            "os.name": .string(osName),
-            "os.version": .string(ProcessInfo.processInfo.operatingSystemVersionString),
-            "device.model.identifier": .string(hardwareModel),
-        ]
-    }
-
-    private static var osName: String {
-        #if os(macOS)
-            "macOS"
-        #else
-            "iOS"
-        #endif
-    }
-
-    private static var hardwareModel: String {
-        #if os(macOS)
-            let name = "hw.model"
-        #else
-            let name = "hw.machine"
-        #endif
-        var size = 0
-        sysctlbyname(name, nil, &size, nil, 0)
-        var buffer = [CChar](repeating: 0, count: size)
-        sysctlbyname(name, &buffer, &size, nil, 0)
-        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        var attributes = OSResourceProvider(source: OperatingSystemDataSource()).attributes
+        attributes[SemanticConventions.Service.name.rawValue] = .string("fabrix")
+        attributes[SemanticConventions.Service.version.rawValue] = .string(infoDictionary["CFBundleShortVersionString"] as? String ?? "unknown")
+        attributes[SemanticConventions.Service.instanceId.rawValue] = .string(instanceID)
+        attributes[SemanticConventions.Deployment.environmentName.rawValue] = .string(environment)
+        attributes[SemanticConventions.Device.modelIdentifier.rawValue] = DeviceDataSource().model.map(AttributeValue.string)
+        attributes["app.build"] = .string(infoDictionary["CFBundleVersion"] as? String ?? "unknown")
+        return attributes
     }
 }
 
 final class Runtime: @unchecked Sendable {
-    let logger: any OpenTelemetryApi.Logger
+    private let logger: any OpenTelemetryApi.Logger
     private let tracerProvider: TracerProviderSdk
     private let logProcessor: BatchLogRecordProcessor
     private let meterProvider: MeterProviderSdk

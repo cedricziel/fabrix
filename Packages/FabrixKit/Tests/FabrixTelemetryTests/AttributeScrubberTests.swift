@@ -6,7 +6,7 @@ import Testing
 struct AttributeScrubberTests {
     private let anonymizer = Anonymizer(salt: Data(repeating: 7, count: 32))
     private var scrubber: AttributeScrubber {
-        AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["Acme Factory", "paperclip.acme.lan"])
+        AttributeScrubber(anonymizer: anonymizer, sensitive: ["Acme Factory", "paperclip.acme.lan"])
     }
 
     @Test func urlKeepsSchemeAndPathButHashesHostAndDropsTheRest() {

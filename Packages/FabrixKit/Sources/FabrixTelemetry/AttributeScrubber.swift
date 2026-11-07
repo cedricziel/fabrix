@@ -4,16 +4,19 @@ import Synchronization
 
 /// Values (factory names, hosts) that must never leave the device verbatim.
 public final class SensitiveValues: Sendable {
-    private let storage = Mutex<Set<String>>([])
+    private let storage = Mutex<[String]>([])
 
     public init() {}
 
     public func insert(_ values: some Sequence<String>) {
         let cleaned = values.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        storage.withLock { $0.formUnion(cleaned) }
+        storage.withLock { current in
+            current = Set(current).union(cleaned).sorted { $0.count > $1.count }
+        }
     }
 
-    var values: Set<String> {
+    /// Longest first, so a value that contains another is replaced whole.
+    var values: [String] {
         storage.withLock { $0 }
     }
 }
@@ -21,11 +24,14 @@ public final class SensitiveValues: Sendable {
 /// Rewrites telemetry so no Paperclip host, URL query or registered sensitive value is exported.
 struct AttributeScrubber: Sendable {
     private static let hostKeys: Set<String> = [
-        "net.peer.name", "net.host.name", "server.address", "client.address",
-        "http.host", "url.domain", "network.peer.address",
+        SemanticConventions.Server.address.rawValue, SemanticConventions.Client.address.rawValue,
+        SemanticConventions.Url.domain.rawValue, SemanticConventions.Network.peerAddress.rawValue,
+        "net.peer.name", "net.host.name", "http.host",
     ]
-    private static let urlKeys: Set<String> = ["http.url", "url.full", "http.target", "url.path"]
-    private static let droppedKeys: Set<String> = ["url.query", "url.fragment"]
+    private static let urlKeys: Set<String> = [
+        SemanticConventions.Url.full.rawValue, SemanticConventions.Url.path.rawValue, "http.url", "http.target",
+    ]
+    private static let droppedKeys: Set<String> = [SemanticConventions.Url.query.rawValue, SemanticConventions.Url.fragment.rawValue]
 
     let anonymizer: Anonymizer
     let registry: SensitiveValues
@@ -33,12 +39,6 @@ struct AttributeScrubber: Sendable {
     init(anonymizer: Anonymizer, registry: SensitiveValues) {
         self.anonymizer = anonymizer
         self.registry = registry
-    }
-
-    init(anonymizer: Anonymizer, sensitiveValues: [String]) {
-        let registry = SensitiveValues()
-        registry.insert(sensitiveValues)
-        self.init(anonymizer: anonymizer, registry: registry)
     }
 
     func scrub(url: String) -> String {
@@ -66,7 +66,7 @@ struct AttributeScrubber: Sendable {
 
     private func replaceSensitiveValues(in text: String) -> String {
         var result = text
-        for value in registry.values.sorted(by: { $0.count > $1.count }) {
+        for value in registry.values where result.range(of: value, options: .caseInsensitive) != nil {
             result = result.replacingOccurrences(of: value, with: anonymizer.hash(value), options: .caseInsensitive)
         }
         return result
@@ -101,10 +101,6 @@ struct AttributeScrubber: Sendable {
     }
 
     private static func stripPort(_ host: String) -> String {
-        guard !host.hasPrefix("["), let colon = host.lastIndex(of: ":"),
-              host[host.index(after: colon)...].allSatisfy(\.isNumber),
-              host.firstIndex(of: ":") == colon
-        else { return host }
-        return String(host[..<colon])
+        URLComponents(string: "//\(host)")?.host ?? host
     }
 }

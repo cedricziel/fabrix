@@ -35,7 +35,7 @@ private final class CapturingLogExporter: LogRecordExporter {
 struct ScrubbingExporterTests {
     private let anonymizer = Anonymizer(salt: Data(repeating: 3, count: 32))
     private var scrubber: AttributeScrubber {
-        AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["Acme Factory"])
+        AttributeScrubber(anonymizer: anonymizer, sensitive: ["Acme Factory"])
     }
 
     @Test func spansLeaveWithScrubbedNameAttributesEventsAndResource() throws {
