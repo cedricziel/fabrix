@@ -12,7 +12,7 @@ struct FabrixApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        Telemetry.start()
+        Telemetry.start(sensitiveValues: FactorySensitiveValues(store: factoryStore))
     }
 
     var body: some Scene {
