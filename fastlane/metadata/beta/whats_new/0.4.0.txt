@@ -1,0 +1,15 @@
+New in 0.4.0
+
+- App lock: protect Fabrix with Face ID, Touch ID or your passcode. It's offered once after you connect a real factory, and you can set it in Settings, Security.
+- Projects: see each company's projects with their status, lead, task counts and repositories, and filter the task board by project.
+- A status bar shows when a factory is offline or you're signed out, with the time of the last update and Retry. Live timers pause while data is stale.
+- Signed out? "Sign in again" now works for factories behind single sign-on too, and approvals you made while signed out are sent afterwards.
+- Clearer errors, empty screens that say what's empty, and a confirmation before pausing a company.
+- Factory names include the port when it isn't the default.
+
+Please test
+- Turning on the app lock, locking by leaving the app, and unlocking.
+- Projects and the project filter on the task board.
+- Losing the connection or a key expiring while the app is open.
+
+No account is needed: "Explore the demo" shows sample data.
