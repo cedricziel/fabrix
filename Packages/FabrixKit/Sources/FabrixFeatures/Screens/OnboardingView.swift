@@ -55,7 +55,7 @@ struct ConnectFactoryForm: View {
                     .font(.callout)
                     .foregroundStyle(Palette.steel)
             }
-            LabeledField(title: "Factory address") {
+            LabeledField("Factory address") {
                 TextField("https://factory.example.com", text: $form.address)
                     .urlEntry()
             }
@@ -64,15 +64,15 @@ struct ConnectFactoryForm: View {
             }
             .pickerStyle(.menu)
             if form.method.usesOIDC {
-                LabeledField(title: "OIDC issuer") {
+                LabeledField("OIDC issuer") {
                     TextField("https://auth.example.com", text: $form.issuer).urlEntry()
                 }
-                LabeledField(title: "Client ID") {
+                LabeledField("Client ID") {
                     TextField("fabrix", text: $form.clientID).autocorrectionDisabled()
                 }
             }
             if form.method.usesAPIKey {
-                LabeledField(title: "Paperclip API key") {
+                LabeledField("Paperclip API key") {
                     SecureField("Paste the key from your Paperclip board", text: $form.apiKey)
                         .textContentType(.password)
                 }
@@ -162,20 +162,7 @@ private extension ConnectForm.Method {
     }
 }
 
-private extension Text {
-    func fieldTitle() -> some View {
-        font(.caption.weight(.medium)).foregroundStyle(Palette.steel)
-    }
-}
-
 private extension View {
-    func fieldChrome() -> some View {
-        textFieldStyle(.plain)
-            .padding(10)
-            .background(Palette.card, in: .rect(cornerRadius: Radius.row))
-            .overlay(RoundedRectangle(cornerRadius: Radius.row).strokeBorder(Palette.hairline))
-    }
-
     /// Text typed as-is: no autocorrection or capitalization.
     func plainEntry() -> some View {
         autocorrectionDisabled()
@@ -193,18 +180,6 @@ private extension View {
     }
 }
 
-private struct LabeledField<Field: View>: View {
-    let title: LocalizedStringKey
-    @ViewBuilder var field: Field
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).fieldTitle()
-            field.fieldChrome()
-        }
-    }
-}
-
 /// Custom request headers, collapsed unless the form already has some.
 private struct AdvancedSection: View {
     @Binding var headers: [ConnectForm.HeaderRow]
@@ -213,14 +188,14 @@ private struct AdvancedSection: View {
     var body: some View {
         DisclosureGroup("Advanced", isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: Spacing.s) {
-                Text("Custom headers").fieldTitle()
+                FieldTitle("Custom headers")
                 ForEach($headers) { $row in
                     HStack(spacing: Spacing.s) {
                         TextField("Header name", text: $row.name)
                             .plainEntry()
-                            .fieldChrome()
+                            .textFieldStyle(.fabrix)
                         SecureField("Value", text: $row.value)
-                            .fieldChrome()
+                            .textFieldStyle(.fabrix)
                         Button {
                             headers.removeAll { $0.id == row.id }
                         } label: {
