@@ -34,7 +34,7 @@ jobs:
         with:
           xcode-version: latest-stable
       - name: Feature strings name their bundle
-        run: scripts/check-feature-strings.sh
+        run: scripts/test-check-feature-strings.sh && scripts/check-feature-strings.sh
       - name: Package tests
         run: xcrun swift test --package-path Packages/FabrixKit
       - name: Install XcodeGen
