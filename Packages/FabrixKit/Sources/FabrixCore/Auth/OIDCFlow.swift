@@ -167,18 +167,11 @@ struct OIDCFlow: Sendable {
     /// Discovery and token requests follow the same transport and redirect rules as Paperclip requests.
     private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
         guard let url = request.url, PaperclipClient.allowsCredentials(to: url) else { throw PaperclipError.insecureConnection }
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
-        let http = response as? HTTPURLResponse
-        if let origin = SameOriginRedirects.refusedOrigin(http) {
+        let (data, response) = try await SameOriginRedirects.load(request, session: session)
+        if let origin = SameOriginRedirects.refusedOrigin(response) {
             throw OIDCError.redirected(origin: origin.description)
         }
-        return (data, http)
+        return (data, response)
     }
 
     private static let formAllowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))

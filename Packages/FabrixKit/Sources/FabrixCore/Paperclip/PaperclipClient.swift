@@ -101,7 +101,7 @@ public struct PaperclipClient: Sendable {
     /// 100.64.0.0/10, link-local and IPv6 unique-local addresses).
     public static func allowsCredentials(to url: URL) -> Bool {
         if url.scheme?.lowercased() == "https" { return true }
-        guard let host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) else { return false }
+        guard let host = url.normalizedHost else { return false }
         if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
         if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") { return host.contains(":") }
         let labels = host.split(separator: ".", omittingEmptySubsequences: false)
@@ -189,12 +189,7 @@ public struct PaperclipClient: Sendable {
     }
 
     private func load(_ request: URLRequest) async throws -> (Data, HTTPURLResponse?) {
-        do {
-            let (data, response) = try await session.data(for: request, delegate: SameOriginRedirects.shared)
-            return (data, response as? HTTPURLResponse)
-        } catch let error as URLError {
-            throw PaperclipError.transport(error.code)
-        }
+        try await SameOriginRedirects.load(request, session: session)
     }
 
     private func decode<Response: Decodable>(_ data: Data) throws -> Response {
@@ -235,6 +230,16 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
         return Origin(from) == Origin(to) ? request : nil
     }
 
+    /// Loads `request` under this redirect rule, reporting network failures as `PaperclipError.transport`.
+    static func load(_ request: URLRequest, session: URLSession) async throws -> (Data, HTTPURLResponse?) {
+        do {
+            let (data, response) = try await session.data(for: request, delegate: shared)
+            return (data, response as? HTTPURLResponse)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
+    }
+
     /// Where a refused redirect pointed. Error messages show only this, since the full URL can carry tokens.
     static func refusedOrigin(_ response: HTTPURLResponse?) -> Origin? {
         guard let response, (300 ..< 400).contains(response.statusCode),
@@ -251,7 +256,7 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
 
         init(_ url: URL) {
             scheme = url.scheme?.lowercased() ?? ""
-            host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) ?? ""
+            host = url.normalizedHost ?? ""
             port = url.port ?? Self.defaultPort(scheme)
         }
 
@@ -263,5 +268,12 @@ final class SameOriginRedirects: NSObject, URLSessionTaskDelegate, Sendable {
         private static func defaultPort(_ scheme: String) -> Int {
             scheme == "https" ? 443 : 80
         }
+    }
+}
+
+extension URL {
+    /// Lowercased host without IPv6 brackets.
+    var normalizedHost: String? {
+        host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
     }
 }
