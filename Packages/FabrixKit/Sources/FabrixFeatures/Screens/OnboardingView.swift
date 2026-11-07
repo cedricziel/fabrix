@@ -1,9 +1,11 @@
+import AuthenticationServices
 import FabrixDesign
 import SwiftUI
 
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var form = ConnectForm()
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
 
     var body: some View {
         ScrollView {
@@ -87,7 +89,8 @@ struct OnboardingView: View {
 
     private func connect() {
         guard model.canConnect else { return }
-        Task { await model.connect(form) }
+        let authenticator = SessionAuthenticator(session: webAuthenticationSession)
+        Task { await model.connect(form, webAuthenticator: authenticator) }
     }
 }
 
