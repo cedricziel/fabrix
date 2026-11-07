@@ -13,7 +13,9 @@ Fabrix acts as a **board user** (a human operator), not as an agent.
 | `local_trusted` | Nothing. Every request is treated as the local board.                                                 |
 | `authenticated` | `Authorization: Bearer <board API key>`. Board keys start with `pcp_board_` and expire after 30 days. |
 
-Fabrix sends credentials only over HTTPS, or over plain HTTP to this machine or a private network (loopback, `.local`, RFC 1918, Tailscale's `100.64.0.0/10`, link-local, IPv6 unique-local). Otherwise `PaperclipError.insecureConnection` is thrown before any request. Browser sign-in follows the same rule, because the approval response carries the new key.
+Fabrix sends credentials only over HTTPS, or over plain HTTP to this machine or a private network (loopback, `.local`, RFC 1918, Tailscale's `100.64.0.0/10`, link-local, IPv6 unique-local). Otherwise `PaperclipError.insecureConnection` is thrown before any request. Browser sign-in follows the same rule, because the approval response carries the new key. So do OIDC discovery and token requests, and the server check runs before the OIDC login page opens.
+
+Redirects are followed only within the same scheme, host and port. Any other redirect fails, and the error names only the new origin, since the full URL can carry a token.
 
 There are two ways to get a board API key:
 
@@ -44,7 +46,7 @@ The proxy must accept bearer tokens, for example oauth2-proxy with `--skip-jwt-b
 | `GET`  | `/api/companies/{companyId}/agents`                   | `[Agent]`. Terminated agents are dropped.                                                  |
 | `GET`  | `/api/agents/{agentId}`                               | Used by `wake` to check whether the agent is paused.                                       |
 | `GET`  | `/api/companies/{companyId}/issues?limit=500`         | `[WorkItem]`.                                                                              |
-| `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status. |
+| `GET`  | `/api/companies/{companyId}/approvals?status=pending` and `?status=revision_requested` | `[Approval]`, newest first. Two requests, because the filter matches one exact status; an approval in both answers is listed once. |
 | `GET`  | `/api/companies/{companyId}/heartbeat-runs?limit=50`  | `[Run]`. A `403` (run telemetry hidden from this user) yields no runs instead of an error. |
 | `GET`  | `/api/companies/{companyId}/activity?limit=50`        | `[ActivityEvent]`.                                                                         |
 
