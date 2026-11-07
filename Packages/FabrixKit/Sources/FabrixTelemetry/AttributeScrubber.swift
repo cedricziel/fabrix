@@ -126,6 +126,10 @@ struct AttributeScrubber: Sendable {
     }
 
     private static func stripPort(_ host: String) -> String {
+        // Unbracketed IPv6 can't carry a port, and URLComponents would misread its last group as one.
+        if !host.hasPrefix("["), host.filter({ $0 == ":" }).count > 1 {
+            return host
+        }
         if let parsed = URLComponents(string: "//\(host)")?.host {
             return parsed
         }

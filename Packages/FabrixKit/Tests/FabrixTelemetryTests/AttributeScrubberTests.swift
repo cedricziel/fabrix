@@ -119,6 +119,19 @@ struct AttributeScrubberTests {
         #expect(scrubbed == "https://\(anonymizer.hash("bad host.acme.lan"))/api/x")
     }
 
+    @Test func unbracketedIPv6AddressesKeepTheirWholeAddress() {
+        let scrubber = AttributeScrubber(anonymizer: anonymizer, sensitiveValues: ["fe80::1"])
+        let scrubbed = scrubber.scrub(attributes: [
+            "server.address": .string("fe80::1"),
+            "url.full": .string("http://[fe80::1]:3100/api/companies/1234/agents"),
+            "url.path": .string("/api/companies/1234/agents"),
+        ])
+        let hashed = anonymizer.hash("fe80::1")
+        #expect(scrubbed["server.address"] == .string(hashed))
+        #expect(scrubbed["url.full"] == .string("http://\(hashed)/api/companies/{id}/agents"))
+        #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == .string("/api/companies/{id}/agents"))
+    }
+
     @Test func ipv6HostsHashTheSameEverywhere() {
         let scrubbed = scrubber.scrub(attributes: [
             "server.address": .string("[fe80::1]"),
