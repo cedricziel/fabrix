@@ -58,7 +58,6 @@ public struct RootView: View {
         .environment(\.isCompact, isCompact)
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
-        .lightUntilPaletteAdapts()
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
         .task(id: Polling(factoryID: model.factory?.id, isActive: scenePhase == .active)) {
             guard model.factory != nil, scenePhase == .active else { return }

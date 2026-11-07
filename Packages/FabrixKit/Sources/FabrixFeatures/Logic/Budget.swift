@@ -1,8 +1,9 @@
 import FabrixCore
+import FabrixDesign
 
 /// Monthly spend against an optional cap, in US cents.
 struct Budget: Hashable {
-    static let nearCap = 0.9
+    static let nearCap = BudgetMeter.warningThreshold
 
     var spentCents: Int
     var capCents: Int?

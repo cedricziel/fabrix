@@ -9,10 +9,10 @@ struct AgentsView: View {
         List(model.visibleAgents) { agent in
             NavigationLink(value: agent.id) {
                 HStack(spacing: 12) {
-                    AvatarBadge(initials: agent.initials, size: 36, tint: agent.tileColor)
+                    AvatarBadge(agent.initials, size: 36)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(agent.name).fontWeight(.semibold)
-                        StatusPill(status: agent.status)
+                        StatusPill(agent.status.style)
                     }
                     Spacer()
                     if agent.budget.capCents != nil {
@@ -28,16 +28,6 @@ struct AgentsView: View {
             if model.visibleAgents.isEmpty { ContentUnavailableView.search }
         }
         .navigationTitle("Agents")
-    }
-}
-
-extension Agent {
-    var tileColor: Color {
-        switch status {
-        case .needsYou: Palette.signal
-        case .paused: Palette.muted
-        default: Palette.graphite
-        }
     }
 }
 
@@ -57,11 +47,15 @@ struct AgentDetailView: View {
                     BudgetSection(agent: agent)
                     RecentRuns(runs: runs.filter { !$0.isLive })
                     HStack(spacing: 10) {
-                        Button("Pause") { Task { await model.pause(agent) } }
-                            .buttonStyle(FabrixButtonStyle(role: .secondary, fullWidth: true))
+                        Button { Task { await model.pause(agent) } } label: {
+                            Text("Pause").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.fabrixSecondary)
                             .disabled(agent.status == .paused)
-                        Button("Wake now") { Task { await model.wake(agent) } }
-                            .buttonStyle(FabrixButtonStyle(role: .signal, fullWidth: true))
+                        Button { Task { await model.wake(agent) } } label: {
+                            Text("Wake now").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.fabrixSignal)
                             .disabled(agent.status == .running)
                     }
                     .controlSize(.large)
@@ -79,11 +73,11 @@ struct AgentDetailView: View {
 
     private func header(_ agent: Agent) -> some View {
         HStack(spacing: 14) {
-            AvatarBadge(initials: agent.initials, size: 56, tint: agent.tileColor)
+            AvatarBadge(agent.initials, size: 60)
             VStack(alignment: .leading, spacing: 4) {
                 Text(agent.name).font(.title2.weight(.semibold))
                 HStack(spacing: 4) {
-                    StatusPill(status: agent.status)
+                    StatusPill(agent.status.style)
                     Text("· reports to \(model.agent(agent.reportsToID)?.name ?? String(localized: "the board"))")
                         .font(.caption)
                         .foregroundStyle(Palette.steel)
@@ -100,24 +94,23 @@ private struct CurrentRunCard: View {
     let run: Run
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Current run").font(.caption.weight(.semibold)).textCase(.uppercase)
-                Spacer()
-                ElapsedText(since: run.startedAt).font(.title3.monospaced().weight(.medium))
-            }
-            .foregroundStyle(.white.opacity(0.8))
-            if let task = run.taskIdentifier {
-                Text(task).font(.caption.monospaced()).foregroundStyle(.white.opacity(0.7))
-            }
-            Text(run.title).font(.headline).foregroundStyle(.white)
-            if let summary = run.summary {
-                Text(summary).font(.subheadline).foregroundStyle(.white.opacity(0.8))
+        Card(style: .inverse) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Current run").font(.caption.weight(.semibold)).textCase(.uppercase)
+                    Spacer()
+                    ElapsedText(since: run.startedAt).font(.title3.monospaced().weight(.medium))
+                }
+                .foregroundStyle(Palette.onInverseMuted)
+                if let task = run.taskIdentifier {
+                    Text(task).font(.caption.monospaced()).foregroundStyle(Palette.onInverseMuted)
+                }
+                Text(run.title).font(.headline)
+                if let summary = run.summary {
+                    Text(summary).font(.subheadline).foregroundStyle(Palette.onInverseMuted)
+                }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.graphite, in: .rect(cornerRadius: 14))
     }
 }
 
@@ -125,6 +118,10 @@ private struct BudgetSection: View {
     let agent: Agent
 
     var body: some View {
+        Card { content }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Budget this month").font(.subheadline.weight(.semibold))
@@ -132,7 +129,7 @@ private struct BudgetSection: View {
                 Text(Money.usage(agent.budget)).font(.subheadline.monospaced())
             }
             if let fraction = agent.budget.fraction {
-                BudgetBar(fraction: fraction, height: 8)
+                BudgetBar(agent.budget)
                 if agent.budget.isNearCap {
                     Text("Near cap: agent pauses automatically at 100%")
                         .font(.caption.weight(.semibold))
@@ -146,8 +143,6 @@ private struct BudgetSection: View {
                 Text("No monthly cap").font(.caption).foregroundStyle(Palette.muted)
             }
         }
-        .padding(16)
-        .fabrixCard()
     }
 }
 

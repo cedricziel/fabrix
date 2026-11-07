@@ -91,7 +91,9 @@ private struct TaskCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .fabrixCard(cornerRadius: 10, selected: isSelected)
+        .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.hairline))
+        .selectionOutline(isSelected)
     }
 }
 
@@ -102,7 +104,7 @@ private struct AssigneeLine: View {
     var body: some View {
         HStack(spacing: 6) {
             if let agent = model.agent(task.assigneeID) {
-                AvatarBadge(initials: agent.initials, size: 22)
+                AvatarBadge(agent.initials, size: 22)
                 Text(agent.name).font(.caption).foregroundStyle(Palette.steel)
             } else {
                 Text("Unassigned").font(.caption).foregroundStyle(Palette.muted)

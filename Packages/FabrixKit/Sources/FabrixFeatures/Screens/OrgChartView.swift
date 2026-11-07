@@ -60,7 +60,7 @@ private struct OrgBranch: View {
 
 private struct Connector: View {
     var body: some View {
-        Rectangle().fill(Palette.connector)
+        Rectangle().fill(Palette.hairline)
     }
 }
 
@@ -87,16 +87,18 @@ private struct OrgNodeCard: View {
     var body: some View {
         Button(action: select) {
             HStack(spacing: 10) {
-                AvatarBadge(initials: agent.initials, size: 36, tint: agent.tileColor)
+                AvatarBadge(agent.initials, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(agent.name).font(.subheadline.weight(.semibold)).lineLimit(1)
-                    StatusPill(status: agent.status)
+                    StatusPill(agent.status.style)
                 }
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
             .frame(width: 180, height: 68)
-            .fabrixCard(selected: isSelected)
+            .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.hairline))
+            .selectionOutline(isSelected)
             .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
@@ -114,18 +116,18 @@ private struct OrgSummary: View {
                 stat("Agents", "\(metrics.agentsTotal)")
                 stat("Working now", "\(metrics.agentsWorking)")
                 stat("Pending hires", "\(metrics.waitingByKind[.hire] ?? 0)", color: Palette.signal)
-                if let fraction = metrics.spend.fraction {
+                if metrics.spend.fraction != nil {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Company spend · \(Money.usage(metrics.spend))")
                             .font(.caption)
                             .foregroundStyle(Palette.muted)
-                        BudgetBar(fraction: fraction, height: 8)
+                        BudgetBar(metrics.spend)
                     }
                 }
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
-            .fabrixCard()
+            .cardSurface()
         }
     }
 
