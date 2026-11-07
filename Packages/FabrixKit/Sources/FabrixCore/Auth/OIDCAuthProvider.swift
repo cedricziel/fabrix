@@ -17,7 +17,7 @@ struct OIDCTokenStore: Sendable {
         case replaced
     }
 
-    /// Nil when nothing is stored. Throws `PaperclipError.unauthorized` for an unreadable blob.
+    /// Nil when nothing is stored. Throws `PaperclipError.signInRequired` for an unreadable blob.
     func load() throws -> OIDCTokens? {
         try Self.lock.withLock { _ in try unlockedLoad() }
     }
@@ -43,7 +43,7 @@ struct OIDCTokenStore: Sendable {
     private func unlockedLoad() throws -> OIDCTokens? {
         guard let json = try credentials.credential(for: account) else { return nil }
         guard let tokens = try? JSONDecoder().decode(OIDCTokens.self, from: Data(json.utf8)) else {
-            throw PaperclipError.unauthorized(Self.unreadableMessage)
+            throw PaperclipError.signInRequired(Self.unreadableMessage)
         }
         return tokens
     }
@@ -112,7 +112,7 @@ public actor OIDCAuthProvider: AuthProvider {
         if let cached {
             return cached
         }
-        guard let stored = try store.load() else { throw PaperclipError.unauthorized("Sign in to the identity provider again.") }
+        guard let stored = try store.load() else { throw PaperclipError.signInRequired("Sign in to the identity provider again.") }
         cached = stored
         persistedRefreshToken = stored.refreshToken
         return stored
@@ -142,7 +142,7 @@ public actor OIDCAuthProvider: AuthProvider {
         do {
             fresh = try await flow.refresh(tokens)
         } catch let OIDCError.provider(code, description) where code == "invalid_grant" {
-            let rejection = PaperclipError.unauthorized(description)
+            let rejection = PaperclipError.signInRequired(description)
             refreshRejection = rejection
             cached = nil
             throw rejection

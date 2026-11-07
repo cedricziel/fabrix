@@ -85,14 +85,14 @@ struct OIDCAuthProviderTests {
         #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1")) == false)
     }
 
-    @Test func rejectedRefreshIsUnauthorized() async throws {
+    @Test func rejectedRefreshRequiresSignIn() async throws {
         let server = FakeServer(routes: ["POST /token": .json(#"{"error":"invalid_grant","error_description":"Token expired"}"#, status: 400)])
         let auth = try provider(server, stored: tokens(server, expiresIn: -10))
 
-        await #expect(throws: PaperclipError.unauthorized("Token expired")) { try await auth.authorize(request) }
+        await #expect(throws: PaperclipError.signInRequired("Token expired")) { try await auth.authorize(request) }
     }
 
-    @Test func missingTokensAreUnauthorized() async throws {
+    @Test func missingTokensRequireSignIn() async throws {
         let server = FakeServer(routes: [:])
         let auth = OIDCAuthProvider(
             settings: OIDCFixtures.settings(issuer: server.baseURL),
@@ -102,7 +102,7 @@ struct OIDCAuthProviderTests {
         await #expect {
             try await auth.authorize(request)
         } throws: { error in
-            if case .unauthorized = error as? PaperclipError {
+            if case .signInRequired = error as? PaperclipError {
                 true
             } else {
                 false
@@ -171,7 +171,7 @@ struct OIDCAuthProviderTests {
         }
 
         #expect(errors.count == 8)
-        #expect(errors.allSatisfy { ($0 as? PaperclipError) == .unauthorized("Token revoked") })
+        #expect(errors.allSatisfy { ($0 as? PaperclipError) == .signInRequired("Token revoked") })
     }
 
     @Test func refreshAfterRemovalDoesNotRecreateTokens() async throws {
@@ -244,8 +244,8 @@ struct OIDCAuthProviderTests {
         let server = FakeServer(routes: ["POST /token": .json(#"{"error":"invalid_grant","error_description":"Token revoked"}"#, status: 400)], recorder: recorder)
         let auth = try provider(server, stored: tokens(server, expiresIn: -10))
 
-        await #expect(throws: PaperclipError.unauthorized("Token revoked")) { try await auth.authorize(request) }
-        await #expect(throws: PaperclipError.unauthorized("Token revoked")) { try await auth.authorize(request) }
+        await #expect(throws: PaperclipError.signInRequired("Token revoked")) { try await auth.authorize(request) }
+        await #expect(throws: PaperclipError.signInRequired("Token revoked")) { try await auth.authorize(request) }
         #expect(recorder.requests.count == 1)
     }
 
@@ -257,6 +257,6 @@ struct OIDCAuthProviderTests {
             tokens: OIDCTokenStore(credentials: credentials, account: "f1.oidc"), session: server.session
         )
 
-        await #expect(throws: PaperclipError.unauthorized(OIDCTokenStore.unreadableMessage)) { try await auth.authorize(request) }
+        await #expect(throws: PaperclipError.signInRequired(OIDCTokenStore.unreadableMessage)) { try await auth.authorize(request) }
     }
 }
