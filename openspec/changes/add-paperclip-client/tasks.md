@@ -22,6 +22,15 @@
 - [x] 4.4 Add `OIDCAuthProvider`: token placement header, refresh before expiry, refresh after 401, rotation, single-flight refresh, and `unauthorized` on `invalid_grant`. Files: `FabrixCore/Auth/OIDCAuthProvider.swift`. Tests: `OIDCAuthProviderTests.refreshesExpiringTokenAndStoresRotation`, `concurrentRequestsShareOneRefresh`, `rejectedRefreshIsUnauthorized`, `placesTokenInConfiguredHeader`.
 - [x] 4.5 Store `FactoryAuthConfiguration` per factory in `FactoryStore`, add `connect(url:auth:boardKey:name:webAuthenticator:)` and `auth(for:)`, reject conflicting headers, and delete OIDC tokens on remove. Files: `FabrixCore/Connections/FactoryStore.swift`, `FabrixCore/Auth/FactoryAuthConfiguration.swift`. Tests: `FactoryStoreTests.connectsWithOIDCFrontDoorAndBoardKey`, `rejectsConflictingAuthorizationHeaders`, `oidcOnlyConnectionSendsNoBoardKey`, `removeDeletesOIDCTokens`, `authConfigurationSurvivesRelaunch`.
 
+- [x] 4.6 Apply review fixes:
+  - an OIDC refresh is scoped to the failing layer and token (`UnauthorizedResponse`);
+  - rotated tokens are cached before saving;
+  - browser sign-in works behind a front door;
+  - discovery network errors map to `.transport`;
+  - connect rolls back a partial secret write.
+
+  Files: `FabrixCore/Auth/`, `FabrixCore/Connections/FactoryStore.swift`, `PaperclipClient.swift`. Tests: `OIDCAuthProviderTests.paperclip401DoesNotRefreshOIDC`, `staleTokenRetriesWithoutAnotherRefresh`, `keepsRotatedTokensWhenSavingFails`, `OIDCFlowTests.discoveryNetworkFailureIsTransportError`, `FactoryStoreTests.failedSecondSecretWriteRollsBackTheFirst`, `browserSignInWorksBehindOIDCFrontDoor`.
+
 ## 5. Sandbox validation and archive (stack layer 5)
 
 - [ ] 5.1 Add `scripts/paperclip-sandbox-seed.sh`: bootstrap a board user, create a board key, a company, agents, issues and an approval, and print `FABRIX_SANDBOX_URL`/`FABRIX_SANDBOX_KEY`. Files: `scripts/`. No Swift test: it is exercised by 5.2.

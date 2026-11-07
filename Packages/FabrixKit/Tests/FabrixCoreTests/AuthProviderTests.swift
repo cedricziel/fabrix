@@ -23,7 +23,7 @@ final class RotatingTokenAuth: AuthProvider {
         return request
     }
 
-    func refreshAfterUnauthorized() async throws -> Bool {
+    func refreshAfterUnauthorized(_: UnauthorizedResponse) async throws -> Bool {
         state.withLock {
             $0.refreshes += 1
             guard $0.tokens.count > 1 else { return false }
@@ -40,14 +40,14 @@ struct AuthProviderTests {
         let authorized = try await NoAuth().authorize(request)
 
         #expect(authorized.allHTTPHeaderFields?.isEmpty ?? true)
-        #expect(try await NoAuth().refreshAfterUnauthorized() == false)
+        #expect(try await NoAuth().refreshAfterUnauthorized(.fromProxy()) == false)
     }
 
     @Test func bearerTokenSetsAuthorization() async throws {
         let authorized = try await BearerTokenAuth(token: "pcp_board_abc").authorize(request)
 
         #expect(authorized.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_abc")
-        #expect(try await BearerTokenAuth(token: "x").refreshAfterUnauthorized() == false)
+        #expect(try await BearerTokenAuth(token: "x").refreshAfterUnauthorized(.fromProxy()) == false)
     }
 
     @Test func chainAppliesProvidersInOrder() async throws {
@@ -66,13 +66,18 @@ struct AuthProviderTests {
         let refreshing = RotatingTokenAuth(tokens: ["a", "b"])
         let chain = ChainedAuth([BearerTokenAuth(token: "k"), refreshing])
 
-        #expect(try await chain.refreshAfterUnauthorized())
+        #expect(try await chain.refreshAfterUnauthorized(.fromProxy()))
         #expect(refreshing.refreshes == 1)
     }
 
     @Test func chainDoesNotRetryWhenNothingRefreshed() async throws {
         let chain = ChainedAuth([NoAuth(), BearerTokenAuth(token: "k")])
 
-        #expect(try await chain.refreshAfterUnauthorized() == false)
+        #expect(try await chain.refreshAfterUnauthorized(.fromProxy()) == false)
+    }
+
+    @Test func recognizesPaperclipErrorBodies() {
+        #expect(UnauthorizedResponse.fromPaperclip().isFromPaperclip)
+        #expect(!UnauthorizedResponse.fromProxy().isFromPaperclip)
     }
 }

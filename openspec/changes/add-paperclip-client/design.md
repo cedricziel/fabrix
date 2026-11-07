@@ -19,7 +19,6 @@ A key is issued either by `POST /api/board-api-keys` or through the CLI auth cha
 **Non-Goals:**
 
 - Cookie sessions. Fabrix does not log in to Better Auth with a password. Browser sign-in is the way to get a key.
-- Browser sign-in through an OIDC front door. When the proxy requires OIDC and Paperclip requires a key, the user pastes a board key in this change.
 - Live updates over Paperclip's realtime channel. Snapshots are pulled.
 - Validating OIDC ID tokens. The app sends only the access token. The proxy and the IdP check it.
 
@@ -99,12 +98,20 @@ The feature layer adapts SwiftUI's `@Environment(\.webAuthenticationSession)` to
 
 `AppAuth-iOS` was considered and rejected: it is a third-party dependency, and it carries its own UI coupling for one well-specified flow.
 
+### Refresh only for the layer that failed
+
+The refresh hook receives the rejected request and the response body (`UnauthorizedResponse`). Paperclip's own `401`s are `{"error": "…"}` JSON, so the OIDC layer ignores them: a revoked board key never refreshes the proxy token. The OIDC layer also refreshes only when the rejected request carried its current access token. If another request has already refreshed it, a retry with the new token is enough. After a refresh, the rotated tokens stay in memory before they are written to the Keychain, so a failed write can't log the user out.
+
+### Writing two secrets safely
+
+`connect` writes the board key and then the OIDC tokens. If the second write fails, it restores the previous key before rethrowing, so a failed connect leaves the saved state as it was. Keychain items are updated in place (`SecItemUpdate`, then `SecItemAdd` as a fallback) and use `AfterFirstUnlockThisDeviceOnly`. Both apps declare the keychain access group `$(AppIdentifierPrefix)com.cedricziel.fabrix`.
+
 ### FactoryStore API for the UI
 
 ```swift
 connect(url:credential:name:)                       // none or board key
 connect(url:auth:boardKey:name:webAuthenticator:)   // any configuration, runs OIDC sign-in if needed
-startSignIn(url:clientName:) / completeSignIn(_:name:)
+startSignIn(url:clientName:frontDoor:webAuthenticator:) / completeSignIn(_:name:)
 remove(_:)
 service(for:) -> PaperclipFactoryService
 auth(for:) -> FactoryAuthConfiguration

@@ -246,4 +246,43 @@ struct FactoryStoreTests {
         #expect(store.factories.isEmpty)
         #expect(credentials.isEmpty)
     }
+
+    @Test func failedSecondSecretWriteRollsBackTheFirst() async throws {
+        let flaky = FlakyCredentialStore()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = FactoryStore(defaults: defaults, credentials: flaky, session: paperclip.session)
+        let factory = try await store.connect(url: paperclip.baseURL, credential: "old")
+        flaky.failWrites { $0.hasSuffix(".oidc") }
+
+        let frontDoor = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        await #expect(throws: KeychainError.self) {
+            try await store.connect(url: paperclip.baseURL, auth: frontDoor, boardKey: "new", webAuthenticator: FakeWebAuthenticator.approving())
+        }
+
+        #expect(try flaky.credential(for: factory.id) == "old")
+        #expect(store.auth(for: factory) == .boardKey)
+    }
+
+    @Test func browserSignInWorksBehindOIDCFrontDoor() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let browser = FakeWebAuthenticator.approving()
+        let paperclip = FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json(#"{"id":"ch-1","token":"pcp_cli_auth_abc","boardApiToken":"pcp_board_new","approvalPath":"/cli-auth/ch-1?token=pcp_cli_auth_abc","approvalUrl":null,"suggestedPollIntervalMs":1}"#, status: 201),
+            "GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#),
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+        ], recorder: recorder)
+        let store = store(paperclip)
+        let frontDoor = OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token")
+
+        let challenge = try await store.startSignIn(url: paperclip.baseURL, clientName: "Fabrix", frontDoor: frontDoor, webAuthenticator: browser)
+        let factory = try await store.completeSignIn(challenge)
+
+        #expect(recorder.requests.allSatisfy { $0.value(forHTTPHeaderField: "X-Forwarded-Access-Token") == "Bearer access-1" })
+        #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_new")
+        #expect(store.auth(for: factory) == FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true))
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+        #expect(try credentials.credential(for: "\(factory.id).oidc") != nil)
+    }
 }

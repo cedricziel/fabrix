@@ -172,4 +172,10 @@ struct OIDCFlowTests {
         #expect(formFields(recorder.last("POST", "/token")) == ["grant_type": "refresh_token", "refresh_token": "refresh-1", "client_id": "fabrix"])
         #expect(refreshed == OIDCTokens(accessToken: "access-2", refreshToken: "refresh-1", expiresAt: now + 600, tokenEndpoint: current.tokenEndpoint))
     }
+
+    @Test func discoveryNetworkFailureIsTransportError() async throws {
+        let flow = OIDCFlow(settings: OIDCFixtures.settings(issuer: URL(string: "https://unregistered-idp.paperclip.test")!), session: StubURLProtocol.session)
+
+        await #expect(throws: PaperclipError.transport(.cannotFindHost)) { try await flow.discover() }
+    }
 }

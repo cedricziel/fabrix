@@ -20,6 +20,12 @@ The app SHALL save a factory only after an authenticated call to its server succ
 - **THEN** connecting fails with an unauthorized error carrying the server's message
 - **AND** no factory and no secret is saved
 
+#### Scenario: Storing a secret fails
+
+- **WHEN** the board key is stored but storing the OIDC tokens fails
+- **THEN** connecting fails with the storage error
+- **AND** the previously saved key and configuration are unchanged
+
 ### Requirement: Server address input
 
 The app SHALL accept a server address with or without a scheme and with or without a trailing `/api`, and SHALL reject anything that is not an http or https URL with a host.

@@ -29,6 +29,9 @@ public struct SignInChallenge: Hashable, Sendable {
     public var boardAPIToken: String
     public var approvalURL: URL
     public var pollInterval: Duration
+    /// The OIDC front door the challenge was started behind, if any.
+    public var frontDoor: OIDCSettings?
+    var oidcTokens: OIDCTokens?
 
     public init(serverURL: URL, id: String, token: String, boardAPIToken: String, approvalURL: URL, pollInterval: Duration) {
         self.serverURL = serverURL
@@ -160,8 +163,9 @@ public struct PaperclipClient: Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        var (data, status) = try await load(auth.authorize(request))
-        if status == 401, try await auth.refreshAfterUnauthorized() {
+        let authorized = try await auth.authorize(request)
+        var (data, status) = try await load(authorized)
+        if status == 401, try await auth.refreshAfterUnauthorized(UnauthorizedResponse(request: authorized, body: data)) {
             (data, status) = try await load(auth.authorize(request))
         }
         guard (200 ..< 300).contains(status) else {

@@ -45,8 +45,12 @@ public actor OIDCAuthProvider: AuthProvider {
         return request
     }
 
-    public func refreshAfterUnauthorized() async throws -> Bool {
+    /// Refreshes only for a proxy-side `401` on the token this provider currently holds. If another
+    /// request already refreshed it, retrying with the new token is enough.
+    public func refreshAfterUnauthorized(_ failure: UnauthorizedResponse) async throws -> Bool {
+        guard !failure.isFromPaperclip else { return false }
         let tokens = try current()
+        guard failure.request.value(forHTTPHeaderField: settings.tokenHeader) == "Bearer \(tokens.accessToken)" else { return true }
         guard tokens.refreshToken != nil else { return false }
         _ = try await refreshed(from: tokens)
         return true
@@ -70,8 +74,9 @@ public actor OIDCAuthProvider: AuthProvider {
         defer { refreshing = nil }
         do {
             let fresh = try await task.value
-            try store.save(fresh)
+            // Keep rotated tokens in memory even if the Keychain write fails; the old refresh token is spent.
             cached = fresh
+            try store.save(fresh)
             return fresh
         } catch let OIDCError.provider(code, description) where code == "invalid_grant" {
             throw PaperclipError.unauthorized(description)

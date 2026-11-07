@@ -74,7 +74,7 @@ struct OIDCAuthProviderTests {
         let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2"))])
         let auth = try provider(server, stored: tokens(server, expiresIn: 3600))
 
-        #expect(try await auth.refreshAfterUnauthorized())
+        #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1")))
         #expect(try await auth.authorize(request).value(forHTTPHeaderField: "Authorization") == "Bearer access-2")
     }
 
@@ -82,7 +82,7 @@ struct OIDCAuthProviderTests {
         let server = FakeServer(routes: [:])
         let auth = try provider(server, stored: tokens(server, refresh: nil, expiresIn: 3600))
 
-        #expect(try await auth.refreshAfterUnauthorized() == false)
+        #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1")) == false)
     }
 
     @Test func rejectedRefreshIsUnauthorized() async throws {
@@ -108,5 +108,46 @@ struct OIDCAuthProviderTests {
                 false
             }
         }
+    }
+
+    @Test func paperclip401DoesNotRefreshOIDC() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2"))], recorder: recorder)
+        let auth = try provider(server, tokenHeader: "X-Forwarded-Access-Token", stored: tokens(server, expiresIn: 3600))
+
+        let retry = try await auth.refreshAfterUnauthorized(.fromPaperclip(sentWith: "X-Forwarded-Access-Token", value: "Bearer access-1"))
+
+        #expect(retry == false)
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func staleTokenRetriesWithoutAnotherRefresh() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2"))], recorder: recorder)
+        let auth = try provider(server, stored: tokens(server, expiresIn: 3600))
+        #expect(try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1")))
+
+        let retry = try await auth.refreshAfterUnauthorized(.fromProxy(value: "Bearer access-1"))
+
+        #expect(retry)
+        #expect(recorder.requests.count == 1)
+    }
+
+    @Test func keepsRotatedTokensWhenSavingFails() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens(access: "access-2", refresh: "refresh-2"))], recorder: recorder)
+        let flaky = FlakyCredentialStore()
+        try OIDCTokenStore(credentials: flaky, account: "f1.oidc").save(tokens(server, expiresIn: -10))
+        let auth = OIDCAuthProvider(
+            settings: OIDCFixtures.settings(issuer: server.baseURL),
+            tokens: OIDCTokenStore(credentials: flaky, account: "f1.oidc"), session: server.session, now: { now }
+        )
+        flaky.failWrites { _ in true }
+
+        await #expect(throws: KeychainError.self) { try await auth.authorize(request) }
+        let authorized = try await auth.authorize(request)
+
+        #expect(authorized.value(forHTTPHeaderField: "Authorization") == "Bearer access-2")
+        #expect(recorder.requests.count == 1)
     }
 }

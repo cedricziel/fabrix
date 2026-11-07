@@ -62,19 +62,81 @@ public final class FactoryStore {
         }
 
         var oidcTokens: OIDCTokens?
-        var oidcProvider: OIDCAuthProvider?
         if let oidc = auth.oidc {
-            guard let webAuthenticator else {
-                throw PaperclipError.invalidAuthConfiguration("OIDC sign-in needs a web authenticator.")
-            }
-            let tokens = try await OIDCFlow(settings: oidc, session: session).signIn(using: webAuthenticator)
-            let staged = OIDCTokenStore(credentials: InMemoryCredentialStore(), account: "candidate")
-            try staged.save(tokens)
-            oidcTokens = tokens
-            oidcProvider = OIDCAuthProvider(settings: oidc, tokens: staged, session: session)
+            oidcTokens = try await signInToIdentityProvider(oidc, webAuthenticator: webAuthenticator)
         }
-        let candidate = PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: oidcProvider, boardKey: key), session: session)
-        _ = try await candidate.boardSession()
+        return try await validateAndSave(baseURL: baseURL, auth: auth, boardKey: key, oidcTokens: oidcTokens, name: name)
+    }
+
+    /// Starts a browser sign-in. Show `approvalURL` to the user, then call `completeSignIn`.
+    ///
+    /// - Parameters:
+    ///   - frontDoor: OIDC settings for a reverse proxy in front of Paperclip. Its `tokenHeader` must not be
+    ///     `Authorization`, because the issued board key goes there. Sign-in to the identity provider runs first.
+    ///   - webAuthenticator: Shows the OIDC login page; required with `frontDoor`.
+    public func startSignIn(
+        url: URL, clientName: String, frontDoor: OIDCSettings? = nil, webAuthenticator: (any WebAuthenticator)? = nil
+    ) async throws -> SignInChallenge {
+        let baseURL = try PaperclipClient.serverURL(url)
+        var oidcTokens: OIDCTokens?
+        if let frontDoor {
+            try FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true).validate()
+            oidcTokens = try await signInToIdentityProvider(frontDoor, webAuthenticator: webAuthenticator)
+        }
+        let staged = try stage(frontDoor, oidcTokens)
+        var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil), session: session)
+            .startSignIn(clientName: clientName)
+        challenge.frontDoor = frontDoor
+        challenge.oidcTokens = try staged?.store.load()
+        return challenge
+    }
+
+    /// Waits until the user approves the sign-in in the browser, then connects with the issued key
+    /// (behind the challenge's OIDC front door, if any). Cancel the calling task to stop waiting.
+    ///
+    /// - Throws: `PaperclipError.signInCancelled` or `.signInExpired` when the challenge ends without approval.
+    @discardableResult
+    public func completeSignIn(_ challenge: SignInChallenge, name: String? = nil) async throws -> Factory {
+        let staged = try stage(challenge.frontDoor, challenge.oidcTokens)
+        let client = PaperclipClient(baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil), session: session)
+        while true {
+            switch try await client.signInStatus(challenge) {
+            case .approved:
+                return try await validateAndSave(
+                    baseURL: challenge.serverURL, auth: FactoryAuthConfiguration(oidc: challenge.frontDoor, usesBoardKey: true),
+                    boardKey: challenge.boardAPIToken, oidcTokens: staged?.store.load(), name: name
+                )
+            case .cancelled: throw PaperclipError.signInCancelled
+            case .expired: throw PaperclipError.signInExpired
+            case .pending: try await Task.sleep(for: challenge.pollInterval)
+            }
+        }
+    }
+
+    private func signInToIdentityProvider(_ settings: OIDCSettings, webAuthenticator: (any WebAuthenticator)?) async throws -> OIDCTokens {
+        guard let webAuthenticator else {
+            throw PaperclipError.invalidAuthConfiguration("OIDC sign-in needs a web authenticator.")
+        }
+        return try await OIDCFlow(settings: settings, session: session).signIn(using: webAuthenticator)
+    }
+
+    /// An OIDC provider over in-memory tokens, for requests made before the factory is saved.
+    private func stage(_ settings: OIDCSettings?, _ tokens: OIDCTokens?) throws -> (provider: OIDCAuthProvider, store: OIDCTokenStore)? {
+        guard let settings, let tokens else { return nil }
+        let store = OIDCTokenStore(credentials: InMemoryCredentialStore(), account: "candidate")
+        try store.save(tokens)
+        return (OIDCAuthProvider(settings: settings, tokens: store, session: session), store)
+    }
+
+    /// Checks the credentials against the server, then writes secrets and the record. Nothing is saved when it throws.
+    private func validateAndSave(
+        baseURL: URL, auth: FactoryAuthConfiguration, boardKey: String?, oidcTokens: OIDCTokens?, name: String?
+    ) async throws -> Factory {
+        let staged = try stage(auth.oidc, oidcTokens)
+        _ = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: boardKey), session: session)
+            .boardSession()
+        // Validation may have refreshed (and rotated) the tokens; keep the latest ones.
+        let tokensToSave = try staged?.store.load()
 
         let existing = factories.firstIndex { $0.baseURL == baseURL }
         let factory = Factory(
@@ -83,8 +145,14 @@ public final class FactoryStore {
             baseURL: baseURL,
             isOnline: true
         )
-        try credentials.setCredential(key, for: factory.id)
-        try oidcTokenStore(factory.id).save(oidcTokens)
+        let previousKey = try credentials.credential(for: factory.id)
+        try credentials.setCredential(boardKey, for: factory.id)
+        do {
+            try oidcTokenStore(factory.id).save(tokensToSave)
+        } catch {
+            try? credentials.setCredential(previousKey, for: factory.id)
+            throw error
+        }
         oidcProviders[factory.id] = nil
         authConfigurations[factory.id] = auth
         if let existing {
@@ -94,28 +162,6 @@ public final class FactoryStore {
         }
         save()
         return factory
-    }
-
-    /// Starts a browser sign-in. Show `approvalURL` to the user, then call `completeSignIn`.
-    public func startSignIn(url: URL, clientName: String) async throws -> SignInChallenge {
-        try await PaperclipClient(baseURL: PaperclipClient.serverURL(url), session: session).startSignIn(clientName: clientName)
-    }
-
-    /// Waits until the user approves the sign-in in the browser, then connects with the issued key.
-    /// Cancel the calling task to stop waiting.
-    ///
-    /// - Throws: `PaperclipError.signInCancelled` or `.signInExpired` when the challenge ends without approval.
-    @discardableResult
-    public func completeSignIn(_ challenge: SignInChallenge, name: String? = nil) async throws -> Factory {
-        let client = PaperclipClient(baseURL: challenge.serverURL, session: session)
-        while true {
-            switch try await client.signInStatus(challenge) {
-            case .approved: return try await connect(url: challenge.serverURL, credential: challenge.boardAPIToken, name: name)
-            case .cancelled: throw PaperclipError.signInCancelled
-            case .expired: throw PaperclipError.signInExpired
-            case .pending: try await Task.sleep(for: challenge.pollInterval)
-            }
-        }
     }
 
     /// The saved auth configuration, or `.none` for an unknown factory.

@@ -4,7 +4,24 @@ import Foundation
 public protocol AuthProvider: Sendable {
     func authorize(_ request: URLRequest) async throws -> URLRequest
     /// Called after a `401`. Returns true when credentials changed and the request is worth retrying once.
-    func refreshAfterUnauthorized() async throws -> Bool
+    func refreshAfterUnauthorized(_ failure: UnauthorizedResponse) async throws -> Bool
+}
+
+/// A request the server rejected with `401`, as it was sent.
+public struct UnauthorizedResponse: Sendable {
+    public var request: URLRequest
+    public var body: Data
+
+    public init(request: URLRequest, body: Data) {
+        self.request = request
+        self.body = body
+    }
+
+    /// Paperclip answers its own `401`s with `{"error": "…"}` JSON. A reverse proxy in front answers
+    /// with a page or redirect instead, so a Paperclip `401` says nothing about the proxy's token.
+    public var isFromPaperclip: Bool {
+        (try? JSONDecoder().decode(ErrorBodyDTO.self, from: body)) != nil
+    }
 }
 
 /// No credentials, for Paperclip servers in `local_trusted` mode.
@@ -15,7 +32,7 @@ public struct NoAuth: AuthProvider {
         request
     }
 
-    public func refreshAfterUnauthorized() async throws -> Bool {
+    public func refreshAfterUnauthorized(_: UnauthorizedResponse) async throws -> Bool {
         false
     }
 }
@@ -34,7 +51,7 @@ public struct BearerTokenAuth: AuthProvider {
         return request
     }
 
-    public func refreshAfterUnauthorized() async throws -> Bool {
+    public func refreshAfterUnauthorized(_: UnauthorizedResponse) async throws -> Bool {
         false
     }
 }
@@ -56,9 +73,9 @@ public struct ChainedAuth: AuthProvider {
         return request
     }
 
-    public func refreshAfterUnauthorized() async throws -> Bool {
+    public func refreshAfterUnauthorized(_ failure: UnauthorizedResponse) async throws -> Bool {
         var refreshed = false
-        for provider in providers where try await provider.refreshAfterUnauthorized() {
+        for provider in providers where try await provider.refreshAfterUnauthorized(failure) {
             refreshed = true
         }
         return refreshed

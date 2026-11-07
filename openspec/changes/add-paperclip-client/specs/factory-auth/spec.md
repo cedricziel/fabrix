@@ -72,6 +72,17 @@ The app SHALL refresh an OIDC access token that is expired or about to expire be
 - **WHEN** several requests need a refresh at the same time
 - **THEN** the app calls the token endpoint once
 
+#### Scenario: Paperclip rejects the board key behind a front door
+
+- **WHEN** Paperclip answers `401` with its own JSON error while the OIDC token is valid
+- **THEN** the app does not refresh the OIDC token and the request fails as unauthorized
+
+#### Scenario: Rotated tokens survive a failed Keychain write
+
+- **WHEN** a refresh succeeds but storing the new tokens fails
+- **THEN** the request fails with the storage error
+- **AND** the next request uses the new tokens without another refresh
+
 #### Scenario: Refresh rejected
 
 - **WHEN** the provider rejects the refresh token
@@ -85,6 +96,12 @@ The app SHALL combine an OIDC token for a reverse proxy with Paperclip authentic
 
 - **WHEN** a factory uses OIDC in the header `X-Forwarded-Access-Token` and a board key for Paperclip
 - **THEN** each request carries the OIDC access token in `X-Forwarded-Access-Token` and `Authorization: Bearer <board key>`
+
+#### Scenario: Browser sign-in behind a front door
+
+- **WHEN** the user starts browser sign-in with OIDC settings for the proxy and approves it in the browser
+- **THEN** the sign-in requests carry the OIDC token
+- **AND** the factory is saved with both the OIDC configuration and the issued board key, without a second OIDC login
 
 #### Scenario: Conflicting headers
 

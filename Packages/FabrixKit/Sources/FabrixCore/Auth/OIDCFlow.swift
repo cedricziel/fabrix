@@ -74,8 +74,14 @@ struct OIDCFlow: Sendable {
             var token_endpoint: URL
         }
         let url = settings.issuer.appending(path: ".well-known/openid-configuration")
-        guard let (data, response) = try? await session.data(from: url),
-              (response as? HTTPURLResponse)?.statusCode == 200,
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(from: url)
+        } catch let error as URLError {
+            throw PaperclipError.transport(error.code)
+        }
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
               let discovery = try? JSONDecoder().decode(Discovery.self, from: data)
         else { throw OIDCError.discoveryFailed }
         return OIDCEndpoints(authorization: discovery.authorization_endpoint, token: discovery.token_endpoint)
