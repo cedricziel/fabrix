@@ -32,21 +32,11 @@ struct SectionScreen: View {
         switch section {
         case .overview: OverviewView()
         case .tasks: TasksView()
-        case .agents: SectionPlaceholder(section: section)
-        case .orgChart: SectionPlaceholder(section: section)
+        case .agents: AgentsView()
+        case .orgChart: OrgChartView()
         case .approvals: ApprovalsView()
         case .activity: ActivityView()
         }
-    }
-}
-
-/// Stands in for sections that later changes in this stack fill in.
-private struct SectionPlaceholder: View {
-    let section: AppSection
-
-    var body: some View {
-        ContentUnavailableView(section.title, systemImage: section.systemImage, description: Text("Coming in the next build."))
-            .navigationTitle(section.title)
     }
 }
 
