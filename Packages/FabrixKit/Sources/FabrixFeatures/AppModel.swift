@@ -37,6 +37,8 @@ public final class AppModel {
     private let undoWindow: Duration
     private var index = SnapshotIndex(nil)
     private var desk = ApprovalDesk()
+    /// Why a decision didn't reach the factory, shown on its approval until decided again.
+    private(set) var decisionErrors: [Approval.ID: String] = [:]
     private var commitTimers: [Approval.ID: Task<Void, Never>] = [:]
 
     private static let demoKey = "fabrix.exploringDemo"
@@ -108,6 +110,7 @@ public final class AppModel {
         commitTimers.values.forEach { $0.cancel() }
         commitTimers = [:]
         desk = ApprovalDesk()
+        decisionErrors = [:]
         service = nil
         factory = nil
         companies = []
@@ -241,10 +244,13 @@ public final class AppModel {
     /// Stages the decision; it reaches the factory after the undo window.
     func decide(_ approval: Approval, approve: Bool) {
         desk.stage(approval.id, approve: approve)
+        decisionErrors[approval.id] = nil
         commitTimers[approval.id]?.cancel()
         commitTimers[approval.id] = Task { [undoWindow] in
             try? await Task.sleep(for: undoWindow)
             guard !Task.isCancelled else { return }
+            // The timer is done; drop it so commit() doesn't cancel the task it runs in.
+            self.commitTimers[approval.id] = nil
             await self.commit([approval.id])
         }
     }
@@ -267,25 +273,28 @@ public final class AppModel {
             return desk.beginCommit(id).map { (id, $0) }
         }
         guard !verdicts.isEmpty else { return }
-        let failures = await withTaskGroup(of: String?.self) { group in
+        let session = generation
+        let failures = await withTaskGroup(of: (Approval.ID, String)?.self) { group in
             for (id, approve) in verdicts {
                 group.addTask {
                     do {
                         try await service.decide(approvalID: id, approve: approve)
                         return nil
                     } catch {
-                        return error.localizedDescription
+                        return (id, error.localizedDescription)
                     }
                 }
             }
-            var failures: [String] = []
-            for await failure in group {
-                if let failure { failures.append(failure) }
+            var failures: [Approval.ID: String] = [:]
+            for await case let (id, message)? in group {
+                failures[id] = message
             }
             return failures
         }
         await refresh()
-        if let failure = failures.first {
+        guard session == generation else { return }
+        decisionErrors.merge(failures) { _, new in new }
+        if let failure = failures.values.first {
             lastError = failure
         }
         verdicts.forEach { desk.finish($0.0) }

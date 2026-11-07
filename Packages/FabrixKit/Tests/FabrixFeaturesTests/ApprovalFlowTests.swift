@@ -92,5 +92,53 @@ struct ApprovalFlowTests {
         #expect(model.waitingApprovals.map(\.id) == ["h1"])
         #expect(model.snapshot?.approvals.filter { $0.state == .approved }.map(\.id).sorted() == ["b1", "s1"])
         #expect(model.lastError != nil)
+        #expect(model.decisionErrors.keys.sorted() == ["h1"])
+
+        let failed = try #require(model.waitingApprovals.first)
+        model.decide(failed, approve: false)
+        #expect(model.decisionErrors.isEmpty)
+    }
+
+    @Test func timerCommitIsNotCancelledByItsOwnTimer() async throws {
+        let service = GatedService()
+        let model = AppModel(
+            connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service),
+            defaults: UserDefaults(suiteName: UUID().uuidString)!, undoWindow: .milliseconds(10)
+        )
+        await model.refresh()
+        let approval = try #require(model.waitingApprovals.first)
+
+        model.decide(approval, approve: true)
+        for _ in 0 ..< 100 where model.snapshot?.approvals.first(where: { $0.id == approval.id })?.state != .approved {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(model.snapshot?.approvals.first { $0.id == approval.id }?.state == .approved)
+        #expect(model.lastError == nil)
+        #expect(model.decisionErrors.isEmpty)
+    }
+
+    @Test func commitFinishingAfterAFactorySwitchLeavesTheNewSessionAlone() async throws {
+        let service = GatedService(failingDecisions: ["h1"])
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let model = AppModel(
+            connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service),
+            defaults: defaults, undoWindow: .seconds(60)
+        )
+        await model.refresh()
+        let approval = try #require(model.waitingApprovals.first { $0.id == "h1" })
+        model.decide(approval, approve: true)
+
+        await service.holdNextSnapshot()
+        let committing = Task { await model.commitStagedDecisions() }
+        await service.waitUntilHolding()
+        model.disconnect()
+        await model.exploreDemo()
+        await service.release()
+        await committing.value
+
+        #expect(model.lastError == nil)
+        #expect(model.decisionErrors.isEmpty)
+        #expect(model.waitingApprovals.contains { $0.id == "h1" })
     }
 }
