@@ -71,6 +71,7 @@ extension ProjectStatus {
         case .inProgress: .inProgress
         case .completed: .completed
         case .cancelled: .cancelled
+        case .other: .other
         }
     }
 }

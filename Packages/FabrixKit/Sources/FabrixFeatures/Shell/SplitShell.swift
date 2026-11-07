@@ -148,7 +148,7 @@ private struct ProjectsSidebarGroup: View {
     var body: some View {
         let board = ProjectBoard(projects: model.projects, snapshot: model.snapshot)
         Label("All projects", systemImage: AppSection.projects.systemImage)
-            .badge(board.projects.count)
+            .badge(board.active.count)
             .tag(SidebarItem.section(.projects))
         if model.projectsState == .loading {
             ForEach(0 ..< 3, id: \.self) { _ in
@@ -157,7 +157,7 @@ private struct ProjectsSidebarGroup: View {
             .accessibilityHidden(true)
         }
         if model.projectsFailure != nil {
-            Button("Didn't load · Retry", systemImage: "exclamationmark.circle") {
+            Button(model.projects.isEmpty ? "Didn't load · Retry" : "Didn't refresh · Retry", systemImage: "exclamationmark.circle") {
                 Task { await model.retryProjects() }
             }
             .foregroundStyle(Palette.haltInk)

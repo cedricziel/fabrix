@@ -238,7 +238,11 @@ private struct ProjectsCard: View {
                 } else if model.projectsState == .loading {
                     EmptyRow(text: "Loading projects…")
                 } else if board.active.isEmpty {
-                    EmptyRow(text: "No projects yet. Create one in Paperclip.")
+                    if board.completed.isEmpty {
+                        EmptyRow(text: "No projects yet. Create one in Paperclip.")
+                    } else {
+                        EmptyRow(text: "No active projects.")
+                    }
                 }
                 ForEach(board.active.prefix(3)) { project in
                     let counts = board.counts(for: project.id)

@@ -28,14 +28,17 @@ struct ProjectsView: View {
             Section {
                 if model.projectsState == .loading {
                     ForEach(0 ..< 3, id: \.self) { _ in
-                        ProjectRow(project: ProjectsView.placeholder, counts: TaskCounts(open: 3), lead: .none, isCompact: isCompact)
+                        ProjectRow(project: ProjectsView.placeholder, counts: TaskCounts(open: 3), unloaded: 0, lead: .none, isCompact: isCompact)
                     }
                     .redacted(reason: .placeholder)
                     .accessibilityLabel("Loading projects")
                 } else {
                     ForEach(shown) { project in
                         Button { navigator.open(project: project.id) } label: {
-                            ProjectRow(project: project, counts: board.counts(for: project.id), lead: board.lead(of: project), isCompact: isCompact)
+                            ProjectRow(
+                                project: project, counts: board.counts(for: project.id), unloaded: board.unloadedTaskCount(for: project),
+                                lead: board.lead(of: project), isCompact: isCompact
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -65,7 +68,7 @@ struct ProjectsFailureRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Image(systemName: "exclamationmark.circle").accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Projects didn't load").fontWeight(.semibold)
+                Text(model.projects.isEmpty ? "Projects didn't load" : "Projects didn't refresh").fontWeight(.semibold)
                 Text(message).font(.caption)
             }
             Spacer()
@@ -81,6 +84,7 @@ struct ProjectsFailureRow: View {
 struct ProjectRow: View {
     let project: Project
     let counts: TaskCounts
+    let unloaded: Int
     let lead: ProjectLead
     let isCompact: Bool
 
@@ -90,19 +94,20 @@ struct ProjectRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(project.name).font(.fabrix(.headline))
-                    if isCompact { ProjectStatusPill(project.status.style) }
+                    if isCompact { StatusPill(project.status.style) }
                 }
                 if let goal = project.goals.first {
                     Text(goal).font(.caption).foregroundStyle(Palette.muted).lineLimit(1)
                 }
                 TaskCountsBar(open: counts.open, blocked: counts.blocked, done: counts.done)
                     .frame(maxWidth: 320, alignment: .leading)
+                UnloadedTasksNote(count: unloaded)
                 LeadLabel(lead: lead)
             }
             Spacer(minLength: 12)
             if !isCompact {
                 VStack(alignment: .trailing, spacing: 6) {
-                    ProjectStatusPill(project.status.style)
+                    StatusPill(project.status.style)
                     if let day = project.targetDay {
                         Text(day, format: .dateTime.month(.abbreviated).day()).font(.fabrix(.monoCaption)).foregroundStyle(Palette.steel)
                     }
@@ -134,8 +139,25 @@ struct LeadLabel: View {
             Label("Lead outside this company", systemImage: "person.crop.circle.badge.questionmark")
                 .font(.caption)
                 .foregroundStyle(Palette.muted)
+        case .former:
+            Label("Former agent", systemImage: "person.crop.circle.badge.xmark")
+                .font(.caption)
+                .foregroundStyle(Palette.muted)
         case .none:
             Text("No lead").font(.caption).foregroundStyle(Palette.muted)
+        }
+    }
+}
+
+/// Counts come from the newest company tasks Fabrix loads; say when the server knows of more.
+struct UnloadedTasksNote: View {
+    let count: Int
+
+    var body: some View {
+        if count > 0 {
+            Text("^[\(count) older task](inflect: true) not loaded, so not counted")
+                .font(.caption)
+                .foregroundStyle(Palette.muted)
         }
     }
 }

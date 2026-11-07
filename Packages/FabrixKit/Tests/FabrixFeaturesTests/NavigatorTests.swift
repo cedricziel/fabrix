@@ -45,6 +45,22 @@ struct NavigatorTests {
         #expect(navigator.section == .projects)
     }
 
+    @Test func factoryWithoutProjectsLeavesThem() {
+        let navigator = Navigator()
+        navigator.open(.projects)
+        navigator.leaveProjects()
+        #expect(navigator.section == .overview)
+
+        navigator.open(project: "mobile")
+        navigator.leaveProjects()
+        #expect(navigator.project == nil)
+        #expect(navigator.section == .overview)
+
+        navigator.open(.approvals)
+        navigator.leaveProjects()
+        #expect(navigator.section == .approvals)
+    }
+
     @Test func compactProjectsOpenInFactoryTab() {
         let navigator = Navigator()
         navigator.isCompact = true

@@ -108,6 +108,15 @@ final class Navigator {
 }
 
 extension Navigator {
+    /// The factory has no projects (any more): leave anything that shows them.
+    func leaveProjects() {
+        if project != nil || section == .projects {
+            project = nil
+            section = .overview
+        }
+        tabPaths[.factory] = nil
+    }
+
     func open(project id: Project.ID) {
         guard isCompact else {
             section = .projects

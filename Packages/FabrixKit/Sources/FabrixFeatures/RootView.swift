@@ -136,6 +136,9 @@ public struct RootView: View {
         .onChange(of: SwitchContext(factoryID: model.factory?.id, companyID: model.snapshot?.company.id)) {
             navigator.resetPaths()
         }
+        .onChange(of: model.supportsProjects) { _, supported in
+            if !supported { navigator.leaveProjects() }
+        }
         .onChange(of: model.storeRevision) {
             Task { await model.followStoreChanges() }
         }

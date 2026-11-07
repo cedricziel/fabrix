@@ -51,7 +51,7 @@ private struct ProjectDetailContent: View {
                         if !isCompact {
                             Text(project.name).font(.fabrix(.title)).accessibilityAddTraits(.isHeader)
                         }
-                        ProjectStatusPill(project.status.style)
+                        StatusPill(project.status.style)
                     }
                     if let summary = project.summary {
                         Text(summary).foregroundStyle(Palette.steel)
@@ -66,6 +66,7 @@ private struct ProjectDetailContent: View {
                 }
                 TaskCountsBar(open: counts.open, blocked: counts.blocked, done: counts.done)
                     .frame(maxWidth: 420, alignment: .leading)
+                UnloadedTasksNote(count: board.unloadedTaskCount(for: project))
                 SectionCard(title: "Tasks") {
                     ProjectTasks(columns: TaskBoard.sections(for: board.tasks(in: project.id)))
                 }
