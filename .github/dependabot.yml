@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: bundler
+    directory: "/"
+    schedule:
+      interval: daily
+    assignees: [cedricziel]
+  - package-ecosystem: swift
+    directory: "/Packages/FabrixKit"
+    schedule:
+      interval: daily
+    assignees: [cedricziel]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+    assignees: [cedricziel]
