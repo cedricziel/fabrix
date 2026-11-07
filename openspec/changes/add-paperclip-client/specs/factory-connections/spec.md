@@ -39,6 +39,20 @@ The app SHALL accept a server address with or without a scheme and with or witho
 - **WHEN** the user enters `file:///etc/passwd`
 - **THEN** connecting fails with an invalid-server-address error before any network call
 
+### Requirement: Credentials only over trusted transport
+
+The app SHALL send a board key or OIDC token, and SHALL run browser sign-in, only over HTTPS or over plain HTTP to this machine or a private network. Private networks are loopback, `.local` and `.localhost` names, RFC 1918 addresses, `100.64.0.0/10` (Tailscale), link-local, and IPv6 unique-local addresses.
+
+#### Scenario: Board key to a remote server over HTTP
+
+- **WHEN** the user connects to `http://paperclip.example.com` with a board key
+- **THEN** connecting fails with an insecure-connection error before any request is sent
+
+#### Scenario: Board key to a server on the local network
+
+- **WHEN** the user connects to `http://192.168.1.20:3100` with a board key
+- **THEN** the key is sent and the factory is saved once the server accepts it
+
 ### Requirement: Saved factories persist
 
 The app SHALL keep saved factories, their display names and their auth configuration across relaunches.

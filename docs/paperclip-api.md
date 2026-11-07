@@ -13,6 +13,8 @@ Fabrix acts as a **board user** (a human operator), not as an agent.
 | `local_trusted` | Nothing. Every request is treated as the local board.                                                 |
 | `authenticated` | `Authorization: Bearer <board API key>`. Board keys start with `pcp_board_` and expire after 30 days. |
 
+Fabrix sends credentials only over HTTPS, or over plain HTTP to this machine or a private network (loopback, `.local`, RFC 1918, Tailscale's `100.64.0.0/10`, link-local, IPv6 unique-local). Otherwise `PaperclipError.insecureConnection` is thrown before any request. Browser sign-in follows the same rule, because the approval response carries the new key.
+
 There are two ways to get a board API key:
 
 1. **Browser sign-in (CLI auth challenge).** Fabrix creates a challenge, the user approves it in a browser where they are signed in to Paperclip, and the pending key in the challenge becomes active.

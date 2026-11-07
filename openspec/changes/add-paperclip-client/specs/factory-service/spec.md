@@ -12,8 +12,9 @@ The app SHALL provide a factory service backed by a Paperclip server. It SHALL l
 
 #### Scenario: Unknown status from a newer server
 
-- **WHEN** the server sends an agent, issue or approval status this version of Fabrix does not know
-- **THEN** the snapshot still loads, with the agent shown as idle, the issue as backlog, or the approval as other
+- **WHEN** the server sends an agent status, issue status, approval type or approval status this version of Fabrix does not know
+- **THEN** the snapshot still loads
+- **AND** the agent is shown as idle, the issue as backlog, the approval's kind as other, and its state as pending
 
 ### Requirement: Paperclip status mapping
 

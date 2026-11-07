@@ -88,7 +88,27 @@ public struct PaperclipClient: Sendable {
         return BoardSession(userID: me.userId, userName: me.user?.name, companyIDs: me.companyIds ?? [], isInstanceAdmin: me.isInstanceAdmin ?? false)
     }
 
+    /// Whether credentials may be sent to `url`: always over HTTPS, and over plain HTTP only to this
+    /// machine or a private network (loopback, `.local`, `.localhost`, RFC 1918, Tailscale's
+    /// 100.64.0.0/10, link-local and IPv6 unique-local addresses).
+    public static func allowsCredentials(to url: URL) -> Bool {
+        if url.scheme?.lowercased() == "https" { return true }
+        guard let host = url.host()?.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) else { return false }
+        if host == "localhost" || host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
+        if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") { return host.contains(":") }
+        let octets = host.split(separator: ".").compactMap { UInt8($0) }
+        guard octets.count == 4 else { return false }
+        switch (octets[0], octets[1]) {
+        case (127, _), (10, _), (192, 168), (169, 254): return true
+        case (172, 16 ... 31): return true
+        case (100, 64 ... 127): return true
+        default: return false
+        }
+    }
+
+    /// The approval response carries a new board key, so it must not cross an untrusted network in clear text.
     public func startSignIn(clientName: String) async throws -> SignInChallenge {
+        guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
         let created: SignInChallengeCreatedDTO = try await send("POST", "cli-auth/challenges", body: ["command": "fabrix connect", "clientName": clientName])
         let approvalURL = created.approvalUrl.flatMap(URL.init(string:))
             ?? URL(string: baseURL.absoluteString + created.approvalPath)
@@ -128,6 +148,7 @@ public struct PaperclipClient: Sendable {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let credential {
+            guard Self.allowsCredentials(to: baseURL) else { throw PaperclipError.insecureConnection }
             request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         }
         if let body {

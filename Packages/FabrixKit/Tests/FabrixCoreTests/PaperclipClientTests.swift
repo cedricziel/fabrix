@@ -147,4 +147,40 @@ struct PaperclipClientTests {
 
         #expect(value.text == expected)
     }
+
+    @Test(arguments: [
+        ("https://paperclip.example.com", true),
+        ("http://localhost:3100", true),
+        ("http://127.0.0.1:3100", true),
+        ("http://[::1]:3100", true),
+        ("http://factory.local", true),
+        ("http://paperclip.localhost", true),
+        ("http://192.168.1.20:3100", true),
+        ("http://10.0.0.5", true),
+        ("http://172.16.4.2", true),
+        ("http://100.101.102.103", true),
+        ("http://[fd12:3456::1]", true),
+        ("http://paperclip.example.com", false),
+        ("http://8.8.8.8", false),
+        ("http://172.32.0.1", false),
+        ("http://100.128.0.1", false),
+    ])
+    func allowsCredentialsOnlyOverHTTPSOrLocalNetworks(url: String, allowed: Bool) throws {
+        #expect(PaperclipClient.allowsCredentials(to: try #require(URL(string: url))) == allowed)
+    }
+
+    @Test func refusesToSendCredentialOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let client = try PaperclipClient(baseURL: #require(URL(string: "http://paperclip.example.com")), credential: "pcp_board_secret", session: server.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await client.boardSession() }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func refusesBrowserSignInOverRemoteHTTP() async throws {
+        let client = try PaperclipClient(baseURL: #require(URL(string: "http://paperclip.example.com")), session: StubURLProtocol.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await client.startSignIn(clientName: "Fabrix") }
+    }
 }
