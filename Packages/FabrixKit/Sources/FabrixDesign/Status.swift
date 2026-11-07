@@ -1,0 +1,135 @@
+import SwiftUI
+
+/// How an agent or run status looks. Status always pairs a dot shape with a
+/// label, never color alone. Features map their own status models onto this.
+public enum StatusStyle: CaseIterable, Sendable {
+    case running, idle, paused, needsYou, blocked, done
+
+    public enum Dot: Sendable { case filled, hollow }
+    enum Tone: Sendable { case run, neutral, signal, halt, done }
+
+    public var label: String {
+        switch self {
+        case .running: String(localized: "Running", bundle: .module)
+        case .idle: String(localized: "Idle", bundle: .module)
+        case .paused: String(localized: "Paused", bundle: .module)
+        case .needsYou: String(localized: "Needs you", bundle: .module)
+        case .blocked: String(localized: "Blocked", bundle: .module)
+        case .done: String(localized: "Done", bundle: .module)
+        }
+    }
+
+    public var dot: Dot {
+        switch self {
+        case .paused, .needsYou: .hollow
+        default: .filled
+        }
+    }
+
+    var tone: Tone {
+        switch self {
+        case .running: .run
+        case .idle, .paused: .neutral
+        case .needsYou: .signal
+        case .blocked: .halt
+        case .done: .done
+        }
+    }
+
+    public var dotColor: Color {
+        switch self {
+        case .idle: Palette.idle
+        case .paused: Palette.muted
+        default: tone.color
+        }
+    }
+}
+
+extension StatusStyle.Tone {
+    var color: Color {
+        switch self {
+        case .run: Palette.run
+        case .neutral: Palette.muted
+        case .signal: Palette.signal
+        case .halt: Palette.halt
+        case .done: Palette.done
+        }
+    }
+
+    var ink: Color {
+        switch self {
+        case .run: Palette.runInk
+        case .neutral: Palette.neutralInk
+        case .signal: Palette.signalInk
+        case .halt: Palette.haltInk
+        case .done: Palette.doneInk
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .run: Palette.runTint
+        case .neutral: Palette.neutralTint
+        case .signal: Palette.signalTint
+        case .halt: Palette.haltTint
+        case .done: Palette.doneTint
+        }
+    }
+}
+
+/// The status dot: filled for active states, a ring for paused and needs-you.
+public struct StatusDot: View {
+    private let style: StatusStyle
+    @ScaledMetric private var size: CGFloat
+
+    public init(_ style: StatusStyle, size: CGFloat = 7) {
+        self.style = style
+        _size = ScaledMetric(wrappedValue: size, relativeTo: .caption)
+    }
+
+    public var body: some View {
+        Group {
+            switch style.dot {
+            case .filled: Circle().fill(style.dotColor)
+            case .hollow: Circle().strokeBorder(style.dotColor, lineWidth: max(1.5, size * 0.2))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A capsule with a status dot and label, e.g. "Running · heartbeat every 5 min".
+public struct StatusPill: View {
+    private let style: StatusStyle
+    private let text: String
+
+    public init(_ style: StatusStyle, detail: String? = nil) {
+        self.style = style
+        text = [style.label, detail].compactMap(\.self).joined(separator: " · ")
+    }
+
+    public var body: some View {
+        HStack(spacing: 6) {
+            StatusDot(style)
+            Text(text).lineLimit(1)
+        }
+        .font(.fabrix(.label))
+        .foregroundStyle(style.tone.ink)
+        .padding(.horizontal, 10)
+        .frame(minHeight: 28)
+        .background(style.tone.tint, in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
+    }
+}
+
+#Preview("Status") {
+    VStack(alignment: .leading, spacing: Spacing.s) {
+        ForEach(StatusStyle.allCases, id: \.self) { StatusPill($0) }
+        StatusPill(.done, detail: "heartbeat every 5 min")
+        HStack { ForEach(StatusStyle.allCases, id: \.self) { StatusDot($0, size: 8) } }
+    }
+    .padding()
+    .background(Palette.paper)
+}

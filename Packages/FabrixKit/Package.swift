@@ -12,9 +12,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "FabrixCore"),
-        .target(name: "FabrixDesign"),
+        .target(name: "FabrixDesign", resources: [.copy("Resources/Fonts")]),
         .target(name: "FabrixFeatures", dependencies: ["FabrixCore", "FabrixDesign"]),
         .testTarget(name: "FabrixCoreTests", dependencies: ["FabrixCore"]),
+        .testTarget(name: "FabrixDesignTests", dependencies: ["FabrixDesign"]),
         .testTarget(name: "FabrixFeaturesTests", dependencies: ["FabrixFeatures"]),
     ]
 )
