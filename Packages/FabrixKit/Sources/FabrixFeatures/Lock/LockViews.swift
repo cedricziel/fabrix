@@ -29,6 +29,8 @@ private struct AppLockGate: ViewModifier {
         }
         .environment(lock)
         #if os(macOS)
+            // The window toolbar sits outside the cover and shows the company name.
+            .toolbar(lock.isCovered ? .hidden : .automatic, for: .windowToolbar)
             // A Mac window's scene phase doesn't follow app activation.
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
                 lock.sceneWillResignActive()
