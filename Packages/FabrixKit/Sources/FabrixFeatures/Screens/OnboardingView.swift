@@ -149,7 +149,11 @@ struct AddFactorySheet: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 460, minHeight: 420)
+        #else
+        .presentationSizing(.form)
+        #endif
         .onAppear { model.clearConnectError() }
     }
 }

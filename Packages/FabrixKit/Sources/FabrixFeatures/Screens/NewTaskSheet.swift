@@ -25,6 +25,10 @@ struct NewTaskSheet: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 420, minHeight: 240)
+        #else
+        .presentationSizing(.form)
+        #endif
     }
 }
