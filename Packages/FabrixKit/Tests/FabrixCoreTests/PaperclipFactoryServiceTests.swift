@@ -144,6 +144,8 @@ struct PaperclipFactoryServiceTests {
         (#""costUsd": 0.5, "usageJson": { "costUsd": 9 }"#, 50),
         (#""costUsd": null, "usageJson": { "costUsd": 1.25 }"#, 125),
         (#""usageJson": { "inputTokens": 10 }"#, nil),
+        (#""costUsd": "NaN""#, nil),
+        (#""costUsd": "Infinity""#, nil),
     ])
     func readsRunCostFromRowThenUsage(fields: String, expectedCents: Int?) throws {
         let json = #"{"id":"r","agentId":"a","status":"succeeded","createdAt":"2026-11-07T09:00:00Z",\#(fields)}"#
