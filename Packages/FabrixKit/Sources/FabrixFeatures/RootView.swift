@@ -7,6 +7,7 @@ public struct RootView: View {
     @State private var navigator = Navigator()
     @State private var shutdownTask: UUID?
     @State private var offeringLock = false
+    @State private var lockOfferIsDue = false
     private let lock: AppLock
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -90,13 +91,13 @@ public struct RootView: View {
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         // Inside the lock, so sheets close when it locks.
-        .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
-        .sheet(isPresented: $navigator.showingAddFactory) { AddFactorySheet() }
-        .sheet(isPresented: $navigator.showingSettings) { SettingsSheet() }
+        .sheet(isPresented: $navigator.showingNewTask, onDismiss: presentDueLockOffer) { NewTaskSheet() }
+        .sheet(isPresented: $navigator.showingAddFactory, onDismiss: presentDueLockOffer) { AddFactorySheet() }
+        .sheet(isPresented: $navigator.showingSettings, onDismiss: presentDueLockOffer) { SettingsSheet() }
         .sheet(isPresented: $offeringLock) { LockOfferSheet() }
         .focusedSceneValue(\.appModel, model)
         .focusedSceneValue(\.navigator, navigator)
-        .sheet(isPresented: signingInAgain) {
+        .sheet(isPresented: signingInAgain, onDismiss: presentDueLockOffer) {
             if let signIn = model.browserSignIn {
                 BrowserSignInView(state: signIn)
                     .padding(Spacing.xl)
@@ -113,7 +114,8 @@ public struct RootView: View {
         }
         .appLock(lock)
         .onChange(of: model.connectCount) {
-            offeringLock = lock.offerAfterConnect()
+            lockOfferIsDue = lock.shouldOfferLock
+            if !navigator.isPresentingSheet, !signingInAgain.wrappedValue { presentDueLockOffer() }
         }
         .task(id: Polling(factoryID: model.factory?.id, isActive: ScenePolicy.keepsPolling(scenePhase))) {
             guard model.factory != nil, ScenePolicy.keepsPolling(scenePhase) else { return }
@@ -149,6 +151,12 @@ public struct RootView: View {
         } set: { shown in
             if !shown { model.cancelBrowserSignIn() }
         }
+    }
+
+    private func presentDueLockOffer() {
+        guard lockOfferIsDue else { return }
+        lockOfferIsDue = false
+        offeringLock = lock.shouldOfferLock
     }
 
     private var isCompact: Bool {

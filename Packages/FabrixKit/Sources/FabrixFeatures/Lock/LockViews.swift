@@ -123,6 +123,7 @@ struct LockOfferSheet: View {
         .padding(Spacing.xl)
         .frame(maxWidth: 420)
         .presentationDetents([.medium])
+        .onAppear { lock.markOffered() }
     }
 
     private var title: String {
