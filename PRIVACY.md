@@ -16,14 +16,15 @@ None of it is linked to your identity. Fabrix does not send an advertising ID, t
 
 ### With every record
 
-| Attribute                               | Example                                                                                                  |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| App name (`service.name`)               | `fabrix`                                                                                                 |
-| App version and build number            | The installed build                                                                                      |
-| Installation ID (`service.instance.id`) | A random UUID created on first launch and stored on your device. Reinstalling the app creates a new one. |
-| Operating system type, name and version | iOS, iPadOS or macOS                                                                                     |
-| Hardware model identifier               | `iPhone17,1`, `Mac15,12`                                                                                 |
-| Environment                             | `production` or `development`                                                                            |
+| Attribute                                            | Example                                                                                                  |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| App name (`service.name`)                            | `fabrix`                                                                                                 |
+| App version and build number                         | The installed build                                                                                      |
+| Installation ID (`service.instance.id`)              | A random UUID created on first launch and stored on your device. Reinstalling the app creates a new one. |
+| Operating system type, name, version and description | iOS, iPadOS or macOS, with its version                                                                   |
+| OpenTelemetry SDK (`telemetry.sdk.*`)                | The SDK name, language and version                                                                       |
+| Hardware model identifier                            | `iPhone17,1`, `Mac15,12`                                                                                 |
+| Environment                                          | `production` or `development`                                                                            |
 
 ### On each launch
 
@@ -36,20 +37,20 @@ None of it is linked to your identity. Fabrix does not send an advertising ID, t
 - HTTP method and response status code.
 - URL scheme and server port.
 - URL path, with identifiers replaced by `{id}`, for example `/api/companies/{id}/agents`.
-- Error type and exception details.
+- Request and response body sizes, in bytes.
 
 The server host name is never sent in readable form (see below). Query strings, fragments, and user names and passwords in URLs are removed.
 
 ### Paperclip details
 
-| Attribute                 | What it holds                                                             |
-| ------------------------- | ------------------------------------------------------------------------- |
-| `paperclip.factory.id`    | The anonymized server token (see below)                                   |
-| `paperclip.auth.method`   | `board_key`, `oidc` or `oidc+board_key`                                   |
-| `paperclip.approval.kind` | The kind of approval                                                      |
-| `paperclip.agent.status`  | An agent's status                                                         |
-| `paperclip.run.adapter`   | The adapter a run uses                                                    |
-| `paperclip.api.route`     | A route template such as `/api/companies/{id}/agents`, never concrete IDs |
+| Attribute                 | What it holds                                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `paperclip.factory.id`    | The anonymized server token (see below)                                                                               |
+| `paperclip.auth.method`   | `board_key`, `oidc` or `oidc+board_key`                                                                               |
+| `paperclip.approval.kind` | The kind of approval                                                                                                  |
+| `paperclip.agent.status`  | An agent's status                                                                                                     |
+| `paperclip.run.adapter`   | The adapter a run uses                                                                                                |
+| `paperclip.api.route`     | A route template such as `/api/companies/{id}/agents`, never concrete IDs. Only on requests to your Paperclip servers |
 
 Some of these are reserved for screens that are still being built. They are only sent once that feature records them.
 
