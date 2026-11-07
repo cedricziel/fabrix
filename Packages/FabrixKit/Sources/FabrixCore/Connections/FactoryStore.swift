@@ -99,6 +99,29 @@ public final class FactoryStore {
         if let frontDoor {
             oidcTokens = try await signInToIdentityProvider(frontDoor, webAuthenticator: webAuthenticator)
         }
+        return try await createChallenge(baseURL: baseURL, clientName: clientName, frontDoor: frontDoor, oidcTokens: oidcTokens, headers: headers)
+    }
+
+    /// Starts a browser sign-in that replaces the board key of a saved factory, for example after it expired.
+    /// The factory's custom headers and saved OIDC tokens are reused, so there is no second OIDC login.
+    /// `completeSignIn` then keeps the factory's ID, name and settings.
+    ///
+    /// - Throws: `PaperclipError.invalidAuthConfiguration` when the factory doesn't use a board key.
+    public func startReauthentication(of factory: Factory, clientName: String) async throws -> SignInChallenge {
+        let auth = auth(for: factory)
+        guard auth.usesBoardKey else {
+            throw PaperclipError.invalidAuthConfiguration("This factory doesn't use a Paperclip key, so there is nothing to sign in again for.")
+        }
+        guard PaperclipClient.allowsCredentials(to: factory.baseURL) else { throw PaperclipError.insecureConnection }
+        let tokens = auth.oidc == nil ? nil : try oidcTokenStore(factory.id).load()
+        return try await createChallenge(
+            baseURL: factory.baseURL, clientName: clientName, frontDoor: auth.oidc, oidcTokens: tokens, headers: customHeaders(for: factory)
+        )
+    }
+
+    private func createChallenge(
+        baseURL: URL, clientName: String, frontDoor: OIDCSettings?, oidcTokens: OIDCTokens?, headers: [CustomHeader]
+    ) async throws -> SignInChallenge {
         let staged = try stage(frontDoor, oidcTokens)
         var challenge = try await PaperclipClient(baseURL: baseURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: headers), session: session)
             .startSignIn(clientName: clientName)
@@ -119,6 +142,8 @@ public final class FactoryStore {
             baseURL: challenge.serverURL, auth: Self.chain(oidc: staged?.provider, boardKey: nil, headers: challenge.customHeaders), session: session
         )
         while true {
+            // The app may have been in the background for longer than the request lives.
+            if let expiresAt = challenge.expiresAt, expiresAt <= .now { throw PaperclipError.signInExpired }
             switch try await client.signInStatus(challenge) {
             case .approved:
                 return try await validateAndSave(

@@ -447,4 +447,73 @@ struct FactoryStoreTests {
         #expect(recorder.requests.allSatisfy { $0.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret" })
         #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
     }
+
+    // MARK: - Browser sign-in again
+
+    private func signInServer(recorder: RequestRecorder? = nil, key: String = "pcp_board_new") -> FakeServer {
+        FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json(#"{"id":"ch-1","token":"pcp_cli_auth_abc","boardApiToken":"\#(key)","approvalPath":"/cli-auth/ch-1?token=pcp_cli_auth_abc","approvalUrl":null,"suggestedPollIntervalMs":1}"#, status: 201),
+            "GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#),
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+        ], recorder: recorder)
+    }
+
+    @Test func browserSignInStopsAtItsExpiry() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"pending"}"#)], recorder: recorder)
+        let store = store(server)
+        let challenge = SignInChallenge(
+            serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL,
+            pollInterval: .zero, expiresAt: .now - 1
+        )
+
+        await #expect(throws: PaperclipError.signInExpired) { try await store.completeSignIn(challenge) }
+        #expect(recorder.requests.isEmpty)
+        #expect(store.factories.isEmpty)
+    }
+
+    @Test func reauthenticationKeepsTheFactoryAndReplacesOnlyTheKey() async throws {
+        let recorder = RequestRecorder()
+        let server = signInServer(recorder: recorder)
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_old", name: "Atlas", headers: PaperclipFixtures.proxyHeader)
+
+        let challenge = try await store.startReauthentication(of: factory, clientName: "Fabrix")
+        let renewed = try await store.completeSignIn(challenge)
+
+        #expect(renewed == factory)
+        #expect(store.factories == [factory])
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+        #expect(try store.customHeaders(for: factory) == PaperclipFixtures.proxyHeader)
+        #expect(store.auth(for: factory) == .boardKey)
+        #expect(recorder.last("POST", "/api/cli-auth/challenges")?.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret")
+        #expect(recorder.last("POST", "/api/cli-auth/challenges")?.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    @Test func reauthenticationBehindOIDCReusesTheSavedTokens() async throws {
+        let idpRequests = RequestRecorder()
+        let idp = identityProvider(recorder: idpRequests)
+        let recorder = RequestRecorder()
+        let paperclip = signInServer(recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_old", webAuthenticator: FakeWebAuthenticator.approving())
+        let idpRequestsBefore = idpRequests.requests.count
+
+        let renewed = try await store.completeSignIn(store.startReauthentication(of: factory, clientName: "Fabrix"))
+
+        #expect(renewed.id == factory.id)
+        #expect(store.auth(for: factory) == auth)
+        #expect(idpRequests.requests.count == idpRequestsBefore)
+        #expect(recorder.last("POST", "/api/cli-auth/challenges")?.value(forHTTPHeaderField: "X-Auth") == "Bearer access-1")
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+    }
+
+    @Test func reauthenticationNeedsABoardKeyFactory() async throws {
+        let server = signInServer()
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: nil)
+
+        await #expect(throws: PaperclipError.self) { try await store.startReauthentication(of: factory, clientName: "Fabrix") }
+    }
 }
