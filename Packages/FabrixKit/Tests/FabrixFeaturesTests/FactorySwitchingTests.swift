@@ -203,4 +203,17 @@ struct FactorySwitchingTests {
         #expect(connector.calls.count == 1)
         #expect(results.filter { $0 }.count == 1)
     }
+
+    @Test func addingAFactoryWithHeadersWhileAnotherIsOpenPassesThemOn() async {
+        let (model, connector) = await connected(["one.example"])
+        var form = ConnectForm(address: "two.example", apiKey: "k")
+        form.headers = [ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "proxy-secret")]
+
+        let opened = await model.connect(form)
+
+        #expect(opened)
+        #expect(connector.calls.last?.headers == [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")])
+        #expect(model.factory?.name == "two.example")
+        #expect(connector.factories.map(\.name) == ["one.example", "two.example"])
+    }
 }
