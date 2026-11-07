@@ -23,18 +23,32 @@ The sandbox runs `ghcr.io/paperclipai/paperclip:latest` in `authenticated` /
 
 ## 2. Seed and get a credential
 
-Create the board user, a company and a few agents, tasks and approvals through
-the server's own API, then obtain a credential of the kind Fabrix's auth
-provider under test uses. Keep the steps in `scripts/paperclip-sandbox-seed.sh`
-so they stay repeatable; credentials go to stdout or a file under `$TMPDIR`,
-never into the repo.
+```bash
+eval "$(scripts/paperclip-sandbox-seed.sh)"   # needs a fresh sandbox; run once per `up`
+```
+
+The script uses the server's own API:
+
+1. It signs up `board@fabrix.test` (`POST /api/auth/sign-up/email`) and claims the instance (`POST /api/bootstrap/claim`).
+2. It mints a board API key (`POST /api/board-api-keys`). The session cookie stays inside the script.
+3. It creates the company "Atlas Sandbox" with:
+   - a CTO agent and a DevOps agent, paused, reporting to the CTO;
+   - three issues (todo, blocked, backlog);
+   - a pending `hire_agent` approval and a pending `approve_ceo_strategy` approval.
+
+It exports `FABRIX_SANDBOX_URL`, `FABRIX_SANDBOX_KEY` and `FABRIX_SANDBOX_COMPANY_ID`, and writes them to `$TMPDIR/fabrix-paperclip-sandbox/credentials.env`. `down` deletes that file with the sandbox data. Never commit it.
+
+The seed covers the board-key provider only. The sandbox has no OIDC identity provider; OIDC is covered by the stubbed package tests (`OIDCFlowTests`, `OIDCAuthProviderTests`). To validate OIDC end to end, put a reverse proxy with an IdP in front of the sandbox yourself, and record that in the report.
 
 ## 3. Exercise
 
-- Contract checks: run the client tests that are gated on the sandbox, e.g.
-  `FABRIX_SANDBOX_URL="$base_url" xcrun swift test --package-path Packages/FabrixKit --filter Sandbox`.
-  A filter that matches nothing still exits 0, so check the summary line reports
-  more than zero tests; if it reports none, say the contract check was skipped.
+- Contract checks: `xcrun swift test --package-path Packages/FabrixKit --filter Sandbox`
+  runs `SandboxContractTests` with the exported variables. They are skipped when
+  `FABRIX_SANDBOX_URL` is unset. A filter that matches nothing still exits 0, and Swift
+  Testing counts skipped tests in its summary, so a positive count proves nothing. Check that each
+  `SandboxContractTests` test has its own `✔ … passed` line and that no `➜ … skipped` line
+  appears; otherwise say the contract check was skipped. The tests change the seeded data: they approve and reject approvals and pause
+  agents. Re-seed a fresh sandbox before running them again.
 - App check (only once the app can connect to a factory and shows approvals and
   agents; until then, report it as skipped): build and launch `FabrixMac` (see CLAUDE.md), connect it to
   `$base_url`, and confirm the seeded company, agents, tasks and approvals show

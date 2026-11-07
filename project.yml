@@ -35,6 +35,11 @@ targets:
     dependencies:
       - package: FabrixKit
         product: FabrixFeatures
+    entitlements:
+      path: App/iOS/FabrixiOS.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.cedricziel.fabrix
     info:
       path: App/iOS/Info.plist
       properties:
@@ -81,6 +86,8 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.cedricziel.fabrix
     info:
       path: App/macOS/Info.plist
       properties:

@@ -1,0 +1,288 @@
+@testable import FabrixCore
+import Foundation
+import Synchronization
+import Testing
+
+@MainActor
+struct FactoryStoreTests {
+    private let defaults = UserDefaults(suiteName: "FactoryStoreTests-\(UUID().uuidString)")!
+    private let credentials = InMemoryCredentialStore()
+
+    private func store(_ server: FakeServer) -> FactoryStore {
+        FactoryStore(defaults: defaults, credentials: credentials, session: server.session)
+    }
+
+    @Test func connectValidatesThenPersistsFactoryAndCredential() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let store = store(server)
+
+        let factory = try await store.connect(url: server.baseURL.appending(path: "api/"), credential: " pcp_board_secret\n", name: "Home lab")
+
+        #expect(factory.name == "Home lab")
+        #expect(factory.baseURL == server.baseURL)
+        #expect(factory.isOnline)
+        #expect(store.factories == [factory])
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_secret")
+        #expect(recorder.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_secret")
+    }
+
+    @Test func factoriesSurviveRelaunch() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let factory = try await store(server).connect(url: server.baseURL, credential: "k")
+
+        let relaunched = store(server)
+
+        #expect(relaunched.factories == [factory])
+    }
+
+    @Test func connectDefaultsNameToHost() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+
+        let factory = try await store(server).connect(url: server.baseURL, credential: nil)
+
+        #expect(factory.name == server.baseURL.host())
+        #expect(try credentials.credential(for: factory.id) == nil)
+    }
+
+    @Test func rejectedCredentialPersistsNothing() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"Board authentication required"}"#, status: 401)])
+        let store = store(server)
+
+        await #expect(throws: PaperclipError.unauthorized("Board authentication required")) {
+            try await store.connect(url: server.baseURL, credential: "wrong")
+        }
+        #expect(store.factories.isEmpty)
+        #expect(credentials.isEmpty)
+    }
+
+    @Test func rejectsNonHTTPURLs() async throws {
+        let server = FakeServer(routes: [:])
+
+        await #expect(throws: PaperclipError.invalidServerURL) {
+            try await store(server).connect(url: #require(URL(string: "file:///etc/passwd")), credential: nil)
+        }
+    }
+
+    @Test func reconnectingSameServerReplacesCredentialAndKeepsID() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = store(server)
+        let first = try await store.connect(url: server.baseURL, credential: "old")
+
+        let second = try await store.connect(url: server.baseURL, credential: "new", name: "Renamed")
+
+        #expect(second.id == first.id)
+        #expect(store.factories.map(\.name) == ["Renamed"])
+        #expect(try credentials.credential(for: first.id) == "new")
+    }
+
+    @Test func removeForgetsFactoryAndCredential() async throws {
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "k")
+
+        try store.remove(factory)
+
+        #expect(store.factories.isEmpty)
+        #expect(try credentials.credential(for: factory.id) == nil)
+        #expect(self.store(server).factories.isEmpty)
+    }
+
+    @Test func serviceUsesStoredCredential() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+            "GET /api/companies": .json(PaperclipFixtures.companies),
+        ], recorder: recorder)
+        let store = store(server)
+        let factory = try await store.connect(url: server.baseURL, credential: "pcp_board_secret")
+
+        _ = try await store.service(for: factory).companies()
+
+        #expect(recorder.last("GET", "/api/companies")?.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_secret")
+    }
+
+    @Test func browserSignInPollsUntilApprovedThenConnects() async throws {
+        let polls = Mutex(0)
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json(#"{"id":"ch-1","token":"pcp_cli_auth_abc","boardApiToken":"pcp_board_new","approvalPath":"/cli-auth/ch-1?token=pcp_cli_auth_abc","approvalUrl":null,"suggestedPollIntervalMs":1}"#, status: 201),
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+        ], recorder: recorder, dynamicRoutes: ["GET /api/cli-auth/challenges/ch-1": { _ in
+            let count = polls.withLock { $0 += 1; return $0 }
+            return .json(#"{"id":"ch-1","status":"\#(count < 3 ? "pending" : "approved")"}"#)
+        }])
+        let store = store(server)
+
+        let challenge = try await store.startSignIn(url: server.baseURL, clientName: "Fabrix")
+        let factory = try await store.completeSignIn(challenge)
+
+        #expect(polls.withLock { $0 } == 3)
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+        #expect(store.factories == [factory])
+    }
+
+    @Test(arguments: [("expired", PaperclipError.signInExpired), ("cancelled", .signInCancelled)])
+    func browserSignInStopsWhenChallengeEnds(status: String, expected: PaperclipError) async throws {
+        let server = FakeServer(routes: [
+            "GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"\#(status)"}"#),
+        ])
+        let store = store(server)
+        let challenge = SignInChallenge(serverURL: server.baseURL, id: "ch-1", token: "pcp_cli_auth_abc", boardAPIToken: "pcp_board_new", approvalURL: server.baseURL, pollInterval: .zero)
+
+        await #expect(throws: expected) { try await store.completeSignIn(challenge) }
+        #expect(store.factories.isEmpty)
+    }
+
+    // MARK: - Auth configurations
+
+    private func identityProvider(recorder: RequestRecorder? = nil) -> FakeServer {
+        FakeServer(routes: ["POST /token": .json(OIDCFixtures.tokens())], recorder: recorder, dynamicRoutes: [
+            "GET /.well-known/openid-configuration": { request in
+                .json(OIDCFixtures.discovery(issuer: URL(string: "https://\(request.url!.host()!)")!))
+            },
+        ])
+    }
+
+    @Test func connectsWithOIDCFrontDoorAndBoardKey() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: [
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+            "GET /api/companies": .json(PaperclipFixtures.companies),
+        ], recorder: recorder)
+        let store = store(paperclip)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token"), usesBoardKey: true)
+
+        let factory = try await store.connect(url: paperclip.baseURL, auth: auth, boardKey: "pcp_board_secret", webAuthenticator: FakeWebAuthenticator.approving())
+        _ = try await store.service(for: factory).companies()
+
+        for path in ["/api/cli-auth/me", "/api/companies"] {
+            let request = try #require(recorder.last("GET", path))
+            #expect(request.value(forHTTPHeaderField: "X-Forwarded-Access-Token") == "Bearer access-1")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_secret")
+        }
+        #expect(store.auth(for: factory) == auth)
+    }
+
+    @Test func oidcOnlyConnectionSendsNoBoardKey() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL))
+
+        let factory = try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "ignored", webAuthenticator: FakeWebAuthenticator.approving())
+
+        #expect(recorder.requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer access-1")
+        #expect(try credentials.credential(for: factory.id) == nil)
+    }
+
+    @Test func rejectsConflictingAuthorizationHeaders() async throws {
+        let recorder = RequestRecorder()
+        let paperclip = FakeServer(routes: [:], recorder: recorder)
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: paperclip.baseURL), usesBoardKey: true)
+
+        await #expect {
+            try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+        } throws: { error in
+            if case .invalidAuthConfiguration = error as? PaperclipError { true } else { false }
+        }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func boardKeyConfigurationNeedsAKey() async throws {
+        let paperclip = FakeServer(routes: [:])
+
+        await #expect {
+            try await store(paperclip).connect(url: paperclip.baseURL, auth: .boardKey, boardKey: "  ", webAuthenticator: nil)
+        } throws: { error in
+            if case .invalidAuthConfiguration = error as? PaperclipError { true } else { false }
+        }
+    }
+
+    @Test func failedValidationAfterOIDCSignInPersistsNothing() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(#"{"error":"nope"}"#, status: 401)])
+        let store = store(paperclip)
+
+        await #expect(throws: PaperclipError.unauthorized("nope")) {
+            try await store.connect(url: paperclip.baseURL, auth: FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL)), boardKey: nil, webAuthenticator: FakeWebAuthenticator.approving())
+        }
+        #expect(store.factories.isEmpty)
+        #expect(credentials.isEmpty)
+    }
+
+    @Test func authConfigurationSurvivesRelaunch() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let auth = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        let factory = try await store(paperclip).connect(url: paperclip.baseURL, auth: auth, boardKey: "k", webAuthenticator: FakeWebAuthenticator.approving())
+
+        let relaunched = store(paperclip)
+
+        #expect(relaunched.factories == [factory])
+        #expect(relaunched.auth(for: factory) == auth)
+    }
+
+    @Test func removeDeletesOIDCTokens() async throws {
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = store(paperclip)
+        let factory = try await store.connect(url: paperclip.baseURL, auth: FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL)), boardKey: nil, webAuthenticator: FakeWebAuthenticator.approving())
+        #expect(!credentials.isEmpty)
+
+        try store.remove(factory)
+
+        #expect(credentials.isEmpty)
+        #expect(store.auth(for: factory) == FactoryAuthConfiguration.none)
+    }
+
+    @Test func refusesBoardKeyOverRemoteHTTP() async throws {
+        let store = FactoryStore(defaults: defaults, credentials: credentials, session: StubURLProtocol.session)
+
+        await #expect(throws: PaperclipError.insecureConnection) {
+            try await store.connect(url: URL(string: "http://paperclip.example.com")!, credential: "pcp_board_secret")
+        }
+        #expect(store.factories.isEmpty)
+        #expect(credentials.isEmpty)
+    }
+
+    @Test func failedSecondSecretWriteRollsBackTheFirst() async throws {
+        let flaky = FlakyCredentialStore()
+        let idp = identityProvider()
+        let paperclip = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)])
+        let store = FactoryStore(defaults: defaults, credentials: flaky, session: paperclip.session)
+        let factory = try await store.connect(url: paperclip.baseURL, credential: "old")
+        flaky.failWrites { $0.hasSuffix(".oidc") }
+
+        let frontDoor = FactoryAuthConfiguration(oidc: OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Auth"), usesBoardKey: true)
+        await #expect(throws: KeychainError.self) {
+            try await store.connect(url: paperclip.baseURL, auth: frontDoor, boardKey: "new", webAuthenticator: FakeWebAuthenticator.approving())
+        }
+
+        #expect(try flaky.credential(for: factory.id) == "old")
+        #expect(store.auth(for: factory) == .boardKey)
+    }
+
+    @Test func browserSignInWorksBehindOIDCFrontDoor() async throws {
+        let recorder = RequestRecorder()
+        let idp = identityProvider()
+        let browser = FakeWebAuthenticator.approving()
+        let paperclip = FakeServer(routes: [
+            "POST /api/cli-auth/challenges": .json(#"{"id":"ch-1","token":"pcp_cli_auth_abc","boardApiToken":"pcp_board_new","approvalPath":"/cli-auth/ch-1?token=pcp_cli_auth_abc","approvalUrl":null,"suggestedPollIntervalMs":1}"#, status: 201),
+            "GET /api/cli-auth/challenges/ch-1": .json(#"{"id":"ch-1","status":"approved"}"#),
+            "GET /api/cli-auth/me": .json(PaperclipFixtures.me),
+        ], recorder: recorder)
+        let store = store(paperclip)
+        let frontDoor = OIDCFixtures.settings(issuer: idp.baseURL, tokenHeader: "X-Forwarded-Access-Token")
+
+        let challenge = try await store.startSignIn(url: paperclip.baseURL, clientName: "Fabrix", frontDoor: frontDoor, webAuthenticator: browser)
+        let factory = try await store.completeSignIn(challenge)
+
+        #expect(recorder.requests.allSatisfy { $0.value(forHTTPHeaderField: "X-Forwarded-Access-Token") == "Bearer access-1" })
+        #expect(recorder.last("GET", "/api/cli-auth/me")?.value(forHTTPHeaderField: "Authorization") == "Bearer pcp_board_new")
+        #expect(store.auth(for: factory) == FactoryAuthConfiguration(oidc: frontDoor, usesBoardKey: true))
+        #expect(try credentials.credential(for: factory.id) == "pcp_board_new")
+        #expect(try credentials.credential(for: "\(factory.id).oidc") != nil)
+    }
+}
