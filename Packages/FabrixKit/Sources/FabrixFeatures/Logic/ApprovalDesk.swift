@@ -55,6 +55,19 @@ struct ApprovalDesk {
         entries[id] = nil
     }
 
+    var ids: Set<Approval.ID> {
+        Set(entries.keys)
+    }
+
+    func tracks(_ id: Approval.ID) -> Bool {
+        entries[id] != nil
+    }
+
+    /// Forgets decisions on approvals that left with their company.
+    mutating func keepOnly(_ ids: Set<Approval.ID>) {
+        entries = entries.filter { ids.contains($0.key) }
+    }
+
     /// Drops sent decisions once the factory shows them decided (or the approval is gone).
     /// Until then they stay under Decided, even if the refresh after sending failed.
     mutating func settle(with approvals: [Approval]) {

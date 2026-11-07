@@ -29,6 +29,23 @@ struct CompanyGoneTests {
         #expect(model.connectionProblem == nil)
     }
 
+    @Test func decisionsOnAGoneCompanyAreDroppedAndKeepItsNotice() async throws {
+        let atlas = try await DemoFactoryService().snapshot(companyID: "atlas")
+        let approval = try #require(atlas.approvals.first { $0.state == .pending })
+        let service = GatedService(failingDecisions: [approval.id])
+        let model = model(service)
+        await model.refresh()
+        model.decide(approval, approve: true)
+
+        await service.removeCompany("atlas")
+        await model.refresh()
+        await model.commitStagedDecisions()
+
+        #expect(model.loadState == .empty)
+        #expect(model.decisionErrors.isEmpty)
+        #expect(model.actionError == "Atlas is no longer available.")
+    }
+
     @Test func theLastCompanyGoingAwayShowsTheEmptyState() async {
         let service = GatedService()
         let model = model(service)

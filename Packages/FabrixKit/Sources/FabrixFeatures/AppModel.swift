@@ -657,8 +657,11 @@ public final class AppModel {
                 fresh = nil
             }
             guard selectedCompanyID == wanted, accept(request) else { return }
-            if isGone, let gone = snapshot?.company.name {
-                actionError = String(localized: "\(gone) is no longer available.")
+            if isGone {
+                forgetDecisions(keeping: Set(fresh?.approvals.map(\.id) ?? []))
+                if let gone = snapshot?.company.name {
+                    actionError = String(localized: "\(gone) is no longer available.")
+                }
             }
             selectedCompanyID = fresh?.company.id
             if companies != self.companies {
@@ -900,6 +903,15 @@ public final class AppModel {
         }
     }
 
+    /// A gone company's decisions can't be sent; their failures would replace its notice.
+    private func forgetDecisions(keeping kept: Set<Approval.ID>) {
+        for id in desk.ids where !kept.contains(id) {
+            commitTimers.removeValue(forKey: id)?.cancel()
+            decisionErrors[id] = nil
+        }
+        desk.keepOnly(kept)
+    }
+
     /// Sends every staged decision now, e.g. when the app goes to the background.
     public func commitStagedDecisions() async {
         await commit(desk.stagedIDs)
@@ -934,7 +946,7 @@ public final class AppModel {
         guard session == generation else { return }
         let verdictByID = Dictionary(uniqueKeysWithValues: verdicts)
         var messages: [Approval.ID: String] = [:]
-        for (id, error) in failures {
+        for (id, error) in failures where desk.tracks(id) {
             if let approve = verdictByID[id], holdIfSignedOut(error) {
                 // The key was rejected, not the decision: keep it for after signing in again.
                 desk.stage(id, approve: approve)
