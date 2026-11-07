@@ -1,9 +1,9 @@
 ## 1. FabrixCore: sign-in requests and key expiry (PR: signin/core)
 
-- [ ] 1.1 Decode `expiresAt` and keep the approval URL on the factory origin (`Paperclip/PaperclipClient.swift`, `Paperclip/PaperclipDTOs.swift`); tests `PaperclipClientTests.approvalURLStaysOnTheFactoryOrigin`, `challengeCarriesItsExpiry`
-- [ ] 1.2 Stop waiting once `expiresAt` passes (`Connections/FactoryStore.swift`); test `FactoryStoreTests.browserSignInStopsAtItsExpiry`
-- [ ] 1.3 `startReauthentication(of:clientName:)` (`Connections/FactoryStore.swift`); tests `reauthenticationKeepsTheFactoryAndReplacesOnlyTheKey`, `reauthenticationNeedsABoardKeyFactory`
-- [ ] 1.4 `boardKeyExpiry()` and `FactoryService.credentialExpiry()` (`Paperclip/PaperclipClient.swift`, `Paperclip/PaperclipFactoryService.swift`, `FactoryService.swift`); tests `PaperclipFactoryServiceTests.reportsBoardKeyExpiry`, `noExpiryWhenTheKeyListIsUnavailable`
+- [x] 1.1 Decode `expiresAt` and keep the approval URL on the factory origin (`Paperclip/PaperclipClient.swift`, `Paperclip/PaperclipDTOs.swift`); tests `PaperclipClientTests.approvalURLStaysOnTheFactoryOrigin`, `approvalURLOnTheFactoryOriginIsKept`, `challengeCarriesItsExpiry`
+- [x] 1.2 Stop waiting once `expiresAt` passes (`Connections/FactoryStore.swift`); test `FactoryStoreTests.browserSignInStopsAtItsExpiry`
+- [x] 1.3 `startReauthentication(of:clientName:)` (`Connections/FactoryStore.swift`); tests `reauthenticationKeepsTheFactoryAndReplacesOnlyTheKey`, `reauthenticationBehindOIDCReusesTheSavedTokens`, `reauthenticationNeedsABoardKeyFactory`
+- [x] 1.4 `boardKeyExpiry()` and `FactoryService.credentialExpiry()` (`Paperclip/PaperclipClient.swift`, `Paperclip/PaperclipFactoryService.swift`, `FactoryService.swift`); tests `PaperclipFactoryServiceTests.reportsBoardKeyExpiry`, `noExpiryWhenTheKeyListIsUnavailable`, `noExpiryWithoutABoardKey`, `demoServiceReportsNoExpiry`
 
 ## 2. FabrixFeatures: browser sign-in in the app (PR: signin/ui)
 
