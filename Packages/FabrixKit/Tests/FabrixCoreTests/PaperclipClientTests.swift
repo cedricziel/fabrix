@@ -268,6 +268,44 @@ struct PaperclipClientTests {
         #expect(try SameOriginRedirects.Origin(#require(URL(string: url))).description == expected)
     }
 
+    @Test func customHeadersAreAddedToRequests() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder)
+        let auth = ChainedAuth([CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]), BearerTokenAuth(token: "k")])
+        let client = PaperclipClient(baseURL: server.baseURL, auth: auth, session: server.session)
+
+        _ = try await client.boardSession()
+
+        let request = try #require(recorder.last("GET", "/api/cli-auth/me"))
+        #expect(request.value(forHTTPHeaderField: "X-Proxy-Token") == "proxy-secret")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer k")
+    }
+
+    @Test func customHeadersAreRefusedOverRemoteHTTP() async throws {
+        let recorder = RequestRecorder()
+        let server = FakeServer(routes: [:], recorder: recorder)
+        let client = PaperclipClient(
+            baseURL: server.httpBaseURL, auth: CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]),
+            session: server.session
+        )
+
+        await #expect(throws: PaperclipError.insecureConnection) { try await client.boardSession() }
+        #expect(recorder.requests.isEmpty)
+    }
+
+    @Test func customHeadersDoNotFollowRedirectsToAnotherOrigin() async throws {
+        let attacker = RequestRecorder()
+        let evil = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: attacker)
+        let server = FakeServer(routes: ["GET /api/cli-auth/me": .redirect(to: evil.baseURL.appending(path: "api/cli-auth/me"))])
+        let client = PaperclipClient(
+            baseURL: server.baseURL, auth: CustomHeadersAuth(headers: [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")]),
+            session: server.session
+        )
+
+        await #expect(throws: PaperclipError.self) { try await client.boardSession() }
+        #expect(attacker.requests.isEmpty)
+    }
+
     @Test func followsRedirectsWithinTheSameOrigin() async throws {
         let recorder = RequestRecorder()
         let server = FakeServer(routes: ["GET /api/cli-auth/me": .json(PaperclipFixtures.me)], recorder: recorder, dynamicRoutes: [

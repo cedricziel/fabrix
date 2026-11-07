@@ -60,6 +60,28 @@ public struct BearerTokenAuth: AuthProvider {
     }
 }
 
+/// Fixed extra headers, such as a reverse proxy's access token. The client treats them like any
+/// other credential: never over untrusted plain HTTP, never across a redirect to another origin.
+public struct CustomHeadersAuth: AuthProvider {
+    public var headers: [CustomHeader]
+
+    public init(headers: [CustomHeader]) {
+        self.headers = headers
+    }
+
+    public func authorize(_ request: URLRequest) async throws -> URLRequest {
+        var request = request
+        for header in headers {
+            request.setValue(header.value, forHTTPHeaderField: header.name)
+        }
+        return request
+    }
+
+    public func refreshAfterUnauthorized(_: UnauthorizedResponse) async throws -> Bool {
+        false
+    }
+}
+
 /// Applies several providers in order, for example an OIDC token for a reverse proxy
 /// followed by a Paperclip board key.
 public struct ChainedAuth: AuthProvider {
