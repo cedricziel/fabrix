@@ -1,0 +1,205 @@
+opt_out_usage
+
+APP_IDENTIFIER = "com.cedricziel.fabrix"
+APP_NAME       = "Fabrix"
+TEAM_ID        = "WPW3QSLZ2F"
+PROJECT        = "Fabrix.xcodeproj"
+OUTPUT_DIR     = "build/fastlane"
+REPO_ROOT      = File.expand_path("..", __dir__)
+
+TARGETS = {
+  ios: {
+    target: "FabrixiOS",
+    match_platform: "ios",
+    upload_platform: "ios",
+    destination: "generic/platform=iOS",
+    artifact: "#{OUTPUT_DIR}/Fabrix.ipa",
+  },
+  mac: {
+    target: "FabrixMac",
+    match_platform: "macos",
+    upload_platform: "osx",
+    destination: "generic/platform=macOS",
+    artifact: "#{OUTPUT_DIR}/Fabrix.pkg",
+  },
+}.freeze
+
+# Build number = commits reachable from HEAD: monotonic on main, never written back.
+def commit_count_build_number
+  @commit_count_build_number ||= sh("git rev-list --count HEAD", log: false).strip
+end
+
+def marketing_version(options)
+  explicit = options[:version].to_s.strip
+  return explicit unless explicit.empty?
+
+  File.read(File.join(REPO_ROOT, "project.yml"))[/MARKETING_VERSION:\s*"([^"]+)"/, 1]
+end
+
+before_all do |_lane, _options|
+  Dotenv.load(".env") if File.exist?(".env")
+  # Without setup_ci, codesign on macOS runners hangs on a keychain prompt.
+  setup_ci if is_ci
+end
+
+platform :ios do
+  desc "Build a signed App Store IPA (iPhone + iPad) without uploading"
+  lane :build do |options|
+    build_target(:ios, options)
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :release do |options|
+    release_target(:ios, options)
+  end
+end
+
+platform :mac do
+  desc "Build a signed Mac App Store PKG without uploading"
+  lane :build do |options|
+    build_target(:mac, options)
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :release do |options|
+    release_target(:mac, options)
+  end
+end
+
+desc "Register the bundle ID in the developer portal (idempotent)"
+lane :register_bundle_id do
+  load_app_store_connect_api_key
+  existing = Spaceship::ConnectAPI::BundleId.find(APP_IDENTIFIER)
+  if existing
+    UI.success("Bundle ID #{APP_IDENTIFIER} already registered (#{existing.platform})")
+  else
+    Spaceship::ConnectAPI::BundleId.create(name: APP_NAME, platform: "UNIVERSAL", identifier: APP_IDENTIFIER)
+    UI.success("Registered #{APP_IDENTIFIER}")
+  end
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  if app
+    UI.success("App Store Connect app exists: #{app.name} (#{app.id})")
+  else
+    UI.important("No App Store Connect app for #{APP_IDENTIFIER} yet. Create it in App Store Connect (iOS + macOS).")
+  end
+end
+
+desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
+lane :bootstrap_signing do |options|
+  api_key = load_app_store_connect_api_key
+  %w[ios macos].each do |platform|
+    params = {
+      type: "appstore",
+      platform: platform,
+      app_identifier: [APP_IDENTIFIER],
+      readonly: false,
+      force: options[:force].to_s == "true",
+      api_key: api_key
+    }
+    params[:additional_cert_types] = ["mac_installer_distribution"] if platform == "macos"
+    match(**params)
+  end
+end
+
+def build_target(key, options)
+  t = TARGETS.fetch(key)
+  api_key = load_app_store_connect_api_key
+  version = marketing_version(options)
+  build_number = commit_count_build_number
+
+  UI.header("#{APP_NAME} #{key} #{version} (#{build_number})")
+
+  match_params = {
+    type: "appstore",
+    platform: t[:match_platform],
+    app_identifier: [APP_IDENTIFIER],
+    readonly: is_ci,
+    api_key: api_key
+  }
+  match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
+  sync_code_signing(**match_params)
+
+  # The project is generated, so signing settings go onto a fresh copy.
+  sh("cd #{REPO_ROOT.shellescape} && xcodegen generate")
+
+  update_code_signing_settings(
+    path: PROJECT,
+    targets: [t[:target]],
+    build_configurations: ["Release"],
+    use_automatic_signing: false,
+    team_id: TEAM_ID,
+    code_sign_identity: "Apple Distribution",
+    bundle_identifier: APP_IDENTIFIER,
+    profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
+  )
+
+  build_app(
+    project: PROJECT,
+    scheme: t[:target],
+    configuration: "Release",
+    destination: t[:destination],
+    export_method: "app-store",
+    export_team_id: TEAM_ID,
+    output_directory: OUTPUT_DIR,
+    output_name: APP_NAME,
+    clean: true,
+    include_symbols: true,
+    xcargs: "MARKETING_VERSION=#{version.shellescape} CURRENT_PROJECT_VERSION=#{build_number.shellescape}"
+  )
+
+  { version: version, build_number: build_number }
+end
+
+def release_target(key, options)
+  t = TARGETS.fetch(key)
+  built = build_target(key, options)
+  notes_file = ENV["RELEASE_NOTES_FILE"].to_s
+  notes = File.read(notes_file).strip if !notes_file.empty? && File.exist?(notes_file)
+
+  params = {
+    api_key: load_app_store_connect_api_key,
+    app_identifier: APP_IDENTIFIER,
+    app_platform: t[:upload_platform],
+    skip_waiting_for_build_processing: true,
+    changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes,
+  }
+  params[key == :mac ? :pkg : :ipa] = t[:artifact]
+
+  upload_to_testflight(**params)
+end
+
+def load_app_store_connect_api_key
+  return @asc_api_key if @asc_api_key
+
+  env = ->(name) {
+    value = ENV[name]
+    value.nil? || value.strip.empty? ? nil : value
+  }
+  key_id      = env.call("ASC_KEY_ID")
+  issuer_id   = env.call("ASC_ISSUER_ID")
+  key_path    = env.call("ASC_KEY_PATH")
+  key_content = env.call("ASC_KEY_CONTENT")
+
+  if key_id.nil? || issuer_id.nil? || (key_path.nil? && key_content.nil?)
+    UI.user_error!(<<~MSG)
+      Missing App Store Connect API key configuration. Set ASC_KEY_ID,
+      ASC_ISSUER_ID and either ASC_KEY_PATH or ASC_KEY_CONTENT.
+      Locally: copy fastlane/.env.default to fastlane/.env, or run via `op run`.
+      In CI:   they are GitHub Actions secrets (scripts/setup-ci-secrets.sh).
+    MSG
+  end
+
+  params = { key_id: key_id, issuer_id: issuer_id, in_house: false }
+  if key_path
+    params[:key_filepath] = key_path
+  else
+    params[:key_content] = key_content
+    params[:is_key_content_base64] =
+      key_content.match?(/\A[A-Za-z0-9+\/=\s]+\z/) && !key_content.include?("BEGIN PRIVATE KEY")
+  end
+  @asc_api_key = app_store_connect_api_key(**params)
+end
+
+error do |lane, exception|
+  UI.error("Lane #{lane} failed: #{exception.message}")
+end
