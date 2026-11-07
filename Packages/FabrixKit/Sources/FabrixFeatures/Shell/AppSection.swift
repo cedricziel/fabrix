@@ -72,6 +72,7 @@ final class Navigator {
     var showingNewTask = false
     var confirmingRemove = false
     var showingAddFactory = false
+    var showingSettings = false
     var isCompact = false
 
     /// A new factory or company starts every stack at its root.
