@@ -124,7 +124,7 @@ extension Run {
             title: issue?.title ?? Self.title(invocationSource: dto.invocationSource),
             adapter: agents[dto.agentId]?.adapter, startedAt: startedAt,
             finishedAt: isLive ? nil : dto.finishedAt ?? dto.updatedAt ?? startedAt,
-            costCents: dto.usageJson?["costUsd"]?.number.map { Int(($0 * 100).rounded()) },
+            costCents: (dto.costUsd?.number ?? dto.usageJson?["costUsd"]?.number).map { Int(($0 * 100).rounded()) },
             summary: dto.resultJson?["summary"]?.text ?? dto.error
         )
     }

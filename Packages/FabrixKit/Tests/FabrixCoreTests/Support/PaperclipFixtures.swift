@@ -125,7 +125,8 @@ enum PaperclipFixtures {
         "id": "r-0", "companyId": "\(companyID)", "agentId": "a-cto", "scopeKind": "company", "issueId": null,
         "invocationSource": "timer", "triggerDetail": "system", "status": "succeeded",
         "startedAt": "2026-11-07T09:00:00Z", "finishedAt": "2026-11-07T09:04:00Z", "error": null, "exitCode": 0,
-        "usageJson": { "inputTokens": 1200, "outputTokens": 300, "costUsd": 1.92 },
+        "costUsd": "1.92", "inputTokens": "1200", "outputTokens": "300",
+        "usageJson": { "inputTokens": 1200, "outputTokens": 300 },
         "resultJson": { "summary": "opened PR #84" },
         "createdAt": "2026-11-07T09:00:00Z", "updatedAt": "2026-11-07T09:04:00Z"
       },

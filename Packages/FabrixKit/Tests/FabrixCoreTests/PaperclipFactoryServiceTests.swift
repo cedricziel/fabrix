@@ -140,6 +140,20 @@ struct PaperclipFactoryServiceTests {
         #expect(run.summary == "boom")
     }
 
+    @Test(arguments: [
+        (#""costUsd": 0.5, "usageJson": { "costUsd": 9 }"#, 50),
+        (#""costUsd": null, "usageJson": { "costUsd": 1.25 }"#, 125),
+        (#""usageJson": { "inputTokens": 10 }"#, nil),
+    ])
+    func readsRunCostFromRowThenUsage(fields: String, expectedCents: Int?) throws {
+        let json = #"{"id":"r","agentId":"a","status":"succeeded","createdAt":"2026-11-07T09:00:00Z",\#(fields)}"#
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let dto = try decoder.decode(HeartbeatRunDTO.self, from: Data(json.utf8))
+
+        #expect(Run(paperclip: dto, issues: [:], agents: [:]).costCents == expectedCents)
+    }
+
     @Test func snapshotToleratesHiddenRunTelemetry() async throws {
         var routes = snapshotRoutes
         routes["GET /api/companies/\(companyID)/heartbeat-runs"] = .json(#"{"error":"Run telemetry is restricted"}"#, status: 403)

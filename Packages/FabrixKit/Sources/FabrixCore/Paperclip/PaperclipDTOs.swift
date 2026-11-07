@@ -53,6 +53,8 @@ struct HeartbeatRunDTO: Decodable {
     var createdAt: Date
     var updatedAt: Date?
     var error: String?
+    /// Run-list rows carry cost at the top level; Postgres numerics may arrive as strings.
+    var costUsd: JSONValue?
     var usageJson: [String: JSONValue]?
     var resultJson: [String: JSONValue]?
 }
@@ -131,11 +133,12 @@ enum JSONValue: Decodable {
         }
     }
 
+    /// A number, or a string holding one.
     var number: Double? {
-        if case let .number(value) = self {
-            value
-        } else {
-            nil
+        switch self {
+        case let .number(value): value
+        case let .string(value): Double(value)
+        default: nil
         }
     }
 }
