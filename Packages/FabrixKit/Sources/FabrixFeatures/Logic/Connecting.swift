@@ -40,6 +40,9 @@ public protocol FactoryConnector: AnyObject {
     /// Every factory saved on this device, in the order they were added.
     var factories: [Factory] { get }
 
+    /// Bumped on every saved-factory change, including reconnecting with new credentials.
+    var revision: Int { get }
+
     /// A saved factory from an earlier launch, or nil if it is gone.
     func restore(factoryID: Factory.ID) -> FactoryConnection?
 

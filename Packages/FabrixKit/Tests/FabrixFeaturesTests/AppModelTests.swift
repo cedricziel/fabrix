@@ -317,7 +317,8 @@ struct ConnectCall: Equatable {
 final class RecordingConnector: FactoryConnector {
     private(set) var calls: [ConnectCall] = []
     private(set) var authenticators = 0
-    private let error: (any Error)?
+    var error: (any Error)?
+    private(set) var revision = 0
     var saved: [Factory.ID: FactoryConnection] = [:]
     private var order: [Factory.ID] = []
     /// Shared by every connection, so tests can see what reached the factory.
@@ -343,10 +344,13 @@ final class RecordingConnector: FactoryConnector {
         if let delay { try await Task.sleep(for: delay) }
         if webAuthenticator != nil { authenticators += 1 }
         if let error { throw error }
-        let factory = Factory(id: "f-\(calls.count)", name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
+        // Like FactoryStore, connecting to a saved address again keeps its ID.
+        let id = factories.first { $0.baseURL == baseURL }?.id ?? "f-\(calls.count)"
+        let factory = Factory(id: id, name: baseURL.host() ?? "", baseURL: baseURL, isOnline: true)
         let connection = FactoryConnection(factory: factory, service: service ?? DemoFactoryService())
-        saved[factory.id] = connection
-        order.append(factory.id)
+        if saved[id] == nil { order.append(id) }
+        saved[id] = connection
+        revision += 1
         return connection
     }
 
@@ -359,6 +363,7 @@ final class RecordingConnector: FactoryConnector {
     func forget(factoryID: Factory.ID) throws {
         if let forgetError { throw forgetError }
         saved[factoryID] = nil
+        revision += 1
     }
 }
 

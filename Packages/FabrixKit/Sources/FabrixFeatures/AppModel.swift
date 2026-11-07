@@ -105,11 +105,12 @@ public final class AppModel {
         }
         isConnecting = true
         defer { isConnecting = false }
-        await commitStagedDecisions()
         do {
             let connection = try await connector.connect(
                 baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
             )
+            // Only now is the open factory being left; a cancelled or failed sign-in keeps the undo window.
+            await commitStagedDecisions()
             use(connection)
             defaults.set(connection.factory.id, forKey: Self.factoryKey)
             defaults.removeObject(forKey: Self.demoKey)
@@ -121,6 +122,10 @@ public final class AppModel {
             connectError = Self.isCancellation(error) ? nil : error.localizedDescription
             return false
         }
+    }
+
+    var storeRevision: Int {
+        connector?.revision ?? 0
     }
 
     var factoryMenu: FactoryMenu {
@@ -161,11 +166,17 @@ public final class AppModel {
     }
 
     /// Leaves the open factory when it was removed elsewhere, e.g. from another window.
-    func leaveIfRemoved() async {
-        guard let connector, let factory, factory.id != FactoryConnection.demo().factory.id,
-              !connector.factories.contains(where: { $0.id == factory.id })
-        else { return }
-        await leaveForNextFactory()
+    /// Follows changes another window made to the saved factories: leaves the open factory when
+    /// it was removed, and picks up new credentials when it was connected again.
+    func followStoreChanges() async {
+        guard let connector, let factory, factory.id != FactoryConnection.demo().factory.id else { return }
+        guard let current = connector.restore(factoryID: factory.id) else {
+            await leaveForNextFactory()
+            return
+        }
+        self.factory = current.factory
+        service = current.service
+        await refresh()
     }
 
     private func leaveForNextFactory() async {

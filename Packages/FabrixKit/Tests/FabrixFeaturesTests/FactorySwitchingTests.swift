@@ -142,17 +142,17 @@ struct FactorySwitchingTests {
         #expect(windowB.factory?.name == "two.example")
 
         await windowA.removeOpenFactory()
-        await windowB.leaveIfRemoved()
+        await windowB.followStoreChanges()
 
         #expect(windowB.factory?.name == "one.example")
     }
 
     @Test func windowsOnAFactoryThatStillExistsStayPut() async {
         let (model, _) = await connected(["one.example"])
-        await model.leaveIfRemoved()
+        await model.followStoreChanges()
         #expect(model.factory?.name == "one.example")
         await model.exploreDemo()
-        await model.leaveIfRemoved()
+        await model.followStoreChanges()
         #expect(model.factory?.name == "Demo factory")
     }
 
@@ -215,5 +215,49 @@ struct FactorySwitchingTests {
         #expect(connector.calls.last?.headers == [CustomHeader(name: "X-Proxy-Token", value: "proxy-secret")])
         #expect(model.factory?.name == "two.example")
         #expect(connector.factories.map(\.name) == ["one.example", "two.example"])
+    }
+
+    @Test func failedConnectKeepsTheUndoWindow() async throws {
+        let (model, connector) = await connected(["one.example"])
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+        connector.error = ConnectFailure(message: "Unauthorized")
+
+        let opened = await model.connect(ConnectForm(address: "two.example", apiKey: "k"))
+
+        #expect(!opened)
+        #expect(model.factory?.name == "one.example")
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
+    }
+
+    @Test func cancelledSignInKeepsTheUndoWindow() async throws {
+        let (model, connector) = await connected(["one.example"])
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+        connector.error = CancellationError()
+
+        await model.connect(ConnectForm(address: "two.example", method: .oidc, issuer: "auth.example", clientID: "c"))
+
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
+    }
+
+    @Test func anotherWindowPicksUpAReconnectedFactory() async throws {
+        let connector = RecordingConnector()
+        let defaults = freshDefaults()
+        let windowA = AppModel(connector: connector, defaults: defaults)
+        await windowA.connect(ConnectForm(address: "one.example", apiKey: "old"))
+        let windowB = AppModel(connector: connector, defaults: defaults)
+        await windowB.refresh()
+        #expect(windowB.snapshot?.company.name == "Atlas")
+
+        let reconnected = DemoFactoryService()
+        try await reconnected.pause(agentID: "cto")
+        connector.service = reconnected
+        await windowA.connect(ConnectForm(address: "one.example", apiKey: "new"))
+        await windowB.followStoreChanges()
+
+        #expect(windowB.factory?.name == "one.example")
+        #expect(windowB.agent("cto")?.status == .paused)
+        #expect(connector.factories.count == 1)
     }
 }
