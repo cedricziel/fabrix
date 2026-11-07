@@ -121,6 +121,24 @@ struct ConnectionIssueTests {
         #expect(model.fullScreenAnnouncement?.hasPrefix("Can't reach Demo factory. ") == true)
     }
 
+    @Test func aPollDoesNothingWhileSignedOutWithoutASignInMethod() async throws {
+        let service = GatedService()
+        let model = model(service)
+        await model.refresh()
+        await service.failCompanies(with: PaperclipError.unauthorized(nil))
+        await model.refresh()
+        #expect(model.isSignedOutWithoutSignIn)
+        let callsWhenSignedOut = await service.companiesCalls
+
+        let polling = Task { await model.keepFresh(every: .milliseconds(5), staleAfter: .seconds(60)) }
+        try await Task.sleep(for: .milliseconds(60))
+        polling.cancel()
+        #expect(await service.companiesCalls == callsWhenSignedOut)
+
+        await model.refresh()
+        #expect(await service.companiesCalls == callsWhenSignedOut + 1)
+    }
+
     @Test func reconnectFillsTheFormAndKeepsTheFactoryOpen() async throws {
         let service = GatedService()
         let model = model(service)

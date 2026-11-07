@@ -736,6 +736,9 @@ public final class AppModel {
         while !Task.isCancelled {
             try? await Task.sleep(for: interval)
             guard !Task.isCancelled else { return }
+            // Every poll would be rejected the same way, and a lucky one would drop held decisions'
+            // undo timers. Refreshing by hand and Reconnect still work.
+            if connectionProblem?.issue == .signedOut { continue }
             await refresh()
         }
     }
