@@ -12,6 +12,8 @@ enum ProjectLead: Equatable {
     case agent(Agent)
     /// Paperclip accepts another company's agent as lead; that agent isn't in this snapshot.
     case outsideCompany
+    /// The lead was terminated.
+    case former
     case none
 }
 
@@ -21,6 +23,7 @@ struct ProjectBoard {
     private let tasksByProject: [Project.ID: [WorkItem]]
     private let agents: [Agent.ID: Agent]
     private let activity: [ActivityEvent]
+    private let formerAgentIDs: Set<Agent.ID>
 
     init(projects: [Project], snapshot: CompanySnapshot?) {
         self.projects = projects.filter { !$0.isArchived }
@@ -28,6 +31,7 @@ struct ProjectBoard {
         tasksByProject = Dictionary(grouping: tasks.filter { $0.projectID != nil }) { $0.projectID! }
         agents = Dictionary((snapshot?.agents ?? []).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         activity = snapshot?.activity ?? []
+        formerAgentIDs = snapshot?.formerAgentIDs ?? []
     }
 
     var active: [Project] {
@@ -53,6 +57,11 @@ struct ProjectBoard {
         }
     }
 
+    /// Tasks the server counts for the project that aren't in the loaded window of company tasks.
+    func unloadedTaskCount(for project: Project) -> Int {
+        max(0, (project.taskCount ?? 0) - tasks(in: project.id).count)
+    }
+
     func tasks(in id: Project.ID) -> [WorkItem] {
         tasksByProject[id] ?? []
     }
@@ -67,6 +76,7 @@ struct ProjectBoard {
 
     func lead(of project: Project) -> ProjectLead {
         guard let id = project.leadAgentID else { return .none }
-        return agents[id].map(ProjectLead.agent) ?? .outsideCompany
+        if let agent = agents[id] { return .agent(agent) }
+        return formerAgentIDs.contains(id) ? .former : .outsideCompany
     }
 }

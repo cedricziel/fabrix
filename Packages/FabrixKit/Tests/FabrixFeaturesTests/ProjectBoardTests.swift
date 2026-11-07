@@ -13,8 +13,21 @@ struct ProjectBoardTests {
     private func snapshot(tasks: [WorkItem] = [], activity: [ActivityEvent] = []) -> CompanySnapshot {
         CompanySnapshot(
             company: Company(id: "c", name: "Atlas"), agents: [Agent(id: "cto", name: "CTO", status: .running)],
-            tasks: tasks, approvals: [], runs: [], activity: activity, spentMonthlyCents: 0, budgetMonthlyCents: nil
+            tasks: tasks, approvals: [], runs: [], activity: activity, spentMonthlyCents: 0, budgetMonthlyCents: nil,
+            formerAgentIDs: ["retired"]
         )
+    }
+
+    @Test func terminatedLeadIsFormer() {
+        let board = ProjectBoard(projects: [], snapshot: snapshot())
+        #expect(board.lead(of: Project(id: "p", name: "P", status: .planned, leadAgentID: "retired")) == .former)
+    }
+
+    @Test func unloadedTasksBeyondTheWindow() {
+        let board = ProjectBoard(projects: [], snapshot: snapshot(tasks: [task("a", .todo), task("b", .done)]))
+        #expect(board.unloadedTaskCount(for: Project(id: "p", name: "P", status: .inProgress, taskCount: 5)) == 3)
+        #expect(board.unloadedTaskCount(for: Project(id: "p", name: "P", status: .inProgress, taskCount: 1)) == 0)
+        #expect(board.unloadedTaskCount(for: Project(id: "p", name: "P", status: .inProgress)) == 0)
     }
 
     @Test func countsSkipCancelled() {

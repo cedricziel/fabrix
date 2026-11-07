@@ -64,6 +64,8 @@ public final class AppModel {
     private var selectedCompanyID: Company.ID?
     private var requestCount = 0
     private var projectsRequest = 0
+    /// Set once the open factory answers that it has no projects; it isn't asked again.
+    private var projectsUnsupported = false
     private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
@@ -446,6 +448,7 @@ public final class AppModel {
         companies = []
         snapshot = nil
         projectsState = .loading
+        projectsUnsupported = false
         loadState = .loading
         lastError = nil
     }
@@ -481,6 +484,7 @@ public final class AppModel {
         companies = []
         snapshot = nil
         projectsState = .loading
+        projectsUnsupported = false
         lastError = nil
         loadState = .loading
     }
@@ -491,6 +495,9 @@ public final class AppModel {
         guard let service, !needsSignIn else { return }
         let request = beginRequest()
         let wanted = selectedCompanyID
+        // Projects for an already shown company load in parallel with the snapshot.
+        let projectsTicket = beginProjectsRequest()
+        async let earlyProjects = Self.fetchProjects(from: service, companyID: projectsUnsupported ? nil : wanted)
         do {
             let (companies, current) = try await Self.load(from: service, current: wanted)
             let fresh: CompanySnapshot?
@@ -517,7 +524,11 @@ public final class AppModel {
             loadState = fresh == nil ? .empty : .loaded
             await checkKeyExpiry(service)
             if let id = fresh?.company.id {
-                await loadProjects(companyID: id)
+                if id == wanted, let early = await earlyProjects {
+                    apply(early, companyID: id, ticket: projectsTicket)
+                } else {
+                    await loadProjects(companyID: id)
+                }
             }
         } catch {
             guard !Self.isCancellation(error), selectedCompanyID == wanted, accept(request) else { return }
@@ -567,6 +578,9 @@ public final class AppModel {
             guard !Self.isCancellation(error), selectedCompanyID == company.id, accept(request) else { return }
             selectedCompanyID = snapshot?.company.id
             report(error)
+            if let id = snapshot?.company.id {
+                await loadProjects(companyID: id)
+            }
         }
     }
 
@@ -592,21 +606,55 @@ public final class AppModel {
         await loadProjects(companyID: id)
     }
 
+    private enum ProjectsFetch {
+        case loaded([Project])
+        case unsupported
+        case failed(String)
+    }
+
+    private struct ProjectsTicket {
+        var generation: Int
+        var number: Int
+    }
+
+    private func beginProjectsRequest() -> ProjectsTicket {
+        projectsRequest += 1
+        return ProjectsTicket(generation: generation, number: projectsRequest)
+    }
+
+    /// nil when there is nothing to ask, or the request was cancelled.
+    private static func fetchProjects(from service: any FactoryService, companyID: Company.ID?) async -> ProjectsFetch? {
+        guard let companyID else { return nil }
+        do {
+            return try await .loaded(service.projects(companyID: companyID))
+        } catch FactoryServiceError.unsupported {
+            return .unsupported
+        } catch {
+            return isCancellation(error) ? nil : .failed(error.localizedDescription)
+        }
+    }
+
     private func loadProjects(companyID: Company.ID) async {
         guard let service else { return }
-        projectsRequest += 1
-        let number = projectsRequest, generation = generation
-        let result: ProjectsState
-        do {
-            result = try await .loaded(service.projects(companyID: companyID))
-        } catch FactoryServiceError.unsupported {
-            result = .unsupported
-        } catch {
-            guard !Self.isCancellation(error) else { return }
-            result = .failed(error.localizedDescription, last: [])
+        let ticket = beginProjectsRequest()
+        guard !projectsUnsupported else {
+            apply(.unsupported, companyID: companyID, ticket: ticket)
+            return
         }
-        guard generation == self.generation, number == projectsRequest, selectedCompanyID == companyID else { return }
-        let next = if case let .failed(message, _) = result { ProjectsState.failed(message, last: projects) } else { result }
+        guard let result = await Self.fetchProjects(from: service, companyID: companyID) else { return }
+        apply(result, companyID: companyID, ticket: ticket)
+    }
+
+    private func apply(_ result: ProjectsFetch, companyID: Company.ID, ticket: ProjectsTicket) {
+        guard ticket.generation == generation, ticket.number == projectsRequest, selectedCompanyID == companyID else { return }
+        let next: ProjectsState = switch result {
+        case let .loaded(projects): .loaded(projects)
+        case .unsupported: .unsupported
+        case let .failed(message): .failed(message, last: projects)
+        }
+        if case .unsupported = result {
+            projectsUnsupported = true
+        }
         if next != projectsState {
             projectsState = next
         }

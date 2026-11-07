@@ -13,9 +13,15 @@ actor ProjectsFactory: FactoryService {
 
     private let demo = DemoFactoryService()
     private var answer = Answer.demo
+    private var failingOrbit = false
+    private(set) var projectCalls = 0
 
     func answer(_ answer: Answer) {
         self.answer = answer
+    }
+
+    func failOrbitSnapshots() {
+        failingOrbit = true
     }
 
     func companies() async throws -> [Company] {
@@ -23,6 +29,7 @@ actor ProjectsFactory: FactoryService {
     }
 
     func snapshot(companyID: Company.ID) async throws -> CompanySnapshot {
+        if companyID == "orbit", failingOrbit { throw URLError(.timedOut) }
         var snapshot = try await demo.snapshot(companyID: "atlas")
         if companyID == "orbit" {
             snapshot.company = Company(id: "orbit", name: "Orbit")
@@ -31,7 +38,8 @@ actor ProjectsFactory: FactoryService {
     }
 
     func projects(companyID: Company.ID) async throws -> [Project] {
-        switch answer {
+        projectCalls += 1
+        return switch answer {
         case .demo:
             companyID == "orbit" ? [Project(id: "orbit-site", name: "Orbit site", status: .planned)] : try await demo.projects(companyID: companyID)
         case .fail: throw URLError(.notConnectedToInternet)
@@ -104,6 +112,27 @@ struct AppModelProjectsTests {
         #expect(model.projectsState == .unsupported)
         #expect(!model.supportsProjects)
         #expect(model.lastError == nil)
+    }
+
+    @Test func unsupportedIsNotAskedAgain() async {
+        let service = ProjectsFactory()
+        await service.answer(.unsupported)
+        let model = model(service)
+        await model.refresh()
+        await model.refresh()
+        await model.refresh()
+        #expect(await service.projectCalls == 1)
+        #expect(model.projectsState == .unsupported)
+    }
+
+    @Test func failedSwitchReloadsTheShownCompanysProjects() async throws {
+        let service = ProjectsFactory()
+        let model = model(service)
+        await model.refresh()
+        await service.failOrbitSnapshots()
+        try await model.select(#require(model.companies.first { $0.id == "orbit" }))
+        #expect(model.snapshot?.company.id == "atlas")
+        #expect(model.projects.map(\.name).contains("Mobile app"))
     }
 
     @Test func switchCompanySwapsProjects() async throws {
