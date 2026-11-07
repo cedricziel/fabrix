@@ -35,10 +35,14 @@ struct ApprovalsView: View {
                                     .foregroundStyle(Palette.halt)
                             }
                             HStack(spacing: 10) {
-                                Button("Approve") { decide(approval, true) }
-                                    .buttonStyle(FabrixButtonStyle(role: .primary, fullWidth: true))
-                                Button("Reject") { decide(approval, false) }
-                                    .buttonStyle(FabrixButtonStyle(role: .secondary, fullWidth: true))
+                                Button { decide(approval, true) } label: {
+                                        Text("Approve").frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.fabrixPrimary)
+                                Button { decide(approval, false) } label: {
+                                        Text("Reject").frame(maxWidth: .infinity)
+                                    }
+                                    .buttonStyle(.fabrixSecondary)
                             }
                         }
                     }
@@ -85,7 +89,7 @@ private struct ApprovalCard<Actions: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                KindTag(kind: approval.kind)
+                KindTag(title: approval.kind.label)
                 Text("\(approval.requestedBy) · \(approval.createdAt, format: .relative(presentation: .named))")
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
@@ -99,7 +103,7 @@ private struct ApprovalCard<Actions: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .fabrixCard()
+        .cardSurface()
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 }

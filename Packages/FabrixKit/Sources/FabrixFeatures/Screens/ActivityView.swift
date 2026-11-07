@@ -8,7 +8,7 @@ struct ActivityView: View {
     var body: some View {
         ScrollView {
             ActivityRows(events: model.snapshot?.activity ?? [])
-                .fabrixCard()
+                .cardSurface()
                 .padding(20)
                 .frame(maxWidth: 900, alignment: .leading)
         }

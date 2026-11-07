@@ -2,33 +2,6 @@ import FabrixCore
 import FabrixDesign
 import SwiftUI
 
-extension AgentStatus {
-    var label: LocalizedStringKey {
-        switch self {
-        case .running: "Running"
-        case .idle: "Idle"
-        case .paused: "Paused"
-        case .needsYou: "Needs you"
-        case .blocked: "Blocked"
-        case .error: "Error"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .running: Palette.run
-        case .idle: Palette.idle
-        case .paused: Palette.muted
-        case .needsYou: Palette.signal
-        case .blocked, .error: Palette.halt
-        }
-    }
-
-    var isHollow: Bool {
-        self == .paused || self == .needsYou
-    }
-}
-
 extension TaskStatus {
     var title: LocalizedStringKey {
         switch self {
@@ -47,7 +20,7 @@ extension TaskStatus {
         case .backlog, .cancelled: Palette.idle
         case .todo: Palette.steel
         case .inProgress: Palette.run
-        case .inReview: Palette.review
+        case .inReview: Color(red: 0.427, green: 0.157, blue: 0.851)
         case .blocked: Palette.halt
         case .done: Palette.done
         }
