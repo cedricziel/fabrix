@@ -54,4 +54,9 @@ base64 < "$tmp/asc.p8" | tr -d '\n' | gh secret set ASC_KEY_CONTENT -R "$REPO"
 
 op read "op://$VAULT/release-please token/token" | tr -d '\n' | gh secret set RELEASE_PLEASE_TOKEN -R "$REPO"
 
+for k in REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL; do
+  op item get "Fabrix: App Review contact" --vault "$VAULT" --fields "label=$k" --reveal | tr -d '\n' \
+    | gh secret set "$k" -R "$REPO"
+done
+
 gh secret list -R "$REPO"
