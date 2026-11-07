@@ -12,7 +12,8 @@
 - [x] 2.1 Start telemetry from the app shells and flush on background (no test: app shell; `App/Shared/FabrixApp.swift`, `project.yml`)
 - [x] 2.2 Declare collected data and the UserDefaults reason (no test: manifest; `App/Shared/PrivacyInfo.xcprivacy`)
 - [x] 2.3 Feed saved factory names and hosts from `FactoryStore` (`FactorySensitiveValuesTests`; `FactorySensitiveValues.swift`, `App/Shared/FabrixApp.swift`)
-- [x] 2.4 Read the secrets xcconfig only in Release (no test: build config; `Config/Telemetry-Release.xcconfig`, `project.yml`)
+- [x] 2.4 Keep the installation ID in the Keychain and declare it as a device ID (`InstallationIDTests`; `InstallationID.swift`, `Telemetry.swift`, `App/Shared/PrivacyInfo.xcprivacy`)
+- [x] 2.5 Read the secrets xcconfig only in Release (no test: build config; `Config/Telemetry-Release.xcconfig`, `project.yml`)
 
 ## 3. Release key injection
 

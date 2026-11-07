@@ -18,7 +18,7 @@ The app SHALL export traces, logs and metrics over OTLP/HTTP to SignalDB (tenant
 
 Telemetry SHALL contain only the following, named after the OpenTelemetry semantic conventions where they cover the data:
 
-- Resource: `service.name` (`fabrix`), `service.version`, `service.instance.id` (random per install), `app.build`, `deployment.environment.name`, `os.type`, `os.name`, `os.version`, `os.description`, `device.model.identifier`, and the SDK's `telemetry.sdk.*`.
+- Resource: `service.name` (`fabrix`), `service.version`, `app.installation.id` and `service.instance.id` (the same installation ID), `app.build`, `deployment.environment.name`, `os.type`, `os.name`, `os.version`, `os.description`, `device.model.identifier`, and the SDK's `telemetry.sdk.*`.
 - HTTP client spans: `http.request.method`, `http.response.status_code`, `http.request.body.size`, `http.response.body.size`, `url.scheme`, `url.path` (templated), `url.full` (hashed host, templated path, no query), `server.address` (hashed) and `server.port`.
 - Paperclip attributes, all under `paperclip.*`: `paperclip.factory.id`, `paperclip.auth.method`, `paperclip.approval.kind`, `paperclip.agent.status`, `paperclip.run.adapter`, and `paperclip.api.route` (only on requests to a known factory host).
 - Metrics: `fabrix.app.launches`, with no point attributes.
@@ -66,7 +66,17 @@ Telemetry SHALL NOT contain a Paperclip factory's name or host, any URL's query,
 
 ### Requirement: No machine identifiers
 
-The exported resource SHALL NOT include the device's host name or a vendor or advertising identifier. `service.instance.id` is a random UUID created on first launch, kept in `UserDefaults`, and not linked to the user.
+The exported resource SHALL NOT include the device's host name, a hardware identifier, or a vendor or advertising identifier. The installation ID (`app.installation.id`, also sent as `service.instance.id`) SHALL be a random UUID generated once and kept as a non-synchronizable Keychain item in the app's shared access group, so it survives reinstalls; it is not linked to the user.
+
+#### Scenario: Installation ID across launches
+
+- **WHEN** the app launches again, or is deleted and reinstalled on the same device
+- **THEN** it sends the same installation ID
+
+#### Scenario: Keychain unavailable
+
+- **WHEN** the Keychain can't be read or written at launch
+- **THEN** telemetry starts with a random ID for that launch only, without blocking startup
 
 #### Scenario: Resource attributes
 
