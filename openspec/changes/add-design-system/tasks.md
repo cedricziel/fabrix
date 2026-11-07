@@ -5,8 +5,8 @@
 
 ## 2. Tokens and type (PR 2)
 
-- [ ] 2.1 Add light/dark `Palette` tokens, `Spacing`, `Radius` and `minimumTapTarget` in `FabrixDesign` (no test: constant values)
-- [ ] 2.2 Bundle the three font families with OFL files, add `FabrixDesignTests`, `FabrixFonts.register()` and `Font.fabrix` (`TypographyTests`: registration succeeds and is idempotent, every face resolves, style→face, fallback design, sizes per platform)
+- [x] 2.1 Add light/dark `Palette` tokens, `Spacing`, `Radius` and `minimumTapTarget` in `FabrixDesign` (no test: constant values)
+- [x] 2.2 Bundle the three font families with OFL files, add `FabrixDesignTests`, `FabrixFonts.register()` and `Font.fabrix` (`TypographyTests`: registration succeeds and is idempotent, every face resolves, style→face, fallback design, sizes per platform)
 
 ## 3. Components (PR 3)
 
