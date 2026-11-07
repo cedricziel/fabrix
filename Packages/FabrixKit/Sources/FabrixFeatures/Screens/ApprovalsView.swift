@@ -104,7 +104,7 @@ private struct ApprovalCard<Actions: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .fabrixCard()
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .fabrixTransition(.slideIn(from: .top))
     }
 }
 

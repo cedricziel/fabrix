@@ -9,7 +9,7 @@
 
 - [x] 2.1 `LocalizedStringResource` overloads on `SectionHeader`, `MetricCard`, `KindTag`, `StatusPill`; `.textCase(.uppercase)` (`FabrixDesign/Containers.swift`, `Badges.swift`, `Status.swift`); test `LocalizedInitTests`, the tag keeps a natural-case accessibility label
 - [x] 2.2 `ElapsedText` on `Text(timerInterval:)` in FabrixDesign; Features call sites renamed (`FabrixDesign/Timer.swift`); test `TimerTests` for the interval
-- [ ] 2.3 `fabrixTransition` helper respecting Reduce Motion; banner and approvals use it (`FabrixDesign/Motion.swift`); test `MotionTests`
+- [x] 2.3 `fabrixTransition` helper respecting Reduce Motion; banner and approvals use it (`FabrixDesign/Motion.swift`); test `MotionTests`
 
 ## 3. String catalogs and bundle wiring (PR 3)
 

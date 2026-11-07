@@ -45,7 +45,7 @@ struct NoticeBanner<Action: View>: View {
         .fabrixCard()
         .padding(.horizontal, 12)
         .padding(.top, 6)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .fabrixTransition(.slideIn(from: .top))
         .accessibilityElement(children: .contain)
     }
 
