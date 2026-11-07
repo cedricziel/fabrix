@@ -57,7 +57,7 @@ Some of these are reserved for screens that are still being built. They are only
 
 ## How server names are anonymized
 
-Before anything leaves your device, Fabrix replaces server host names and factory names with a token. The token is the first 16 hex characters of a SHA-256 hash of a salt plus the name. The salt is 32 random bytes created on first launch and stored only on your device.
+Before anything leaves your device, Fabrix replaces server host names, factory names and the values of custom headers you save (such as proxy tokens) with a token. The token is the first 16 hex characters of a SHA-256 hash of a salt plus the name. The salt is 32 random bytes created on first launch and stored only on your device.
 
 So the same server gets the same token on one installation, but nobody can turn a token back into a name or match tokens across installations. This applies everywhere: span names, attributes, events, error messages and log text.
 
