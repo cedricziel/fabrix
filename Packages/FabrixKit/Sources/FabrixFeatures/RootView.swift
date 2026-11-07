@@ -25,6 +25,15 @@ public struct RootView: View {
         Group {
             if model.isOnboarding {
                 OnboardingView()
+            } else if model.needsSignIn, model.loadState != .loaded {
+                ContentUnavailableView {
+                    Label("Sign in again", systemImage: "key")
+                } description: {
+                    Text("\(model.factory?.name ?? "This factory") no longer accepts Fabrix's key.")
+                } actions: {
+                    SignInBanner()
+                    Button("Choose another factory") { model.disconnect() }
+                }
             } else {
                 switch model.loadState {
                 case .loading:
@@ -37,7 +46,12 @@ public struct RootView: View {
                             SplitShell()
                         }
                     }
-                    .safeAreaInset(edge: .top) { ErrorBanner() }
+                    .safeAreaInset(edge: .top) {
+                        VStack(spacing: 0) {
+                            SignInBanner()
+                            ErrorBanner()
+                        }
+                    }
                     .modifier(ErrorAnnouncer())
                 case .empty:
                     // The title menu stays reachable so another factory can be opened or this one removed.
@@ -75,6 +89,14 @@ public struct RootView: View {
         .sheet(isPresented: $navigator.showingAddFactory) { AddFactorySheet() }
         .focusedSceneValue(\.appModel, model)
         .focusedSceneValue(\.navigator, navigator)
+        .sheet(isPresented: signingInAgain) {
+            if let signIn = model.browserSignIn {
+                BrowserSignInView(state: signIn)
+                    .padding(Spacing.xl)
+                    .frame(minWidth: 360)
+                    .environment(model)
+            }
+        }
         .confirmationDialog(
             "Remove \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {
@@ -107,6 +129,15 @@ public struct RootView: View {
         .environment(model)
         .environment(navigator)
         .environment(\.isCompact, isCompact)
+    }
+
+    /// Re-sign-in for a saved factory; onboarding shows its own sign-in inline.
+    private var signingInAgain: Binding<Bool> {
+        Binding {
+            !model.isOnboarding && model.browserSignIn != nil
+        } set: { shown in
+            if !shown { model.cancelBrowserSignIn() }
+        }
     }
 
     private var isCompact: Bool {

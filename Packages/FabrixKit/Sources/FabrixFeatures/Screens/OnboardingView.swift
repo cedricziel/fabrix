@@ -44,12 +44,18 @@ struct OnboardingView: View {
 struct ConnectFactoryForm: View {
     @Environment(AppModel.self) private var model
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
+    @Environment(\.openURL) private var openURL
     @State private var form = ConnectForm()
     var onConnected: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Connect a factory").font(.headline)
+            if let reconnect = model.reconnect {
+                Label(reconnect.reason, systemImage: "key.fill")
+                    .font(.callout)
+                    .foregroundStyle(Palette.steel)
+            }
             LabeledField(title: "Factory address") {
                 TextField("https://factory.example.com", text: $form.address)
                     .urlEntry()
@@ -78,16 +84,20 @@ struct ConnectFactoryForm: View {
                     .font(.callout)
                     .foregroundStyle(Palette.halt)
             }
-            Button {
-                connect()
-            } label: {
-                Group {
-                    if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+            if let signIn = model.browserSignIn {
+                BrowserSignInView(state: signIn)
+            } else {
+                Button {
+                    connect()
+                } label: {
+                    Group {
+                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(.fabrixPrimary)
+                .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
             }
-            .buttonStyle(.fabrixPrimary)
-            .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
             if !model.canConnect {
                 Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.")
                     .font(.footnote)
@@ -96,14 +106,19 @@ struct ConnectFactoryForm: View {
         }
         .padding(20)
         .cardSurface()
-            .onSubmit(connect)
+        .onSubmit(connect)
+        .onAppear {
+            if let reconnect = model.reconnect, form.address.isEmpty {
+                form = ConnectForm(reconnecting: reconnect)
+            }
+        }
     }
 
     private func connect() {
         guard model.canConnect, !form.address.isEmpty, !model.isConnecting else { return }
         let authenticator = SessionAuthenticator(session: webAuthenticationSession)
         Task {
-            if await model.connect(form, webAuthenticator: authenticator) { onConnected() }
+            if await model.connect(form, webAuthenticator: authenticator, openURL: { openURL($0) }) { onConnected() }
         }
     }
 }
@@ -135,9 +150,11 @@ struct AddFactorySheet: View {
 private extension ConnectForm.Method {
     var title: LocalizedStringKey {
         switch self {
+        case .browser: "Sign in with browser"
         case .paperclip: "Paperclip API key"
-        case .oidc: "Single sign-on (OIDC)"
+        case .oidcWithBrowser: "Single sign-on + browser sign-in"
         case .oidcWithPaperclip: "Single sign-on + Paperclip key"
+        case .oidc: "Single sign-on (OIDC)"
         }
     }
 }
@@ -185,7 +202,7 @@ private struct LabeledField<Field: View>: View {
     }
 }
 
-/// Custom request headers. The form starts without any, so the section starts collapsed.
+/// Custom request headers, collapsed unless the form already has some.
 private struct AdvancedSection: View {
     @Binding var headers: [ConnectForm.HeaderRow]
     @State private var isExpanded = false
@@ -222,6 +239,10 @@ private struct AdvancedSection: View {
                     .foregroundStyle(Palette.muted)
             }
             .padding(.top, Spacing.s)
+        }
+        // Saved headers (or a reconnect that needs their values) should be visible, not hidden away.
+        .onChange(of: headers.isEmpty, initial: true) { _, isEmpty in
+            if !isEmpty { isExpanded = true }
         }
     }
 }
