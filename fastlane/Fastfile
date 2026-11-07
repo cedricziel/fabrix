@@ -99,14 +99,37 @@ lane :distribute_public_beta do |options|
   t = TARGETS.fetch(options[:platform].to_s == "mac" ? :mac : :ios)
   api_key = load_app_store_connect_api_key
   public_beta_group
-  upload_to_testflight(**public_beta_params.merge(
+  beta = public_beta_params
+  UI.user_error!("Set REVIEW_CONTACT_* to distribute to the public beta") if beta.empty?
+  upload_to_testflight(**beta.merge(
     api_key: api_key,
     app_identifier: APP_IDENTIFIER,
     app_platform: t[:upload_platform],
     distribute_only: true,
     build_number: options[:build],
-    app_version: options[:version] || marketing_version({})
+    app_version: options[:version] || (options[:build] ? nil : marketing_version({}))
   ))
+end
+
+desc "Update the TestFlight test information (description, feedback email, privacy URL) without a build"
+desc "  privacy_url:<url>  override the privacy policy URL"
+lane :sync_beta_info do |options|
+  load_app_store_connect_api_key
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  attributes = {
+    description: beta_description,
+    privacyPolicyUrl: options[:privacy_url] || PRIVACY_URL
+  }
+  email = ENV["REVIEW_CONTACT_EMAIL"].to_s.strip
+  attributes[:feedbackEmail] = email unless email.empty?
+  existing = Spaceship::ConnectAPI.get_beta_app_localizations(filter: { app: app.id }).to_models
+  localization = existing.find { |l| l.locale == "en-US" }
+  if localization
+    Spaceship::ConnectAPI.patch_beta_app_localizations(localization_id: localization.id, attributes: attributes)
+  else
+    Spaceship::ConnectAPI.post_beta_app_localizations(app_id: app.id, attributes: attributes.merge(locale: "en-US"))
+  end
+  UI.success("Updated the TestFlight test information")
 end
 
 desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
@@ -183,12 +206,13 @@ def release_target(key, options)
 
   api_key = load_app_store_connect_api_key
   public_beta_group
-  params = public_beta_params.merge(
+  beta = public_beta_params
+  params = beta.merge(
     api_key: api_key,
     app_identifier: APP_IDENTIFIER,
     app_platform: t[:upload_platform],
     # Distributing to an external group needs the build processed first.
-    skip_waiting_for_build_processing: false,
+    skip_waiting_for_build_processing: beta.empty?,
     changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes
   )
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
@@ -208,9 +232,15 @@ def public_beta_group
     )
 end
 
+def beta_description
+  File.read(File.join(__dir__, "metadata", "beta", "description.txt")).strip
+end
+
 def public_beta_params
-  description = File.read(File.join(__dir__, "metadata", "beta", "description.txt")).strip
+  description = beta_description
   params = {
+    wait_processing_timeout_duration: 1800,
+    reject_build_waiting_for_review: true,
     distribute_external: true,
     groups: [PUBLIC_BETA_GROUP],
     notify_external_testers: true,
