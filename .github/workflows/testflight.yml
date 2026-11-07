@@ -23,8 +23,10 @@ jobs:
   upload:
     name: ${{ matrix.platform }}
     runs-on: macos-26
+    timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         platform: [ios, mac]
     steps:
