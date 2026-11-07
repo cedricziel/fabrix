@@ -41,6 +41,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Fabrix uses Face ID to unlock the app and confirm approvals.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Fabrix connects to Paperclip factories running on your local network.</string>
 	<key>UIApplicationSceneManifest</key>
