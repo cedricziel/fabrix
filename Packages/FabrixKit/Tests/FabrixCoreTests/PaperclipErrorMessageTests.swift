@@ -27,4 +27,10 @@ struct PaperclipErrorMessageTests {
     @Test func keychainErrorsReadAsSentences() {
         #expect(!KeychainError(status: -25308).localizedDescription.contains("FabrixCore.KeychainError"))
     }
+
+    @Test func transportErrorsReadAsSentences() {
+        #expect(PaperclipError.transport(.cannotConnectToHost).localizedDescription
+            == "The server didn't answer. Check that it's running and the address is right.")
+        #expect(!PaperclipError.transport(.badServerResponse).localizedDescription.contains("NSURLErrorDomain"))
+    }
 }

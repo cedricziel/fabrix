@@ -68,7 +68,7 @@ extension PaperclipError: LocalizedError {
                 "The board didn't accept this request."
             }
         case let .server(status, _): "The factory had a problem (\(status)). Fabrix keeps trying."
-        case let .transport(code): URLError(code).localizedDescription
+        case let .transport(code): Self.transportMessage(code)
         case .decoding: "The server sent a response Fabrix doesn't understand."
         case .invalidServerURL: "Enter a server address like https://paperclip.example.com."
         case .insecureConnection: "Use https:// to sign in to a server outside your local network."
@@ -77,6 +77,25 @@ extension PaperclipError: LocalizedError {
         case .signInExpired: "Sign-in timed out. Try again."
         case let .missingHeaderValues(names):
             "This device no longer has the values for \(names.formatted(.list(type: .and))). Enter them again to connect."
+        }
+    }
+
+    /// A bare `URLError(code)` has no readable text, only "NSURLErrorDomain error -1004".
+    static func transportMessage(_ code: URLError.Code) -> String {
+        switch code {
+        case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed:
+            "You're offline. Fabrix retries when the connection is back."
+        case .cannotConnectToHost:
+            "The server didn't answer. Check that it's running and the address is right."
+        case .cannotFindHost, .dnsLookupFailed:
+            "No server was found at this address."
+        case .timedOut:
+            "The server took too long to answer."
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot, .clientCertificateRejected:
+            "A secure connection to the server couldn't be made."
+        default:
+            "The server couldn't be reached."
         }
     }
 
