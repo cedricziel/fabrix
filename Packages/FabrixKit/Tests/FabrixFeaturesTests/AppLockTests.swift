@@ -38,9 +38,11 @@ struct AppLockTests {
 
     /// A lock that is on and unlocked, as after a successful prompt.
     private func enabledLock(
-        timeout: LockTimeout = .oneMinute, authenticator: StubAuthenticator = StubAuthenticator()
+        timeout: LockTimeout = .oneMinute,
+        authenticator: StubAuthenticator = StubAuthenticator(),
+        promptDeactivatesApp: Bool = false
     ) async -> AppLock {
-        let lock = AppLock(defaults: freshDefaults(), authenticator: authenticator)
+        let lock = AppLock(defaults: freshDefaults(), authenticator: authenticator, promptDeactivatesApp: promptDeactivatesApp)
         lock.timeout = timeout
         await lock.setEnabled(true)
         authenticator.results = [.success]
@@ -136,7 +138,7 @@ struct AppLockTests {
 
     @Test func successfulPromptThatDeactivatesTheAppIsNotTimeAway() async {
         let authenticator = StubAuthenticator()
-        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator)
+        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator, promptDeactivatesApp: true)
         lock.confirmsApprovals = true
 
         // On a Mac the system prompt makes the app resign active while it is up.
@@ -146,6 +148,19 @@ struct AppLockTests {
 
         #expect(!lock.isLocked)
         #expect(!lock.isCovered)
+    }
+
+    @Test func cancelledPromptOnAMacIsNotTimeAway() async {
+        let authenticator = StubAuthenticator()
+        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator, promptDeactivatesApp: true)
+        lock.confirmsApprovals = true
+        authenticator.results = [.cancelled]
+
+        authenticator.onAuthenticate = { lock.sceneWillResignActive(); lock.sceneDidEnterBackground(at: start) }
+        #expect(await !lock.confirmDecision())
+        lock.sceneDidBecomeActive(at: start.addingTimeInterval(5))
+
+        #expect(!lock.isLocked)
     }
 
     @Test func backgroundingDuringAPromptLocks() async {
@@ -165,7 +180,7 @@ struct AppLockTests {
 
     @Test func cancelledPromptThatDeactivatesTheAppDoesNotPromptAgain() async {
         let authenticator = StubAuthenticator()
-        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator)
+        let lock = await enabledLock(timeout: .immediately, authenticator: authenticator, promptDeactivatesApp: true)
         lock.sceneDidEnterBackground(at: start)
         lock.sceneDidBecomeActive(at: start)
         authenticator.results = [.cancelled]

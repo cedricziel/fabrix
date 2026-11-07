@@ -8,6 +8,14 @@ public final class AppLock {
     /// Shared by every window and the Mac Settings scene.
     public static let shared = AppLock()
 
+    public static var promptDeactivatesAppByDefault: Bool {
+        #if os(macOS)
+            true
+        #else
+            false
+        #endif
+    }
+
     public private(set) var settings: AppLockSettings {
         didSet { settings.save(to: defaults) }
     }
@@ -19,13 +27,20 @@ public final class AppLock {
 
     private let defaults: UserDefaults
     private let authenticator: any Authenticator
+    /// A Mac app resigns active while the system prompt is up; an iOS app only goes inactive.
+    private let promptDeactivatesApp: Bool
     /// In memory only, so a cold launch always locks.
     private var backgroundedAt: Date?
     private var promptedThisForeground = false
 
-    public init(defaults: UserDefaults = .standard, authenticator: any Authenticator = DeviceAuthenticator()) {
+    public init(
+        defaults: UserDefaults = .standard,
+        authenticator: any Authenticator = DeviceAuthenticator(),
+        promptDeactivatesApp: Bool = AppLock.promptDeactivatesAppByDefault
+    ) {
         self.defaults = defaults
         self.authenticator = authenticator
+        self.promptDeactivatesApp = promptDeactivatesApp
         let settings = AppLockSettings(defaults: defaults)
         self.settings = settings
         isLocked = settings.isEnabled
@@ -170,17 +185,16 @@ public final class AppLock {
         isAuthenticating = true
         let result = await evaluate(reason: reason)
         isAuthenticating = false
-        switch result {
-        case .success where !wasAway:
-            // On a Mac the prompt deactivates the app; that isn't time away.
+        // The prompt itself deactivates a Mac app; that isn't time away. On iOS only a success
+        // forgives it, since leaving during a prompt cancels the prompt.
+        if !wasAway, result == .success || promptDeactivatesApp {
             backgroundedAt = nil
-        case .unavailable:
+        }
+        if result == .unavailable {
             // The passcode was removed: nothing to check against, so the lock can't work.
             settings.isEnabled = false
             settings.confirmsApprovals = false
             isLocked = false
-        default:
-            break
         }
         return result
     }
