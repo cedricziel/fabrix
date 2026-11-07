@@ -219,8 +219,12 @@ public final class AppModel {
         defer { isConnecting = false }
         do {
             await finishConnecting(try await connector.signInAgainToIdentityProvider(factoryID: factory.id, webAuthenticator: webAuthenticator))
+            retrySignIn = nil
+            browserSignIn = nil
         } catch where !Self.isCancellation(error) {
-            lastError = error.localizedDescription
+            // Shown by the sign-in sheet with Try again, on top of the signed-out screen.
+            retrySignIn = { [weak self] in await self?.signInAgain(webAuthenticator: webAuthenticator) }
+            browserSignIn = BrowserSignInState(failure: error.localizedDescription)
         } catch {}
     }
 

@@ -425,6 +425,23 @@ struct BrowserSignInTests {
         #expect(model.snapshot?.company.name == "Atlas")
     }
 
+    @Test func failedIdentityProviderSignInShowsWhyAndCanBeRetried() async {
+        let connector = RecordingConnector()
+        connector.identityProviderError = OIDCError.provider(code: "access_denied", description: "User said no")
+        let model = await relaunched(connector, service: ProxySignedOut(), usesBoardKey: false, usesOIDC: true)
+        model.webAuthenticator = ApprovalSheet()
+
+        await model.signInAgain()
+
+        #expect(model.browserSignIn?.failure == "User said no")
+        #expect(model.needsSignIn)
+        connector.identityProviderError = nil
+        await model.retryBrowserSignIn()
+        #expect(connector.identityProviderSignIns.count == 2)
+        #expect(!model.needsSignIn)
+        #expect(model.browserSignIn == nil)
+    }
+
     @Test func expiredProxySessionOnABoardKeyFactoryAsksToSignInAgain() async {
         let model = await relaunched(RecordingConnector(), service: ProxySignedOut(), usesBoardKey: true, usesOIDC: true)
 

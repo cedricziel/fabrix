@@ -391,8 +391,11 @@ final class RecordingConnector: FactoryConnector {
     private(set) var cancelledWaits = 0
     private(set) var cancelledChallenges: [String] = []
 
+    var identityProviderError: (any Error)?
+
     func signInAgainToIdentityProvider(factoryID: Factory.ID, webAuthenticator _: any WebAuthenticator) async throws -> FactoryConnection {
         identityProviderSignIns.append(factoryID)
+        if let identityProviderError { throw identityProviderError }
         guard let existing = saved[factoryID] else { throw PaperclipError.notFound(nil) }
         let renewed = FactoryConnection(factory: existing.factory, service: renewedService, usesBoardKey: existing.usesBoardKey, usesOIDC: existing.usesOIDC)
         saved[factoryID] = renewed
