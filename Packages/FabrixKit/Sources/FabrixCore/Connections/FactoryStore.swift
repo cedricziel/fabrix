@@ -231,7 +231,7 @@ public final class FactoryStore {
         return provider
     }
 
-    private static func chain(oidc: OIDCAuthProvider?, boardKey: String?, headers: [CustomHeader] = []) -> any AuthProvider {
+    private static func chain(oidc: OIDCAuthProvider?, boardKey: String?, headers: [CustomHeader]) -> any AuthProvider {
         let layers: [(any AuthProvider)?] = [
             headers.isEmpty ? nil : CustomHeadersAuth(headers: headers), oidc, boardKey.map { BearerTokenAuth(token: $0) },
         ]
@@ -249,7 +249,7 @@ public final class FactoryStore {
     /// Header values as a JSON object keyed by name, or nil when there are none.
     private static func encodedValues(_ headers: [CustomHeader]) throws -> String? {
         guard !headers.isEmpty else { return nil }
-        let values = Dictionary(headers.map { ($0.name, $0.value) }, uniquingKeysWith: { _, last in last })
+        let values = Dictionary(uniqueKeysWithValues: headers.map { ($0.name, $0.value) })
         return try String(decoding: JSONEncoder().encode(values), as: UTF8.self)
     }
 
