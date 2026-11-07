@@ -30,7 +30,9 @@ print(json.dumps({
 }))
 PY
 fi
-op item get "fastlane-ci: match deploy key ($NAME)" --vault "$VAULT" --fields "label=private key" --reveal \
+# `--fields` prints CSV, which wraps a multi-line key in quotes; read the raw value from JSON instead.
+op item get "fastlane-ci: match deploy key ($NAME)" --vault "$VAULT" --format json \
+  | python3 -c 'import json, sys; v = next(f["value"] for f in json.load(sys.stdin)["fields"] if f.get("label") == "private key"); sys.stdout.write(v if v.endswith("\n") else v + "\n")' \
   | gh secret set MATCH_DEPLOY_KEY -R "$REPO"
 
 if ! op item get "fastlane-ci: keychain ($NAME)" --vault "$VAULT" >/dev/null 2>&1; then
