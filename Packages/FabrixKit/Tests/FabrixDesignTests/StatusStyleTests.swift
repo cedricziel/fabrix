@@ -25,14 +25,14 @@ struct StatusStyleTests {
     }
 
     @Test(arguments: [
-        (StatusStyle.running, StatusStyle.Tone.run),
+        (StatusStyle.running, Tone.run),
         (.idle, .neutral),
         (.paused, .neutral),
         (.needsYou, .signal),
         (.blocked, .halt),
         (.done, .done),
     ])
-    func tone(style: StatusStyle, expected: StatusStyle.Tone) {
+    func tone(style: StatusStyle, expected: Tone) {
         #expect(style.tone == expected)
     }
 }

@@ -43,7 +43,7 @@ public struct BrandCover<Content: View>: View {
     public var body: some View {
         VStack(spacing: Spacing.l) {
             FabrixMark()
-            Text("Fabrix").font(.fabrix(.title))
+            Text(verbatim: "Fabrix").font(.fabrix(.title))
             content
         }
         .padding(Spacing.xl)

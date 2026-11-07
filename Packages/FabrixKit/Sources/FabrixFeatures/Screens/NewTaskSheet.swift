@@ -9,19 +9,19 @@ struct NewTaskSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Title", text: $title)
-                Text("Creating tasks from Fabrix arrives in an upcoming build. Until then, create them on your Paperclip board.")
+                TextField(.features("Title"), text: $title)
+                Text("Creating tasks from Fabrix arrives in an upcoming build. Until then, create them on your Paperclip board.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
             }
             .formStyle(.grouped)
-            .navigationTitle("New task")
+            .navigationTitle(.features("New task"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(.features("Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {}.disabled(true)
+                    Button(.features("Create")) {}.disabled(true)
                 }
             }
         }

@@ -45,38 +45,53 @@ public struct SectionHeader: View {
 
     nonisolated static let linkColor = Palette.signalInk
 
-    private let title: String
+    let title: Text
     private let style: Style
-    private let action: (title: String, perform: () -> Void)?
+    private let action: (title: Text, perform: () -> Void)?
 
-    public init(_ title: String, style: Style = .card) {
-        self.title = title
+    public init(_ title: LocalizedStringResource, style: Style = .card) {
+        self.title = Text(title)
         self.style = style
         action = nil
     }
 
-    public init(_ title: String, actionTitle: String, action: @escaping () -> Void) {
-        self.title = title
+    public init(_ title: LocalizedStringResource, actionTitle: LocalizedStringResource, action: @escaping () -> Void) {
+        self.title = Text(title)
         style = .card
-        self.action = (actionTitle, action)
+        self.action = (Text(actionTitle), action)
+    }
+
+    @_disfavoredOverload
+    public init(_ title: String, style: Style = .card) {
+        self.title = Text(verbatim: title)
+        self.style = style
+        action = nil
+    }
+
+    @_disfavoredOverload
+    public init(_ title: String, actionTitle: String, action: @escaping () -> Void) {
+        self.title = Text(verbatim: title)
+        style = .card
+        self.action = (Text(verbatim: actionTitle), action)
     }
 
     public var body: some View {
         HStack(alignment: .firstTextBaseline) {
             switch style {
             case .card:
-                Text(title)
+                title
                     .font(.fabrix(.headline))
                     .foregroundStyle(Palette.graphite)
             case .eyebrow:
-                Text(title.uppercased())
+                title
+                    .textCase(.uppercase)
                     .font(.fabrix(.eyebrow))
                     .tracking(0.66)
                     .foregroundStyle(Palette.muted)
             }
             Spacer(minLength: Spacing.s)
             if let action {
-                Button(action.title, action: action.perform)
+                Button(action: action.perform) { action.title }
                     .buttonStyle(.plain)
                     .font(.fabrix(.link))
                     .foregroundStyle(Self.linkColor)
@@ -91,7 +106,7 @@ public struct SectionHeader: View {
 
 /// A headline number with a caption: "Agents working 4 / 7".
 public struct MetricCard<Footer: View>: View {
-    private let title: String
+    private let title: Text
     private let value: String
     private let total: String?
     private let emphasis: Bool
@@ -102,20 +117,32 @@ public struct MetricCard<Footer: View>: View {
     ///   - emphasis: Colors the value signal orange. Use only for things waiting on a human.
     ///     Signal orange passes contrast only at this large metric size; small text uses `Palette.signalInk`.
     public init(
+        _ title: LocalizedStringResource, value: String, total: String? = nil, emphasis: Bool = false,
+        @ViewBuilder footer: () -> Footer
+    ) {
+        self.init(title: Text(title), value: value, total: total, emphasis: emphasis, footer: footer())
+    }
+
+    @_disfavoredOverload
+    public init(
         _ title: String, value: String, total: String? = nil, emphasis: Bool = false,
         @ViewBuilder footer: () -> Footer
     ) {
+        self.init(title: Text(verbatim: title), value: value, total: total, emphasis: emphasis, footer: footer())
+    }
+
+    private init(title: Text, value: String, total: String?, emphasis: Bool, footer: Footer) {
         self.title = title
         self.value = value
         self.total = total
         self.emphasis = emphasis
-        self.footer = footer()
+        self.footer = footer
     }
 
     public var body: some View {
         Card {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title)
+                title
                     .font(.fabrix(.subheadline))
                     .foregroundStyle(Palette.steel)
                 valueText
@@ -130,42 +157,50 @@ public struct MetricCard<Footer: View>: View {
     }
 
     private var valueText: Text {
-        let number = Text(value)
-            .font(.fabrix(.metric))
-            .foregroundStyle(emphasis ? Palette.signal : Palette.graphite)
-        guard let total else { return number }
-        let suffix = Text(" \(total)")
-            .font(.fabrix(.title))
-            .foregroundStyle(Palette.muted)
-        return Text("\(number)\(suffix)")
+        var number = AttributedString(value)
+        number.font = .fabrix(.metric)
+        number.foregroundColor = emphasis ? Palette.signal : Palette.graphite
+        guard let total else { return Text(number) }
+        var suffix = AttributedString(" \(total)")
+        suffix.font = .fabrix(.title)
+        suffix.foregroundColor = Palette.muted
+        return Text(number + suffix)
     }
 }
 
 public extension MetricCard where Footer == Text {
-    init(_ title: String, value: String, total: String? = nil, detail: String, emphasis: Bool = false) {
+    init(
+        _ title: LocalizedStringResource, value: String, total: String? = nil, detail: LocalizedStringResource,
+        emphasis: Bool = false
+    ) {
         self.init(title, value: value, total: total, emphasis: emphasis) { Text(detail) }
+    }
+
+    @_disfavoredOverload
+    init(_ title: String, value: String, total: String? = nil, detail: String, emphasis: Bool = false) {
+        self.init(title, value: value, total: total, emphasis: emphasis) { Text(verbatim: detail) }
     }
 }
 
 #Preview("Containers") {
     ScrollView {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            SectionHeader("Factories", style: .eyebrow)
-            MetricCard("Agents working", value: "4", total: "/ 7", detail: "2 idle · 1 paused")
-            MetricCard("Waiting on you", value: "3", detail: "1 hire · 1 strategy · 1 budget", emphasis: true)
-            MetricCard("Spend this month", value: "$412", total: "/ $1,000") {
+            SectionHeader(.preview("Factories"), style: .eyebrow)
+            MetricCard(.preview("Agents working"), value: "4", total: "/ 7", detail: .preview("2 idle · 1 paused"))
+            MetricCard(.preview("Waiting on you"), value: "3", detail: .preview("1 hire · 1 strategy · 1 budget"), emphasis: true)
+            MetricCard(.preview("Spend this month"), value: "$412", total: "/ $1,000") {
                 BudgetBar(spent: 412, limit: 1000, height: 6)
             }
             Card {
                 VStack(alignment: .leading, spacing: 0) {
-                    SectionHeader("Live runs", actionTitle: "All runs") {}
-                    Text("CTO · ATL-142").font(.fabrix(.body))
+                    SectionHeader(.preview("Live runs"), actionTitle: .preview("All runs")) {}
+                    Text(verbatim: "CTO · ATL-142").font(.fabrix(.body))
                 }
             }
             Card(style: .inverse) {
                 VStack(alignment: .leading, spacing: Spacing.s) {
-                    Text("ATL-151").font(.fabrix(.monoCaption)).foregroundStyle(Palette.onInverseMuted)
-                    Text("Offline cache for task list").font(.fabrix(.headline))
+                    Text(verbatim: "ATL-151").font(.fabrix(.monoCaption)).foregroundStyle(Palette.onInverseMuted)
+                    Text(verbatim: "Offline cache for task list").font(.fabrix(.headline))
                 }
             }
         }

@@ -9,9 +9,9 @@ struct OnboardingView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Fabrix")
+                    Text("Fabrix", bundle: .module)
                         .font(.system(size: 34, weight: .bold))
-                    Text("A control room for your Paperclip factories. Agents report, you decide.")
+                    Text("A control room for your Paperclip factories. Agents report, you decide.", bundle: .module)
                         .font(.title3)
                         .foregroundStyle(Palette.steel)
                 }
@@ -19,16 +19,16 @@ struct OnboardingView: View {
                 ConnectFactoryForm()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("No factory yet?").font(.headline)
-                    Text("Walk through a sample company with seven agents, live runs and approvals waiting on you.")
+                    Text("No factory yet?", bundle: .module).font(.headline)
+                    Text("Walk through a sample company with seven agents, live runs and approvals waiting on you.", bundle: .module)
                         .foregroundStyle(Palette.steel)
                     Button { Task { await model.exploreDemo() } } label: {
-                            Text("Explore the demo").frame(maxWidth: .infinity)
+                            Text("Explore the demo", bundle: .module).frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.fabrixSignal)
                 }
                 .padding(20)
-                .cardSurface()
+                .fabrixCard()
             }
             .padding(24)
             .frame(maxWidth: 520)
@@ -47,36 +47,40 @@ struct ConnectFactoryForm: View {
     @State private var form = ConnectForm()
     var onConnected: () -> Void = {}
 
+    private static let addressExample = "https://factory.example.com"
+    private static let issuerExample = "https://auth.example.com"
+    private static let clientIDExample = "fabrix"
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Connect a factory").font(.headline)
+            Text("Connect a factory", bundle: .module).font(.headline)
             if let reconnect = model.reconnect {
                 Label(reconnect.reason, systemImage: "key.fill")
                     .font(.callout)
                     .foregroundStyle(Palette.steel)
             }
-            LabeledField(title: "Factory address") {
-                TextField("https://factory.example.com", text: $form.address)
+            LabeledField(.features("Factory address")) {
+                TextField(Self.addressExample, text: $form.address)
                     .urlEntry()
             }
-            Picker("Sign in with", selection: $form.method) {
+            Picker(.features("Sign in with"), selection: $form.method) {
                 ForEach(ConnectForm.Method.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.menu)
             if form.method.usesOIDC {
-                LabeledField(title: "OIDC issuer") {
-                    TextField("https://auth.example.com", text: $form.issuer).urlEntry()
+                LabeledField(.features("OIDC issuer")) {
+                    TextField(Self.issuerExample, text: $form.issuer).urlEntry()
                 }
-                LabeledField(title: "Client ID") {
-                    TextField("fabrix", text: $form.clientID).autocorrectionDisabled()
+                LabeledField(.features("Client ID")) {
+                    TextField(Self.clientIDExample, text: $form.clientID).autocorrectionDisabled()
                 }
             }
             if form.method.usesAPIKey {
-                LabeledField(title: "Paperclip API key") {
-                    SecureField("Paste the key from your Paperclip board", text: $form.apiKey)
+                LabeledField(.features("Paperclip API key")) {
+                    SecureField(.features("Paste the key from your Paperclip board"), text: $form.apiKey)
                         .textContentType(.password)
                 }
-                Text("Create one with `paperclipai token board create` on a signed-in machine.")
+                Text("Create one with `paperclipai token board create` on a signed-in machine.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
                     .textSelection(.enabled)
@@ -94,7 +98,7 @@ struct ConnectFactoryForm: View {
                     connect()
                 } label: {
                     Group {
-                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect") }
+                        if model.isConnecting { ProgressView().controlSize(.small) } else { Text("Connect", bundle: .module) }
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -102,13 +106,13 @@ struct ConnectFactoryForm: View {
                 .disabled(!model.canConnect || form.address.isEmpty || model.isConnecting)
             }
             if !model.canConnect {
-                Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.")
+                Text("Connecting to your own factory arrives in an upcoming build. Explore the demo in the meantime.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
             }
         }
         .padding(20)
-        .cardSurface()
+        .fabrixCard()
         .onSubmit(connect)
         .onAppear {
             if let reconnect = model.reconnect, form.address.isEmpty {
@@ -138,10 +142,10 @@ struct AddFactorySheet: View {
                     .padding(20)
             }
             .background(Palette.paper)
-            .navigationTitle("Add Factory")
+            .navigationTitle(.features("Add Factory"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(.features("Cancel")) { dismiss() }
                 }
             }
         }
@@ -151,7 +155,7 @@ struct AddFactorySheet: View {
 }
 
 private extension ConnectForm.Method {
-    var title: LocalizedStringKey {
+    var title: LocalizedStringResource {
         switch self {
         case .browser: "Sign in with browser"
         case .paperclip: "Paperclip API key"
@@ -162,20 +166,7 @@ private extension ConnectForm.Method {
     }
 }
 
-private extension Text {
-    func fieldTitle() -> some View {
-        font(.caption.weight(.medium)).foregroundStyle(Palette.steel)
-    }
-}
-
 private extension View {
-    func fieldChrome() -> some View {
-        textFieldStyle(.plain)
-            .padding(10)
-            .background(Palette.card, in: .rect(cornerRadius: Radius.row))
-            .overlay(RoundedRectangle(cornerRadius: Radius.row).strokeBorder(Palette.hairline))
-    }
-
     /// Text typed as-is: no autocorrection or capitalization.
     func plainEntry() -> some View {
         autocorrectionDisabled()
@@ -193,51 +184,39 @@ private extension View {
     }
 }
 
-private struct LabeledField<Field: View>: View {
-    let title: LocalizedStringKey
-    @ViewBuilder var field: Field
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).fieldTitle()
-            field.fieldChrome()
-        }
-    }
-}
-
 /// Custom request headers, collapsed unless the form already has some.
 private struct AdvancedSection: View {
     @Binding var headers: [ConnectForm.HeaderRow]
     @State private var isExpanded = false
 
     var body: some View {
-        DisclosureGroup("Advanced", isExpanded: $isExpanded) {
+        DisclosureGroup(.features("Advanced"), isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: Spacing.s) {
-                Text("Custom headers").fieldTitle()
+                FieldTitle(.features("Custom headers"))
                 ForEach($headers) { $row in
                     HStack(spacing: Spacing.s) {
-                        TextField("Header name", text: $row.name)
+                        TextField(.features("Header name"), text: $row.name)
                             .plainEntry()
-                            .fieldChrome()
-                        SecureField("Value", text: $row.value)
-                            .fieldChrome()
+                            .textFieldStyle(.fabrix)
+                        SecureField(.features("Value"), text: $row.value)
+                            .textFieldStyle(.fabrix)
                         Button {
                             headers.removeAll { $0.id == row.id }
                         } label: {
                             Image(systemName: "minus.circle.fill").foregroundStyle(Palette.halt)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Remove header")
+                        .accessibilityLabel(.features("Remove header"))
                     }
                 }
                 Button {
                     headers.append(ConnectForm.HeaderRow())
                 } label: {
-                    Label("Add header", systemImage: "plus.circle.fill")
+                    Label(.features("Add header"), systemImage: "plus.circle.fill")
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Palette.signal)
-                Text("Sent with every request to this factory, e.g. a proxy access token.")
+                Text("Sent with every request to this factory, e.g. a proxy access token.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(Palette.muted)
             }
