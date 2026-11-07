@@ -42,4 +42,6 @@ op read "op://$VAULT/$asc_item/AuthKey_3W9XDG5U47.p8" > "$tmp/asc.p8"
 grep -q "BEGIN PRIVATE KEY" "$tmp/asc.p8"
 base64 < "$tmp/asc.p8" | tr -d '\n' | gh secret set ASC_KEY_CONTENT -R "$REPO"
 
+op read "op://$VAULT/release-please token/token" | tr -d '\n' | gh secret set RELEASE_PLEASE_TOKEN -R "$REPO"
+
 gh secret list -R "$REPO"
