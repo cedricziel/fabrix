@@ -23,7 +23,7 @@ public struct SettingsView: View {
         Form {
             Section {
                 Toggle("Lock Fabrix", isOn: isEnabled)
-                    .disabled(!lock.canAuthenticate)
+                    .disabled(!lock.canAuthenticate && !lock.settings.isEnabled)
                 if lock.settings.isEnabled {
                     Picker("Unlock with", selection: $lock.method) {
                         ForEach(lock.unlockOptions) { Text(lock.label(for: $0)).tag($0) }
