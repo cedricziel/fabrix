@@ -1,3 +1,4 @@
+import FabrixCore
 import Foundation
 @testable import FabrixFeatures
 import Testing
@@ -32,6 +33,24 @@ struct ConnectFormTests {
     @Test func oidcInFrontOfPaperclipNeedsBoth() throws {
         let form = ConnectForm(address: "f.example", method: .oidcWithPaperclip, apiKey: "k", issuer: "https://auth.example", clientID: "c")
         #expect(try form.validated().auth == .oidcWithPaperclip(issuer: URL(string: "https://auth.example")!, clientID: "c", apiKey: "k"))
+    }
+
+    @Test func blankHeaderRowsAreDropped() throws {
+        var form = ConnectForm(address: "f.example", apiKey: "k")
+        form.headers = [
+            ConnectForm.HeaderRow(name: "X-Proxy-Token", value: "secret"),
+            ConnectForm.HeaderRow(name: "  ", value: ""),
+            ConnectForm.HeaderRow(),
+        ]
+
+        #expect(try form.validated().headers == [CustomHeader(name: "X-Proxy-Token", value: "secret")])
+    }
+
+    @Test func rowsWithOnlyAValueAreKeptForCoreToReject() throws {
+        var form = ConnectForm(address: "f.example", apiKey: "k")
+        form.headers = [ConnectForm.HeaderRow(name: "", value: "orphan")]
+
+        #expect(try form.validated().headers == [CustomHeader(name: "", value: "orphan")])
     }
 
     @Test(arguments: [

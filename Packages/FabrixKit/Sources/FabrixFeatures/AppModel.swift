@@ -93,7 +93,7 @@ public final class AppModel {
 
     func connect(_ form: ConnectForm, webAuthenticator: (any WebAuthenticator)? = nil) async {
         guard let connector else { return }
-        let request: (baseURL: URL, auth: FactoryAuth)
+        let request: (baseURL: URL, auth: FactoryAuth, headers: [CustomHeader])
         do {
             request = try form.validated()
         } catch {
@@ -104,7 +104,7 @@ public final class AppModel {
         defer { isConnecting = false }
         do {
             let connection = try await connector.connect(
-                baseURL: request.baseURL, auth: request.auth, webAuthenticator: webAuthenticator
+                baseURL: request.baseURL, auth: request.auth, headers: request.headers, webAuthenticator: webAuthenticator
             )
             use(connection)
             defaults.set(connection.factory.id, forKey: Self.factoryKey)
