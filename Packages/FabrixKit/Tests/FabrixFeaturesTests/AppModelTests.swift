@@ -84,6 +84,42 @@ struct AppModelTests {
         #expect(model.runs(of: "fe").map(\.id) == ["r2", "r5", "r6"])
     }
 
+    @Test func refreshFromAnOldFactoryIsDroppedAfterSwitching() async {
+        let old = GatedService(OtherFactory())
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: old), defaults: freshDefaults())
+        await model.refresh()
+        #expect(model.snapshot?.company.name == "Orbit")
+
+        await old.holdNextSnapshot()
+        let stale = Task { await model.refresh() }
+        await old.waitUntilHolding()
+        await model.exploreDemo()
+        await old.release()
+        await stale.value
+
+        #expect(model.snapshot?.company.name == "Atlas")
+        #expect(model.companies.map(\.name) == ["Atlas"])
+        #expect(model.loadState == .loaded)
+        await model.refresh()
+        #expect(model.loadState == .loaded)
+    }
+
+    @Test func olderRefreshCannotOverwriteANewerOne() async throws {
+        let service = GatedService()
+        let model = AppModel(connection: FactoryConnection(factory: FactoryConnection.demo().factory, service: service), defaults: freshDefaults())
+        await model.refresh()
+        let agent = try #require(model.agent("cto"))
+
+        await service.holdNextSnapshot()
+        let poll = Task { await model.refresh() }
+        await service.waitUntilHolding()
+        await model.pause(agent)
+        await service.release()
+        await poll.value
+
+        #expect(model.agent("cto")?.status == .paused)
+    }
+
     @Test func leavingTheFactoryReturnsToOnboarding() async {
         let defaults = freshDefaults()
         let model = AppModel(defaults: defaults)

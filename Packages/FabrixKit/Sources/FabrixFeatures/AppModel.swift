@@ -27,6 +27,9 @@ public final class AppModel {
     public var searchText = ""
 
     private var service: (any FactoryService)?
+    private var generation = 0
+    private var requestCount = 0
+    private var appliedRequest = 0
     private let connector: (any FactoryConnector)?
     private let defaults: UserDefaults
     private var index = SnapshotIndex(nil)
@@ -90,6 +93,7 @@ public final class AppModel {
 
     public func disconnect() {
         defaults.removeObject(forKey: Self.demoKey)
+        generation += 1
         service = nil
         factory = nil
         companies = []
@@ -99,8 +103,12 @@ public final class AppModel {
     }
 
     private func use(_ connection: FactoryConnection) {
+        generation += 1
         factory = connection.factory
         service = connection.service
+        companies = []
+        snapshot = nil
+        lastError = nil
         loadState = .loading
     }
 
@@ -108,28 +116,31 @@ public final class AppModel {
 
     public func refresh() async {
         guard let service else { return }
+        let request = beginRequest()
+        let shown = snapshot?.company.id
         do {
-            let (companies, current) = try await Self.load(from: service, current: snapshot?.company.id)
+            let (companies, current) = try await Self.load(from: service, current: shown)
+            let fresh: CompanySnapshot?
+            if let selected = companies.first(where: { $0.id == shown }) ?? companies.first {
+                fresh = if let current, current.company.id == selected.id {
+                    current
+                } else {
+                    try await service.snapshot(companyID: selected.id)
+                }
+            } else {
+                fresh = nil
+            }
+            guard accept(request) else { return }
             if companies != self.companies {
                 self.companies = companies
-            }
-            guard let selected = companies.first(where: { $0.id == snapshot?.company.id }) ?? companies.first else {
-                snapshot = nil
-                lastError = nil
-                loadState = .empty
-                return
-            }
-            let fresh = if let current, current.company.id == selected.id {
-                current
-            } else {
-                try await service.snapshot(companyID: selected.id)
             }
             if fresh != snapshot {
                 snapshot = fresh
             }
             lastError = nil
-            loadState = .loaded
+            loadState = fresh == nil ? .empty : .loaded
         } catch {
+            guard accept(request) else { return }
             lastError = error.localizedDescription
             if snapshot == nil {
                 loadState = .failed(error.localizedDescription)
@@ -161,11 +172,33 @@ public final class AppModel {
 
     public func select(_ company: Company) async {
         guard let service, company.id != snapshot?.company.id else { return }
+        let request = beginRequest()
         do {
-            snapshot = try await service.snapshot(companyID: company.id)
+            let fresh = try await service.snapshot(companyID: company.id)
+            guard accept(request) else { return }
+            snapshot = fresh
         } catch {
+            guard accept(request) else { return }
             lastError = error.localizedDescription
         }
+    }
+
+    /// Responses arrive out of order: a slow poll can land after a newer refresh, or after
+    /// the user switched factories. Only the newest response for the current factory counts.
+    private struct Request {
+        var generation: Int
+        var number: Int
+    }
+
+    private func beginRequest() -> Request {
+        requestCount += 1
+        return Request(generation: generation, number: requestCount)
+    }
+
+    private func accept(_ request: Request) -> Bool {
+        guard request.generation == generation, request.number > appliedRequest else { return false }
+        appliedRequest = request.number
+        return true
     }
 
     // MARK: Agents and company
