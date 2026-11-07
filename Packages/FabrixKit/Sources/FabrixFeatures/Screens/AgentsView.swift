@@ -27,7 +27,6 @@ struct AgentsView: View {
         .overlay {
             if model.visibleAgents.isEmpty { ContentUnavailableView.search }
         }
-        .navigationTitle("Agents")
     }
 }
 

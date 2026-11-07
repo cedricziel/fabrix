@@ -27,6 +27,7 @@ private struct TabStack: View {
         @Bindable var model = model
         NavigationStack(path: path) {
             SectionScreen(section: tab.root)
+                .factoryTitle(tab == .factory ? nil : tab.title)
                 .fabrixDestinations()
                 .toolbar {
                     if tab == .factory { CompanyToolbar() }
@@ -36,12 +37,6 @@ private struct TabStack: View {
                                 ForEach(tab.nestedSections) { section in
                                     Button { navigator.open(section) } label: {
                                         Label(section.title, systemImage: section.systemImage)
-                                    }
-                                }
-                                if tab == .factory, model.factoryMenu.canRemove {
-                                    Divider()
-                                    Button("Remove Factory…", systemImage: "trash", role: .destructive) {
-                                        navigator.confirmingRemove = true
                                     }
                                 }
                             } label: {

@@ -68,6 +68,11 @@ public struct RootView: View {
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         .sheet(isPresented: $navigator.showingNewTask) { NewTaskSheet() }
+        .sheet(isPresented: $navigator.showingAddFactory) {
+            AddFactorySheet().environment(model).environment(navigator)
+        }
+        .focusedSceneValue(\.appModel, model)
+        .focusedSceneValue(\.navigator, navigator)
         .confirmationDialog(
             "Remove \(model.factory?.name ?? "this factory")?", isPresented: $navigator.confirmingRemove, titleVisibility: .visible
         ) {

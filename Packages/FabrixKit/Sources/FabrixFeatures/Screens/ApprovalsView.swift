@@ -73,7 +73,6 @@ struct ApprovalsView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.paper)
-        .navigationTitle("Approvals")
         .sensoryFeedback(.success, trigger: decided.count)
     }
 

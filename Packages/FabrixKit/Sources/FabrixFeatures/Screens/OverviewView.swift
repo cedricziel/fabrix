@@ -33,7 +33,6 @@ struct OverviewView: View {
                 .onGeometryChange(for: Bool.self) { $0.size.width >= 760 } action: { isWide = $0 }
             }
             .background(Palette.paper)
-            .navigationTitle(snapshot.company.name)
         }
     }
 }

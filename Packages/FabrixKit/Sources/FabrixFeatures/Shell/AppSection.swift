@@ -71,6 +71,7 @@ final class Navigator {
     var tabPaths: [CompactTab: NavigationPath] = [:]
     var showingNewTask = false
     var confirmingRemove = false
+    var showingAddFactory = false
     var isCompact = false
 
     func open(_ section: AppSection) {
@@ -90,6 +91,6 @@ extension View {
     /// Destinations every navigation stack in the app can push.
     func fabrixDestinations() -> some View {
         navigationDestination(for: Agent.ID.self) { AgentDetailView(agentID: $0) }
-            .navigationDestination(for: AppSection.self) { SectionScreen(section: $0) }
+            .navigationDestination(for: AppSection.self) { SectionScreen(section: $0).navigationTitle($0.title) }
     }
 }
