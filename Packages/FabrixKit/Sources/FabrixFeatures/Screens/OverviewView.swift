@@ -229,19 +229,27 @@ private struct ProjectsCard: View {
 
     var body: some View {
         let board = ProjectBoard(projects: model.projects, snapshot: model.snapshot)
-        let action: (title: LocalizedStringResource, perform: () -> Void)? =
-            board.active.isEmpty ? nil : ("See all \(board.active.count)", { navigator.open(.projects) })
-        SectionCard(title: "Projects", action: action) {
+        if board.active.isEmpty {
+            SectionCard(.features("Projects")) { rows(board) }
+        } else {
+            SectionCard(
+                .features("Projects"), actionTitle: .features("See all \(board.active.count)"),
+                action: { navigator.open(.projects) }
+            ) { rows(board) }
+        }
+    }
+
+    @ViewBuilder private func rows(_ board: ProjectBoard) -> some View {
             VStack(alignment: .leading, spacing: 0) {
                 if let failure = model.projectsFailure {
                     ProjectsFailureRow(message: failure).padding(.horizontal, 16).padding(.vertical, 8)
                 } else if model.projectsState == .loading {
-                    EmptyRow(text: "Loading projects…")
+                    EmptyRow(.features("Loading projects…"))
                 } else if board.active.isEmpty {
                     if board.completed.isEmpty {
-                        EmptyRow(text: "No projects yet. Create one in Paperclip.")
+                        EmptyRow(.features("No projects yet. Create one in Paperclip."))
                     } else {
-                        EmptyRow(text: "No active projects.")
+                        EmptyRow(.features("No active projects."))
                     }
                 }
                 ForEach(board.active.prefix(3)) { project in
@@ -251,7 +259,7 @@ private struct ProjectsCard: View {
                             ProjectSwatch(colorHex: project.colorHex, size: 12)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(project.name).font(.fabrix(.headline))
-                                Text("\(counts.open) open · \(counts.blocked) blocked")
+                                Text("\(counts.open) open · \(counts.blocked) blocked", bundle: .module)
                                     .font(.caption)
                                     .foregroundStyle(counts.blocked > 0 ? Palette.haltInk : Palette.steel)
                             }
@@ -265,6 +273,6 @@ private struct ProjectsCard: View {
                     .buttonStyle(.plain)
                 }
             }
-        }
-    }
+            }
+
 }

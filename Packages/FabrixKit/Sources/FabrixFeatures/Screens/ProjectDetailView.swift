@@ -17,11 +17,11 @@ struct ProjectDetailView: View {
             ProgressView()
         } else {
             ContentUnavailableView {
-                Label("This project is gone", systemImage: "folder.badge.minus")
+                Label(.features("This project is gone"), systemImage: "folder.badge.minus")
             } description: {
-                Text("It was deleted, archived or made private in Paperclip.")
+                Text("It was deleted, archived or made private in Paperclip.", bundle: .module)
             } actions: {
-                Button("Back to projects") {
+                Button(.features("Back to projects")) {
                     if navigator.isCompact {
                         dismiss()
                     } else {
@@ -51,7 +51,7 @@ private struct ProjectDetailContent: View {
                         if !isCompact {
                             Text(project.name).font(.fabrix(.title)).accessibilityAddTraits(.isHeader)
                         }
-                        StatusPill(project.status.style)
+                        Pill(project.status.style)
                     }
                     if let summary = project.summary {
                         Text(summary).foregroundStyle(Palette.steel)
@@ -62,18 +62,18 @@ private struct ProjectDetailContent: View {
                     }
                 }
                 if let failure = model.projectsFailure {
-                    Text("Projects didn't refresh: \(failure)").font(.caption).foregroundStyle(Palette.haltInk)
+                    Text("Projects didn't refresh: \(failure)", bundle: .module).font(.caption).foregroundStyle(Palette.haltInk)
                 }
                 TaskCountsBar(open: counts.open, blocked: counts.blocked, done: counts.done)
                     .frame(maxWidth: 420, alignment: .leading)
                 UnloadedTasksNote(count: board.unloadedTaskCount(for: project))
-                SectionCard(title: "Tasks") {
+                SectionCard(.features("Tasks")) {
                     ProjectTasks(columns: TaskBoard.sections(for: board.tasks(in: project.id)))
                 }
-                SectionCard(title: "Repositories") {
+                SectionCard(.features("Repositories")) {
                     RepositoryRows(repositories: project.repositories)
                 }
-                SectionCard(title: "Activity") {
+                SectionCard(.features("Activity")) {
                     ActivityRows(events: Array(board.activity(for: project.id).prefix(10)))
                 }
             }
@@ -108,13 +108,13 @@ private struct ProjectTasks: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if columns.isEmpty {
-                EmptyRow(text: "No tasks in this project yet.")
+                EmptyRow(.features("No tasks in this project yet."))
             }
             ForEach(columns) { column in
                 HStack(spacing: 8) {
                     Circle().fill(column.status.color).frame(width: 8, height: 8).accessibilityHidden(true)
                     Text(column.status.title).font(.fabrix(.subheadline))
-                    Text("\(column.tasks.count)").font(.caption).foregroundStyle(Palette.muted)
+                    Text("\(column.tasks.count)", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -143,7 +143,7 @@ private struct RepositoryRows: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if repositories.isEmpty {
-                EmptyRow(text: "No repository linked. Link one in Paperclip.")
+                EmptyRow(.features("No repository linked. Link one in Paperclip."))
             }
             ForEach(repositories) { repository in
                 if let url = repository.url {
@@ -169,12 +169,7 @@ private struct RepositoryRows: View {
             }
             Spacer()
             if repository.isPrimary {
-                Text("PRIMARY")
-                    .font(.fabrix(.tag))
-                    .foregroundStyle(Palette.neutralInk)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Palette.neutralTint, in: RoundedRectangle(cornerRadius: Radius.tag))
+                KindTag(title: .features("Primary"), tone: .neutral)
             }
         }
         .padding(.horizontal, 16)

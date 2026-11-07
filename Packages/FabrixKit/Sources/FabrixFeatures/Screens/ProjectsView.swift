@@ -14,9 +14,9 @@ struct ProjectsView: View {
         let shown = showsCompleted ? board.completed : board.active
         List {
             Section {
-                Picker("Show", selection: $showsCompleted) {
-                    Text("Active · \(board.active.count)").tag(false)
-                    Text("Completed · \(board.completed.count)").tag(true)
+                Picker(.features("Show"), selection: $showsCompleted) {
+                    Text("Active · \(board.active.count)", bundle: .module).tag(false)
+                    Text("Completed · \(board.completed.count)", bundle: .module).tag(true)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -31,7 +31,7 @@ struct ProjectsView: View {
                         ProjectRow(project: ProjectsView.placeholder, counts: TaskCounts(open: 3), unloaded: 0, lead: .none, isCompact: isCompact)
                     }
                     .redacted(reason: .placeholder)
-                    .accessibilityLabel("Loading projects")
+                    .accessibilityLabel(.features("Loading projects"))
                 } else {
                     ForEach(shown) { project in
                         Button { navigator.open(project: project.id) } label: {
@@ -50,11 +50,11 @@ struct ProjectsView: View {
                 ContentUnavailableView {
                     Label(showsCompleted ? "No completed projects" : "No projects in \(model.snapshot?.company.name ?? "this company")", systemImage: "folder")
                 } description: {
-                    Text("Projects group tasks and repositories. Create one in Paperclip and it shows up here on the next refresh.")
+                    Text("Projects group tasks and repositories. Create one in Paperclip and it shows up here on the next refresh.", bundle: .module)
                 }
             }
         }
-        .navigationTitle("Projects")
+        .navigationTitle(.features("Projects"))
     }
 
     static let placeholder = Project(id: "placeholder", name: "Project name", status: .inProgress)
@@ -72,7 +72,7 @@ struct ProjectsFailureRow: View {
                 Text(message).font(.caption)
             }
             Spacer()
-            Button("Retry") { Task { await model.retryProjects() } }
+            Button(.features("Retry")) { Task { await model.retryProjects() } }
                 .buttonStyle(.fabrixSecondary)
                 .controlSize(.small)
         }
@@ -94,7 +94,7 @@ struct ProjectRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(project.name).font(.fabrix(.headline))
-                    if isCompact { StatusPill(project.status.style) }
+                    if isCompact { Pill(project.status.style) }
                 }
                 if let goal = project.goals.first {
                     Text(goal).font(.caption).foregroundStyle(Palette.muted).lineLimit(1)
@@ -107,11 +107,11 @@ struct ProjectRow: View {
             Spacer(minLength: 12)
             if !isCompact {
                 VStack(alignment: .trailing, spacing: 6) {
-                    StatusPill(project.status.style)
+                    Pill(project.status.style)
                     if let day = project.targetDay {
                         Text(day, format: .dateTime.month(.abbreviated).day()).font(.fabrix(.monoCaption)).foregroundStyle(Palette.steel)
                     }
-                    Text("^[\(project.repositories.count) repository](inflect: true)")
+                    Text("^[\(project.repositories.count) repository](inflect: true)", bundle: .module)
                         .font(.caption).foregroundStyle(Palette.muted)
                 }
             }
@@ -134,17 +134,17 @@ struct LeadLabel: View {
             }
             .font(.caption)
             .foregroundStyle(Palette.steel)
-            .accessibilityLabel("Lead \(agent.name)")
+            .accessibilityLabel(.features("Lead \(agent.name)"))
         case .outsideCompany:
-            Label("Lead outside this company", systemImage: "person.crop.circle.badge.questionmark")
+            Label(.features("Lead outside this company"), systemImage: "person.crop.circle.badge.questionmark")
                 .font(.caption)
                 .foregroundStyle(Palette.muted)
         case .former:
-            Label("Former agent", systemImage: "person.crop.circle.badge.xmark")
+            Label(.features("Former agent"), systemImage: "person.crop.circle.badge.xmark")
                 .font(.caption)
                 .foregroundStyle(Palette.muted)
         case .none:
-            Text("No lead").font(.caption).foregroundStyle(Palette.muted)
+            Text("No lead", bundle: .module).font(.caption).foregroundStyle(Palette.muted)
         }
     }
 }
@@ -155,7 +155,7 @@ struct UnloadedTasksNote: View {
 
     var body: some View {
         if count > 0 {
-            Text("^[\(count) older task](inflect: true) not loaded, so not counted")
+            Text("^[\(count) older task](inflect: true) not loaded, so not counted", bundle: .module)
                 .font(.caption)
                 .foregroundStyle(Palette.muted)
         }

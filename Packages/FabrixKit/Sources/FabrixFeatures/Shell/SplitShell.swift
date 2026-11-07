@@ -68,7 +68,7 @@ private struct Sidebar: View {
                     .tag(SidebarItem.section(section))
             }
             if model.supportsProjects {
-                Section("Projects") { ProjectsSidebarGroup() }
+                Section(.features("Projects")) { ProjectsSidebarGroup() }
             }
         }
     }
@@ -147,12 +147,12 @@ private struct ProjectsSidebarGroup: View {
 
     var body: some View {
         let board = ProjectBoard(projects: model.projects, snapshot: model.snapshot)
-        Label("All projects", systemImage: AppSection.projects.systemImage)
+        Label(.features("All projects"), systemImage: AppSection.projects.systemImage)
             .badge(board.active.count)
             .tag(SidebarItem.section(.projects))
         if model.projectsState == .loading {
             ForEach(0 ..< 3, id: \.self) { _ in
-                Label("Project", systemImage: "square.fill").redacted(reason: .placeholder)
+                Label(.features("Project"), systemImage: "square.fill").redacted(reason: .placeholder)
             }
             .accessibilityHidden(true)
         }
@@ -170,14 +170,14 @@ private struct ProjectsSidebarGroup: View {
                 Text(project.name).lineLimit(1)
                 Spacer()
                 if counts.blocked > 0 {
-                    Label("\(counts.blocked)", systemImage: "circle.fill")
+                    Label(.features("\(counts.blocked)"), systemImage: "circle.fill")
                         .labelStyle(BlockedCountStyle())
-                        .accessibilityLabel("\(counts.blocked) blocked")
+                        .accessibilityLabel(.features("\(counts.blocked) blocked"))
                 }
-                Text("\(counts.open)")
+                Text("\(counts.open)", bundle: .module)
                     .font(.caption)
                     .foregroundStyle(Palette.muted)
-                    .accessibilityLabel("\(counts.open) open")
+                    .accessibilityLabel(.features("\(counts.open) open"))
             }
             .tag(SidebarItem.project(project.id))
         }
