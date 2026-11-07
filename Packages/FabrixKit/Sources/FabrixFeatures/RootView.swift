@@ -90,17 +90,17 @@ private struct AppRoot: View {
                 case let .failed(message):
                     NavigationStack {
                         ContentUnavailableView {
-                            Label(failedTitle, systemImage: "exclamationmark.triangle")
+                            Label(model.failedTitle, systemImage: "exclamationmark.triangle")
                         } description: {
                             Text(message)
                         } actions: {
                             Button {
-                                Task { await model.refresh() }
+                                Task { await model.retry() }
                             } label: {
-                                if model.isRefreshing { ProgressView().controlSize(.small) } else { Text("Try again", bundle: .module) }
+                                if model.isRetrying { ProgressView().controlSize(.small) } else { Text("Try again", bundle: .module) }
                             }
                             .buttonStyle(.fabrixPrimary)
-                            .disabled(model.isRefreshing)
+                            .disabled(model.isRetrying)
                             Button(.features("Choose another factory")) { model.disconnect() }
                         }
                         .factoryTitle()
@@ -110,6 +110,9 @@ private struct AppRoot: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.paper)
+        .onChange(of: model.fullScreenAnnouncement, initial: true) { _, message in
+            if let message { AccessibilityNotification.Announcement(message).post() }
+        }
         .onChange(of: isCompact, initial: true) { navigator.isCompact = isCompact }
         .tint(Palette.signal)
         // Inside the lock, so sheets close when it locks.
@@ -184,14 +187,6 @@ private struct AppRoot: View {
         guard lockOfferIsDue else { return }
         lockOfferIsDue = false
         offeringLock = lock.shouldOfferLock
-    }
-
-    /// The server may have answered (401, 403), so "can't reach" is only one of the titles.
-    private var failedTitle: String {
-        ConnectionStatus(
-            model.connectionProblem, factory: model.factory?.name ?? "the factory",
-            company: nil, lastRefreshedAt: nil
-        )?.title ?? String(localized: "Can't reach the factory", bundle: .module)
     }
 
     private var isCompact: Bool {

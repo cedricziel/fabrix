@@ -110,6 +110,17 @@ struct ConnectionIssueTests {
         #expect(!model.isRetrying)
     }
 
+    @Test func aFailedFirstLoadIsAnnounced() async {
+        let service = GatedService()
+        let model = model(service)
+        #expect(model.fullScreenAnnouncement == nil)
+        await service.failSnapshots(true)
+
+        await model.refresh()
+
+        #expect(model.fullScreenAnnouncement?.hasPrefix("Can't reach Demo factory. ") == true)
+    }
+
     @Test func reconnectFillsTheFormAndKeepsTheFactoryOpen() async throws {
         let service = GatedService()
         let model = model(service)
