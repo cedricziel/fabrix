@@ -33,7 +33,10 @@ never into the repo.
 
 - Contract checks: run the client tests that are gated on the sandbox, e.g.
   `FABRIX_SANDBOX_URL="$base_url" xcrun swift test --package-path Packages/FabrixKit --filter Sandbox`.
-- App check: build and launch `FabrixMac` (see CLAUDE.md), connect it to
+  A filter that matches nothing still exits 0, so check the summary line reports
+  more than zero tests; if it reports none, say the contract check was skipped.
+- App check (only once the app can connect to a factory and shows approvals and
+  agents; until then, report it as skipped): build and launch `FabrixMac` (see CLAUDE.md), connect it to
   `$base_url`, and confirm the seeded company, agents, tasks and approvals show
   up; approve one approval and pause one agent, then confirm the change through
   the API. Take a screenshot as evidence.
@@ -51,6 +54,6 @@ scripts/paperclip-sandbox.sh down
 docker ps -a --format '{{.Names}}' | grep fabrix-paperclip-sandbox || echo clean
 ```
 
-Report what was checked against which image digest
-(`docker image inspect ghcr.io/paperclipai/paperclip:latest --format '{{index .RepoDigests 0}}'`),
+Before cleaning up, record the image the sandbox actually ran
+(`scripts/paperclip-sandbox.sh image`), then report what was checked against it
 and say plainly which steps were skipped.
