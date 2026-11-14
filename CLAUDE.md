@@ -20,6 +20,7 @@ Design: https://claude.ai/artifact/WdCVLSSBv9BTT8uwioNNMP (artboards for Mac ove
   - `FabrixCore`: models, `FactoryService` protocol (the UI/server seam), `DemoFactoryService`, the Paperclip client and `PaperclipFactoryService` (`Paperclip/`), pluggable auth with board keys and OIDC (`Auth/`), saved factories and Keychain credentials (`Connections/`). Endpoint reference: `docs/paperclip-api.md`.
   - `FabrixDesign`: tokens (`Palette`, type) and reusable components. No dependency on Core.
   - `FabrixFeatures`: screens and `AppModel`. Depends on Core + Design.
+  - `FabrixTelemetry`: OpenTelemetry export to SignalDB, started by the app shells via `Telemetry.start()`. Depends on Core (factory names to scrub) and the OpenTelemetry Swift packages. Spans and logs pass a scrubber that replaces Paperclip hosts and registered sensitive values and drops URL queries. Keep task titles, comment text and payloads out of spans.
 
 ## Rules
 
