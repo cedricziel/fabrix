@@ -109,6 +109,16 @@ The service SHALL report an action on a card that someone else already answered 
 - **WHEN** an accept answers `409` with `code: interaction_already_resolved`
 - **THEN** the service reads the request and reports already closed with its `resolvedByUserId` or `resolvedByAgentId` and `resolvedAt`
 
+#### Scenario: Own answer after a lost response
+
+- **WHEN** an accept answers `409 interaction_already_resolved` and the request was accepted by the signed-in user
+- **THEN** the service reports success
+
+#### Scenario: Message on the Approvals screen
+
+- **WHEN** a reject on the fallback Approvals screen finds the approval already decided
+- **THEN** the error's description is "This was already decided on the board.", as before
+
 #### Scenario: Same verdict repeated
 
 - **WHEN** an approve answers `200` because the approval was already approved

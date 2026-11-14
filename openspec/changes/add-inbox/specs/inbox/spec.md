@@ -171,7 +171,7 @@ Cards Fabrix can't answer in place SHALL be listed and counted like the others, 
 
 ### Requirement: Staged inbox actions
 
-Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now. All waiting actions SHALL be sent when the app leaves the foreground. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. `[D5]`
+Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now, and Edit ▸ Undo SHALL undo it. All waiting actions SHALL be sent when the app leaves the foreground and when the user switches company or factory. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. Leaving the factory with Disconnect SHALL drop what is still staged, as it does for approvals today. `[D5]` `[D22]`
 
 #### Scenario: Undo inside the window
 
@@ -191,7 +191,12 @@ Approve, reject, request revision, accept, decline, submit answers, submit verdi
 #### Scenario: Company switch
 
 - **WHEN** the user switches company while an action is in its window
-- **THEN** the action is dropped and never sent
+- **THEN** the action is sent to the factory right away, before the other company loads `[D22]`
+
+#### Scenario: Undo from the Edit menu
+
+- **WHEN** the user approves a card and chooses Edit ▸ Undo within 8 seconds
+- **THEN** the card returns to the list unchanged and nothing is sent
 
 ### Requirement: Withdraw
 
@@ -269,6 +274,21 @@ When someone else answered or closed a card first, the app SHALL say who decided
 - **WHEN** the factory doesn't say who decided
 - **THEN** the notice says "Someone already answered this"
 
+#### Scenario: Already decided on compact width
+
+- **WHEN** the user's action on iPhone finds the card already decided
+- **THEN** the open card keeps the notice until the user goes back, and the list they return to no longer has the card
+
+#### Scenario: Already decided on regular width
+
+- **WHEN** the user's action on iPad or Mac finds the card already decided
+- **THEN** the list refreshes without the card, and the detail area keeps the notice until the user selects another card
+
+#### Scenario: Own answer after a lost response
+
+- **WHEN** an answer is sent again after its response was lost, and the factory shows the user resolved the request with that same answer
+- **THEN** the action counts as sent, and no "already decided" notice is shown
+
 ### Requirement: Offline
 
 While the factory can't be reached, the decide buttons SHALL be disabled with the reason shown. Nothing new SHALL be queued, and actions already staged SHALL keep their behavior. The last loaded cards SHALL stay visible and be marked as not current. `[D13]`
@@ -294,12 +314,22 @@ The inbox SHALL show placeholder rows on first load, a "Nothing waiting for you"
 
 ### Requirement: Server without the inbox
 
-A factory without the attention feed SHALL keep today's Approvals section, tab and badge, with no Inbox. A factory with the feed but without routing SHALL show one list without the view switch, answer cards in place, and hide snooze, archive, withdraw, claim and transfer. `[D19]`
+A factory without the attention feed SHALL keep today's Approvals section, tab and badge, with no Inbox. A factory with the feed but without routing SHALL show one list without the view switch, answer cards in place, and hide snooze, archive, withdraw, claim and transfer. The app SHALL remember per factory whether the feed was found, and SHALL lay out from that answer at launch. Until a factory's feed has loaded once, Approvals SHALL stay. Only a loaded feed or a missing endpoint SHALL change the answer. Other failures SHALL not. `[D19]` `[D24]`
 
 #### Scenario: Older server
 
 - **WHEN** the feed request answers `404`
 - **THEN** the app shows Approvals as before and never shows an Inbox for that factory session
+
+#### Scenario: First load fails on a new factory
+
+- **WHEN** the feed request of a factory that has never loaded its feed fails with a network error
+- **THEN** Approvals stays, with its tab and badge, and the inbox is tried again on the next refresh
+
+#### Scenario: Launch with a known inbox
+
+- **WHEN** the app launches on a factory whose feed loaded before
+- **THEN** the tabs and sidebar show Inbox from the start, with a loading state, and don't change when the feed arrives
 
 #### Scenario: Feed without routing
 
@@ -346,7 +376,15 @@ The app SHALL show decision history: what the user handled or what was handled f
 
 ### Requirement: Inbox keyboard shortcuts
 
-On macOS, and on iPadOS with a hardware keyboard, an Inbox menu SHALL offer the inbox commands with shortcuts. These include Next (↓ or J), Previous (↑ or K), Approve or accept (⌘↩), Reject (⌘⌫), Snooze (⌃⌘S or S), Archive (⌃⌘A or E), Request revision (⌥⌘↩), Undo inside the window (⌘Z), Switch view (⌘⌥1–3), Claim (⌃⌘C), Transfer (⌃⌘T), History (⌘Y), Refresh (⌘R), Open task (⌘O) and Copy link (⇧⌘C). Single-key shortcuts SHALL work only while the card list has focus. A command SHALL be disabled when the selected card doesn't allow its action. `[D14]`
+On macOS, and on iPadOS with a hardware keyboard, an Inbox menu SHALL offer the inbox commands with shortcuts:
+
+- Next (↓ or J) and Previous (↑ or K);
+- Approve or accept (⌘↩), Reject (⌥⌘⌫) and Request revision (⌥⌘↩);
+- Snooze (⌥⌘S or S) and Archive (⌃⌘A or E);
+- Switch view (⌘⌥1–3), Claim (⌃⌘C), Transfer (⌃⌘T) and History (⌘Y);
+- Open task (⌘O) and Copy link (⇧⌘C).
+
+Undo SHALL use the Edit menu's Undo (⌘Z), and Refresh SHALL stay the existing Factory Refresh (⌘R). No inbox shortcut SHALL reuse a key the app or macOS already binds. Single-key shortcuts SHALL work only while the card list has focus. The decide commands SHALL be disabled while a text field has focus. A command SHALL be disabled when the selected card doesn't allow its action. `[D14]`
 
 #### Scenario: Moving through cards
 
@@ -360,8 +398,18 @@ On macOS, and on iPadOS with a hardware keyboard, an Inbox menu SHALL offer the 
 
 #### Scenario: Snoozing by keyboard
 
-- **WHEN** a card is selected and the user presses ⌃⌘S
+- **WHEN** a card is selected and the user presses ⌥⌘S
 - **THEN** the snooze presets open for that card
+
+#### Scenario: Typing a reason
+
+- **WHEN** the user is typing in a reason or comment field and presses ⌘↩ or ⌥⌘⌫
+- **THEN** no decision is made, and the keys act on the text field only
+
+#### Scenario: Shortcuts on iPad
+
+- **WHEN** an iPad with a hardware keyboard shows the inbox and the user holds ⌘
+- **THEN** the shortcut overlay lists the Inbox commands
 
 #### Scenario: Command not allowed
 

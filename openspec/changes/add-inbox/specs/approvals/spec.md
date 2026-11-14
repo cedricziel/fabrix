@@ -13,3 +13,8 @@ The Approvals screen SHALL be shown only for factories without the attention fee
 
 - **WHEN** the factory doesn't support the attention feed
 - **THEN** Approvals works exactly as before, with its waiting and decided lists and its undo window
+
+#### Scenario: Already decided on the fallback screen
+
+- **WHEN** the user's rejection on the Approvals screen reaches an approval someone else already decided
+- **THEN** the screen shows "Your decision wasn't sent: This was already decided on the board.", as today

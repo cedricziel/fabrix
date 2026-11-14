@@ -37,14 +37,14 @@ FabrixDesign gets no dependency on FabrixCore. Each component takes strings, num
 | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Target                                     | File                                                                |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
 | `AttentionView`, `AttentionSource`, `AttentionCardType`, `AttentionAnswer`, `AttentionItem`, `AttentionAudience`, `AttentionFeed`, `AttentionReceipt`, `AttentionCloseMode`, `AttentionClosure`, `DecisionRecord`, `DecisionHistoryPage`, `ApprovalDetail`, `ApprovalField`, `ApprovalComment`, `ThreadRequest` (with `Confirmation`, `Question`, `QuestionOption`, `VerdictItem`), `QuestionAnswer`, `ItemVerdict`, `Verdict`, `Person`, `RequesterRef` | FabrixCore                                 | `Inbox/InboxModels.swift` (new; `Models.swift` is not edited)       |
-| `FactoryServiceError.alreadyClosed(AttentionClosure)`, the 15 new protocol methods and their defaults                                                                                                                                                                                                                                                                                                                                                    | FabrixCore                                 | `FactoryService.swift`                                              |
+| `FactoryServiceError.alreadyClosed(AttentionClosure)`, `FactoryServiceError: LocalizedError`, the 15 new protocol methods and their defaults                                                                                                                                                                                                                                                                                                                                                    | FabrixCore                                 | `FactoryService.swift`                                              |
 | `AttentionFeedDTO`, `AttentionItemDTO`, `DecisionHistoryDTO`, `ApprovalCommentDTO`, `InteractionDTO`, `UserDirectoryDTO`, `ErrorBodyDTO.code/details`, the mapping                                                                                                                                                                                                                                                                                       | FabrixCore                                 | `Paperclip/AttentionDTOs.swift`, `Paperclip/AttentionMapping.swift` |
-| `PaperclipError.alreadyClosed(AttentionClosure)`, `PaperclipError.code` for 409/422 bodies                                                                                                                                                                                                                                                                                                                                                               | FabrixCore                                 | `Paperclip/PaperclipError.swift`, `PaperclipClient.swift`           |
+| `PaperclipError.alreadyClosed(AttentionClosure)` and `PaperclipError.interactionClosed(code:message:)`, with their descriptions                                                                                                                                                                                                                                                                                                                                                               | FabrixCore                                 | `Paperclip/PaperclipError.swift`, `PaperclipClient.swift`           |
 | `InboxRow`, `CountedPicker`, `CountBadge`, `OwnerLabel`, `ReceiptRow`, `KeyValueList`, `CommentRow`, `ChoiceRow`, `VerdictPicker`, `ReasonField`, `DecisionBar`, `UndoBar`, `ResolvedNotice`, `HistoryRow`, `PlaceholderRow`, `KeyHint`, the `KindTag` tone, and enums such as `InboxRowTone`, `HistoryOutcome`, `VerdictChoice`, `UndoPhase`, `ResolverKind`                                                                                            | FabrixDesign                               | `Inbox/*.swift` (new folder)                                        |
-| `InboxStore` (observable state and actions), `InboxDesk` (staged actions, pure), `InboxCard` (Core to Design mapping), `SnoozePreset`, the screens, `InboxCommands`, `AppIconBadge`                                                                                                                                                                                                                                                                      | FabrixFeatures                             | `Inbox/*.swift` (new folder)                                        |
-| Inbox menu wiring                                                                                                                                                                                                                                                                                                                                                                                                                                        | App shell (`App/macOS`) and FabrixFeatures | `.commands { InboxCommands() }`                                     |
+| `InboxStore` (observable state and actions), `InboxDesk` (staged actions, pure), `InboxCard` (Core to Design mapping), `InboxSupportCache`, `SnoozePreset`, the screens, `InboxCommands`, `AppIconBadge`                                                                                                                                                                                                                                                                      | FabrixFeatures                             | `Inbox/*.swift` (new folder)                                        |
+| Inbox menu wiring                                                                                                                                                                                                                                                                                                                                                                                                                                        | App shell (`App/Shared/FabrixApp.swift`, beside `FactoryCommands`, so iPad keyboards get it too) | `.commands { InboxCommands() }`                                     |
 
-`Package.swift` keeps FabrixDesign's dependency list as it is. A test in slice 1 fails if a FabrixDesign file imports FabrixCore (`DesignIndependenceTests.noCoreImport`, a source scan).
+`Package.swift` keeps FabrixDesign's dependency list as it is. A test in slice 2 fails if a FabrixDesign file imports FabrixCore (`DesignIndependenceTests.noCoreImport`, a source scan).
 
 ### 2. Endpoints, requests and responses
 
@@ -87,7 +87,25 @@ The `409` body from Paperclip's error handler is:
 }
 ```
 
-`ErrorBodyDTO` gains `code: String?` and `details: AlreadyClosedDTO?`, both decoded leniently. `PaperclipClient.perform` throws `PaperclipError.alreadyClosed(AttentionClosure)` when `code == "attention_already_closed"` and `details` decodes. Every other status keeps today's mapping. `PaperclipError.conflict` and `invalidRequest` keep their `String?` payload, and the body's `code` is exposed through a new `PaperclipError.code` property, so existing switches still compile.
+`ErrorBodyDTO` gains `code: String?` and `details: AlreadyClosedDTO?`, both decoded leniently. `PaperclipError.conflict` and `invalidRequest` carry only `String?`, so they can't carry a code. Instead `PaperclipClient.perform` throws two new cases, and only for these bodies:
+
+- `PaperclipError.alreadyClosed(AttentionClosure)` for a `409` whose `code` is `attention_already_closed` and whose `details` decode;
+- `PaperclipError.interactionClosed(code: String, message: String?)` for a `409` whose `code` is `interaction_already_resolved`, `interaction_superseded`, `interaction_stale_target` or `interaction_issue_closed`.
+
+Every other response keeps today's mapping, including other coded `409`s such as the workspace-sync gate, which stay `.conflict(message)`. Both new cases get an `errorDescription` ("This was already decided on the board.") in `PaperclipError`'s `LocalizedError` extension. Existing `switch` statements over `PaperclipError` in FabrixCore and FabrixFeatures gain the two cases.
+
+`PaperclipError` becomes `FactoryServiceError.alreadyClosed` in one place: a private `closingErrors(_:reread:)` helper in `PaperclipFactoryService` that wraps every inbox action and `decide`.
+
+- `.alreadyClosed(closure)` maps directly.
+- `.interactionClosed` re-reads the interaction to learn who resolved it, then maps.
+- `.invalidRequest(message)` starting with "Only pending" on an approval re-reads the approval, then maps.
+
+The helper also handles lost responses. A retried action whose response was lost can find its own earlier answer: the source was resolved by the signed-in user, with the status the action would have set (`approved`, `rejected`, `revision_requested`, `accepted`, `answered`). That case counts as success, not "already decided". The service learns the signed-in user once per connection from `GET cli-auth/me` (`userId`; `local-board` on a `local_trusted` server) and caches it. The status for submitted verdicts is checked in the sandbox (14.2). Until then a verdicts call resolved by the same user counts as success.
+
+`FactoryServiceError` conforms to `LocalizedError`:
+
+- `.alreadyClosed` reads "This was already decided on the board.", the text `PaperclipError.invalidRequest("Only pending…")` shows today, so the fallback Approvals screen's message does not change.
+- `.unsupported` reads "This factory doesn't support that yet." 
 
 Payload fields Fabrix maps (the rest is ignored):
 
@@ -120,13 +138,13 @@ func people(companyID: Company.ID) async throws -> [Person]
 func dismissReceipt(companyID: Company.ID, receipt: AttentionReceipt) async throws
 ```
 
-`AttentionCloseMode` is `.withdraw(reason: String)`, `.archive(fingerprint: String?)` or `.snooze(until: Date, fingerprint: String?)`. `decide(approvalID:approve:)` is unchanged. Its live implementation gains the `422` to `.alreadyClosed` mapping, which `ApprovalsView` also benefits from.
+`AttentionCloseMode` is `.withdraw(reason: String)`, `.archive(fingerprint: String?)` or `.snooze(until: Date, fingerprint: String?)`. The signature of `decide(approvalID:approve:)` is unchanged. Its live implementation gains the `422` to `.alreadyClosed` mapping. The fallback Approvals screen shows `error.localizedDescription`, which stays "This was already decided on the board." because of the `LocalizedError` conformance above.
 
 How each screen treats `.unsupported`:
 
 | Method fails with `.unsupported`                                                       | Screen behavior                                                                                                                     |
 | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `attention`                                                                            | No Inbox section or tab. Approvals, its tab and its badge stay exactly as today. Remembered for the factory session, like projects. |
+| `attention`                                                                            | No Inbox section or tab. Approvals, its tab and its badge stay exactly as today. Remembered in `InboxSupportCache` for the factory `[D24]`. |
 | `attentionHistory`                                                                     | The History button is hidden.                                                                                                       |
 | `approvalDetail`                                                                       | The card shows the feed's summary and Approve and Reject. No payload or comments.                                                   |
 | `addApprovalComment`                                                                   | The composer is hidden.                                                                                                             |
@@ -174,11 +192,16 @@ It gets the current service, company and generation from `AppModel` through a sm
 
 - `let inbox: InboxStore`;
 - `refresh()` also calls `inbox.refresh(context)`, under the same generation check, so a stale feed can't land after a factory switch;
-- `use(_:)` and `select(_:)` call `inbox.reset(…)`, which also drops staged actions, the same rule as `ApprovalDesk`. `renew(_:)` keeps the inbox and its staged actions, so actions held while signed out are sent by the `commitStagedDecisions()` that follows a same-factory sign-in;
-- `commitStagedDecisions()` also awaits `inbox.commitStaged()`;
-- `waitingCount` returns `inbox.badgeCount` when the inbox is supported, and the approvals count otherwise.
+- `select(_:)` first awaits `inbox.commitStaged()`, so actions still in their window go out at once, and then resets the inbox for the new company `[D22]`. Today `select` leaves `ApprovalDesk` alone and a staged approval is still sent after its window, so the user-visible rule is the same: nothing staged is lost on a company switch.
+- `use(_:)` resets the inbox. Its callers (`open(_:)`) already commit staged decisions before it, and the same `commitStagedDecisions()` now covers the inbox.
+- `disconnect()` resets the inbox, cancelling its timers and dropping what is staged, as it does for `ApprovalDesk` today. The reset sets the badge count to 0, which clears the app icon badge.
+- `renew(_:)` keeps the inbox and its staged actions, so actions held while signed out are sent by the `commitStagedDecisions()` that follows a same-factory sign-in.
+- `commitStagedDecisions()` also awaits `inbox.commitStaged()`.
+- `inboxBadgeCount` is a new property that the Inbox tab and sidebar row read. `waitingCount` keeps counting approvals for the Approvals tab and sidebar, so the fallback badge never shows the inbox count.
 
-Overview's approval card calls `inbox.decide` when the inbox is supported, so the same approval is never staged in two desks.
+Overview's approval card calls `inbox.decide` when the inbox is supported, so the same approval is never staged in two desks. `waitingApprovals` leaves out approvals staged in `InboxDesk`. On inbox factories, Overview's "Waiting on you" shows `inboxBadgeCount` `[D23]`. "Open" selects the card in the view that holds it: For you first, then Unassigned, then Company.
+
+`InboxSupportCache` stores, per factory ID in `UserDefaults`, whether the last feed request found the inbox. It stores no URL or name. At launch the shell lays out from the cached answer, so the tab bar doesn't reshuffle. With no cached answer it shows Approvals. Only a successful feed load or a `404` "API route not found" changes the answer. Any other failure leaves it as it is, so a network error never hides Approvals on a factory that has never loaded its feed `[D24]`.
 
 `InboxDesk` is the pure counterpart of `ApprovalDesk`. It maps a card ID to a `StagedAction`:
 
@@ -191,7 +214,7 @@ It has `stage`, `undo`, `beginCommit`, `finish` and `restage` (for a sign-out bo
 
 ### 6. Demo factory
 
-`DemoFactoryService` gains:
+`DemoFactoryService` gains, in a new extension file `DemoFactoryService+Inbox.swift` so slices don't collide in `DemoFactoryService.swift`. An actor extension can't add stored properties, so slice 3 adds one stored `inbox: DemoInbox` property to `DemoFactoryService.swift`. `DemoInbox` is a value type in the extension file that later slices extend:
 
 - **People:** you (`me`), Priya and Sam.
 - **For you:** "Hire a Designer agent" (approval with payload and two comments); "Review the Q4 plan" (`review_plan` on ATL-148); "Which push provider?" (`answer_questions` on ATL-160, single choice with Recommended and Other, plus multiple choice); "Review release notes" (`review_items` on ATL-120, 3 items); a confirmation with `rejectRequiresReason`; a stale card (`aged`); a transferred card ("Transferred by Priya"); and a "Critical" `budget_stop` problem card (Open in Paperclip).
@@ -218,7 +241,7 @@ Every action changes the demo's state in memory. A demo-only switch `simulateAlr
 | Post comment                                      | no                                       | none `[D20]`                                                              | sending and failed states, with retry by hand                                                                |
 | Dismiss receipt                                   | no                                       | none                                                                      | affects only the user                                                                                        |
 
-Staged actions go out when the window ends, when the user taps "Send now" in the undo bar, or when the app leaves the foreground (`commitStagedDecisions`). A staged action rejected because the key was refused stays staged until the user signs in again, as approvals do today. A staged action whose card leaves the company with a company switch is dropped.
+Staged actions go out when the window ends, when the user taps "Send now" in the undo bar, when the app leaves the foreground (`commitStagedDecisions`), or when the user switches company or factory `[D22]`. A staged action rejected because the key was refused stays staged until the user signs in again, as approvals do today. `disconnect()` drops what is still staged, as it does today. Each staged action is also registered with the window's `UndoManager`, so Edit ▸ Undo and ⌘Z undo it inside the window. The Inbox menu doesn't bind ⌘Z itself.
 
 ### 8. "Already decided"
 
@@ -226,13 +249,14 @@ When an action throws `FactoryServiceError.alreadyClosed(closure)`:
 
 1. The staged action is finished, not restaged, and nothing is retried.
 2. The card shows `ResolvedNotice`: "Priya approved this at 14:29. Your rejection wasn't recorded." The decider is a person's name from `people`, an agent's name from the snapshot, or "Someone" when neither is known.
-3. The store refreshes the feed. The notice stays on the selected card until the user moves on. On iPhone it stays until they go back.
+3. The store refreshes the feed. On iPad and Mac the notice stays on the selected card while the refreshed list loses it, until the user selects another card. On iPhone the pushed card keeps the notice until the user goes back, and the list it returns to no longer has the card.
+4. A resolver that is the user themself with the same answer is not this case. `PaperclipFactoryService` reports it as success (see 2).
 
 A generic `PaperclipError.conflict` (for example "Someone else claimed this card first") shows the server's sentence and refreshes.
 
 ### 9. Badges
 
-- **Tab (compact) and sidebar row (regular):** `inbox.badgeCount`, which is `deskBadgeCount` from the last feed. It is hidden at 0 and shows "99+" above 99 (`CountBadge`).
+- **Tab (compact) and sidebar row (regular):** `AppModel.inboxBadgeCount`, which is `deskBadgeCount` from the last feed. The Approvals tab and row keep reading `waitingCount`. It is hidden at 0 and shows "99+" above 99 (`CountBadge`).
 - **App icon:** `AppIconBadge` sets it after every feed load and clears it on sign-out, on factory removal and when the inbox is unsupported. On iOS and iPadOS it uses `UNUserNotificationCenter.setBadgeCount`, only after the user turns on "Show count on app icon" in Settings, which asks for `.badge` authorization `[D18]`. On macOS it uses `NSApp.dockTile.badgeLabel` and is always on. The count is the open company's `[D8]`.
 
 ### 10. Layout per device
@@ -242,25 +266,31 @@ A generic `PaperclipError.conflict` (for example "Someone else claimed this card
 - **Mac:** the same split, plus the Inbox menu. Snooze presets are "In 1 hour", "Tomorrow morning (9:00)", "Next week (Monday 9:00)" and "Pick a time…", all in local time.
 - **Keyboard (Mac, and iPad with a keyboard):** the Inbox menu (`InboxCommands`) uses `FocusedValue` from the inbox view:
 
-  | Command          | Keys                  |
-  | ---------------- | --------------------- |
-  | Next             | ↓ or J                |
-  | Previous         | ↑ or K                |
-  | Open task        | ⌘O `[D21]`            |
-  | Switch view      | ⌘⌥1–3                 |
-  | Approve / accept | ⌘↩                    |
-  | Reject           | ⌘⌫ `[D14]`            |
-  | Request revision | ⌥⌘↩                   |
-  | Undo             | ⌘Z, inside the window |
-  | Snooze           | ⌃⌘S or S              |
-  | Archive          | ⌃⌘A or E              |
-  | Claim            | ⌃⌘C                   |
-  | Transfer         | ⌃⌘T                   |
-  | History          | ⌘Y                    |
-  | Refresh          | ⌘R                    |
-  | Copy link        | ⇧⌘C                   |
+  | Command          | Keys                                                        |
+  | ---------------- | ----------------------------------------------------------- |
+  | Next             | ↓ or J                                                      |
+  | Previous         | ↑ or K                                                      |
+  | Open task        | ⌘O `[D21]`                                                  |
+  | Switch view      | ⌘⌥1–3                                                       |
+  | Approve / accept | ⌘↩                                                          |
+  | Reject           | ⌥⌘⌫ `[D14]`                                                 |
+  | Request revision | ⌥⌘↩                                                         |
+  | Snooze           | ⌥⌘S or S                                                    |
+  | Archive          | ⌃⌘A or E                                                    |
+  | Claim            | ⌃⌘C                                                         |
+  | Transfer         | ⌃⌘T                                                         |
+  | History          | ⌘Y                                                          |
+  | Copy link        | ⇧⌘C                                                         |
+  | Undo             | ⌘Z from the Edit menu, through `UndoManager` (not bound here) |
+  | Refresh          | ⌘R from the existing `FactoryCommands` (not bound here)     |
 
-  Single keys work only while the list has focus. Each slice adds the commands for its own actions, so every layer of the stack has shortcuts for what it ships.
+  These shortcuts avoid keys the app or the system already uses:
+
+  - ⌘R is already Refresh in `FactoryCommands`.
+  - ⌃⌘S is macOS's Show/Hide Sidebar.
+  - ⌘⌫ reads as Delete.
+
+  Menu key equivalents fire even while a text field is focused. So the decide commands (Approve, Reject, Request revision) and all single keys are disabled while a text field in the inbox has focus, such as a reason, a note, a comment or an Other answer. The inbox publishes that state with its `FocusedValue`. Single keys work only while the list has focus. Each slice adds the commands for its own actions, so every layer of the stack has shortcuts for what it ships.
 
 ### 11. Accessibility
 
@@ -271,7 +301,12 @@ A generic `PaperclipError.conflict` (for example "Someone else claimed this card
 
 ### 12. Telemetry
 
-Fabrix adds no new spans and no new attributes. URL session spans for the new routes are already templated (`/api/companies/{id}/attention/issue_thread_interaction/{id}/close`) and lose their queries. `paperclip.api.route` is filled today only from `url.path`, which the URL session instrumentation may not emit under the stable semantic conventions. Slice 2 changes `AttributeScrubber.scrub(attributes:)` to take the templated path from the scrubbed `url.full` when `url.path` is missing, with the same host and `/api/` checks. Request and response bodies, where titles, comments, answers, reasons and payloads travel, are never recorded. Slice 2 adds `AttributeScrubberTests.attentionRouteFromFullURL`, a span that carries only `url.full`, and slice 3 adds `ScrubbingExporterTests.inboxErrorLogsCarryNoText`. That test fails if any inbox error log or span status carries comment text, a decision note or a payload value, and it covers the failure paths `InboxStore` logs.
+Fabrix adds no new spans and no new attributes. URL session spans for the new routes are already templated (`/api/companies/{id}/attention/issue_thread_interaction/{id}/close`) and lose their queries. `paperclip.api.route` is filled today only from `url.path`, which the URL session instrumentation may not emit under the stable semantic conventions. Slice 1 changes `AttributeScrubber.scrub(attributes:)` to take the templated path from the scrubbed `url.full` when `url.path` is missing, with the same host and `/api/` checks. Request and response bodies, where titles, comments, answers, reasons and payloads travel, are never recorded. Slice 1 adds `AttributeScrubberTests.attentionRouteFromFullURL`, a span that carries only `url.full`.
+
+`FabrixTelemetryTests` can't reach `InboxStore`, because it doesn't depend on FabrixFeatures. So the guard has two parts:
+
+- `InboxStoreTests.failureLogsCarryNoContent`, in FabrixFeaturesTests, injects a log sink and checks that a failed comment post and a failed decision log only the operation name, the card kind and the error type. They log no comment text, note, answer or title.
+- `ScrubbingExporterTests.inboxRouteErrorHasNoQueryOrID`, in FabrixTelemetryTests, checks that a failed span on an inbox route exports with a templated route and no query.
 
 ### 13. Docs
 
@@ -279,27 +314,28 @@ Each slice adds its endpoints to a new "Inbox" section of `docs/paperclip-api.md
 
 ## Risks / Trade-offs
 
-- [Paperclip's attention API is four months old, and routing is three days old at `890dcbdd`] → All decoding is lenient: unknown kinds become Open in Paperclip, and missing routing fields switch to the unrouted mode `[D19]`. Slice 10 runs the sandbox contract tests against the pinned image and `latest`.
+- [Paperclip's attention API is four months old, and routing is three days old at `890dcbdd`] → All decoding is lenient: unknown kinds become Open in Paperclip, and missing routing fields switch to the unrouted mode `[D19]`. Slice 14 runs the sandbox contract tests against the pinned image and `latest`.
 - [An interaction `409` carries no resolver] → One extra `GET issues/{i}/interactions` after the conflict. When that read fails, the notice says "Someone already answered this".
 - [The user directory exposes members' emails to Fabrix] → Fabrix shows emails only when a name is missing, never writes them to telemetry or logs, and doesn't cache them on disk.
-- [Two desks (approvals fallback and inbox) can disagree on one approval] → Only one is active per factory: the inbox when it is supported, the Approvals screen otherwise. Overview routes through whichever is active.
+- [Two desks (approvals fallback and inbox) can disagree on one approval] → Only one is active per factory: the inbox when it is supported, the Approvals screen otherwise. Overview routes through whichever is active, and `waitingApprovals` leaves out what `InboxDesk` holds.
+- [Many slices edit the same files] → Slices are implemented strictly in sequence, one at a time. Demo inbox data lives in `DemoFactoryService+Inbox.swift`, not in `DemoFactoryService.swift`. A `.xcstrings` conflict is resolved by re-running `scripts/sync-string-catalogs.sh` on the merged sources, never by hand.
 - [The app icon badge on iOS needs a permission prompt] → It is opt-in in Settings `[D18]`. Without it, the tab badge still shows the count.
 - [The first page is capped at 100 cards] → The next page loads at the end of the list. The view count comes from `viewCounts`, never from counting the rows.
 - [A 20 s poll on the feed adds one request per tick] → It replaces nothing yet. Phase 5 drops the snapshot's two approval requests once the inbox is the only approvals surface.
 
 ## Migration Plan
 
-The change is additive and ships as the 10-slice stack in tasks.md. Every layer can ship:
+The change is additive and ships as the 14-slice stack in tasks.md. Every layer can ship:
 
-- After slice 2, Inbox appears beside Approvals, read-only.
-- Slice 3 makes approvals answerable in the inbox and removes the Approvals section on servers that have the inbox.
-- Slices 4–9 add the remaining card kinds and actions.
+- After slice 4, Inbox appears beside Approvals, read-only.
+- Slice 6 makes approvals answerable in the inbox and removes the Approvals section on servers that have the inbox.
+- Slices 7–13 add comments and the remaining card kinds and actions.
 
 To roll back, revert the stack. Servers without `/attention` never see a change.
 
 ## Open Questions
 
-None that change the specs or tasks. The items Paperclip's source didn't settle are listed in the tasks under 10.2, to check in the sandbox:
+None that change the specs or tasks. The items Paperclip's source didn't settle are listed in the tasks under 14.2, to check in the sandbox:
 
 - how `local_trusted` routes the inbox for `local-board`;
 - `answerMode: text` answers;
