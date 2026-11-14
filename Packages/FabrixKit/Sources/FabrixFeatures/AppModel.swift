@@ -526,8 +526,13 @@ public final class AppModel {
             await leaveForNextFactory()
             return
         }
-        self.factory = current.factory
-        service = current.service
+        if needsSignIn || isSignedOutWithoutSignIn {
+            renew(current)
+            await commitStagedDecisions()
+        } else {
+            self.factory = current.factory
+            service = current.service
+        }
         await refresh()
     }
 
