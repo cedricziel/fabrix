@@ -2,13 +2,13 @@
 
 Fabrix is a native control room for [Paperclip](https://github.com/paperclipai/paperclip) agent factories on macOS, iPadOS and iOS. With it you can:
 
-- watch agent runs live
-- approve hire, strategy and budget requests
+- see which agents are running, and for how long
+- approve or reject hire, strategy and budget requests
 - wake or pause agents
-- work the task board
+- see the task board
 - browse the org chart
 
-Demo mode loads sample data, so you can try the app without a server. You can also connect your own self-hosted Paperclip server. Some of the screens above are still in review.
+Demo mode loads sample data, so you can try the app without a server. You can also connect your own self-hosted Paperclip server.
 
 ## Try it on TestFlight
 
