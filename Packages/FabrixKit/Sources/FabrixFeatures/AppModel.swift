@@ -526,8 +526,7 @@ public final class AppModel {
             await leaveForNextFactory()
             return
         }
-        self.factory = current.factory
-        service = current.service
+        renew(current)
         await refresh()
     }
 

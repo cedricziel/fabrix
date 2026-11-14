@@ -262,6 +262,20 @@ struct BrowserSignInTests {
         #expect(model.projectsFailure == nil)
     }
 
+    @Test func signingInAgainInAnotherWindowEndsTheSignedOutState() async throws {
+        let (model, connector, _) = await rejectedModel()
+        #expect(model.needsSignIn)
+        let factory = try #require(model.factory)
+
+        connector.saved[factory.id] = FactoryConnection(factory: factory, service: DemoFactoryService(), usesBoardKey: true)
+        await model.followStoreChanges()
+
+        #expect(!model.needsSignIn)
+        #expect(model.signedOutReason == nil)
+        #expect(model.connectionProblem == nil)
+        #expect(model.snapshot?.company.name == "Atlas")
+    }
+
     @Test func rejectedTokenWithoutABoardKeyIsAnError() async {
         let rejecting = RejectingService()
 
