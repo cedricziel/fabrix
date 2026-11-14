@@ -599,8 +599,6 @@ public final class AppModel {
         reconnect = nil
     }
 
-    /// Staged decisions belong to the open factory. Callers send them before switching,
-    /// and anything still staged is dropped here so it can never reach the next factory.
     /// Swaps in new credentials for the open factory without dropping what is on screen.
     private func renew(_ connection: FactoryConnection) {
         factory = connection.factory
@@ -614,6 +612,8 @@ public final class AppModel {
         actionError = nil
     }
 
+    /// Staged decisions belong to the open factory. Callers send them before switching,
+    /// and anything still staged is dropped here so it can never reach the next factory.
     private func use(_ connection: FactoryConnection) {
         cancelBrowserSignIn()
         commitTimers.values.forEach { $0.cancel() }
@@ -721,8 +721,6 @@ public final class AppModel {
         }
     }
 
-    /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
-    /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
     /// A refresh the user asked for, shown on the button they tapped.
     func retry() async {
         guard !isRetrying else { return }
@@ -731,6 +729,8 @@ public final class AppModel {
         await refresh()
     }
 
+    /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
+    /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
     public func keepFresh(every interval: Duration = .seconds(20), staleAfter: Duration? = nil) async {
         let isStale = lastRefresh.map { $0.duration(to: clock.now) >= (staleAfter ?? interval) } ?? true
         if loadState != .loaded || isStale {
