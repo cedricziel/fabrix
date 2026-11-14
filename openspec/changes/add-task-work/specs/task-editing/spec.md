@@ -6,7 +6,7 @@ Task editing lets a board user create Paperclip tasks and change a task's status
 
 ### Requirement: Create a task
 
-New task SHALL open a form with title (required `[D7]`), description, status, priority, assignee and project. Status SHALL default to Todo when an assignee is picked and Backlog without one, and priority to Medium. Create SHALL be disabled until the title has text. Creating SHALL send one request with an idempotency key, so a retried create never makes two tasks. The new task SHALL appear on the board and open in its detail. A refused create SHALL keep the form, say what the server refused, and move focus to the first field the server named. New subtask SHALL open the same form with the parent set and shown.
+New task SHALL open a form with title (required `[D7]`), description, status, priority, assignee and project. Status SHALL default to Todo when an assignee is picked and Backlog without one, and priority to Medium. Create SHALL be disabled until the title has text. When the status is Todo or In progress and the assignee is an agent, the Create button SHALL say that the agent will be woken ("Create and wake {agent}") `[D23]`. Creating SHALL send one request with an idempotency key, so a retried create never makes two tasks. The new task SHALL appear on the board and open in its detail. A refused create SHALL keep the form, say what the server refused, and move focus to the first field the server named. New subtask SHALL open the same form with the parent set and shown.
 
 #### Scenario: Compact width
 
@@ -33,10 +33,15 @@ New task SHALL open a form with title (required `[D7]`), description, status, pr
 - **WHEN** the server answers `400` with details for a field
 - **THEN** the form stays open, the field shows the server's message, and VoiceOver focus moves to it
 
+#### Scenario: Create wakes an agent
+
+- **WHEN** the user picks an agent as assignee and leaves the status at Todo
+- **THEN** the button reads "Create and wake {agent}"
+
 #### Scenario: Server cannot create tasks
 
-- **WHEN** the factory doesn't support creating tasks
-- **THEN** New task explains that this factory doesn't allow it from Fabrix, and offers no way to submit
+- **WHEN** a create answers `404` "API route not found"
+- **THEN** the form says this factory doesn't allow creating tasks from Fabrix and keeps the draft, and New task opens that explanation directly for the rest of the factory session
 
 ### Requirement: Edit task fields
 
@@ -59,7 +64,7 @@ The user SHALL change a task's status, priority, assignee and project from its d
 
 ### Requirement: Undo window for edits
 
-Status and assignee changes SHALL be held for 8 seconds `[D1]` `[D2]` with an undo bar that says what changed, counts down in text and offers Undo and Send now. They SHALL be sent when the window ends, when the user taps Send now, when the app leaves the foreground, or before another factory or company opens. Priority and project changes SHALL be sent at once, and their undo bar SHALL send the old value back. A held change SHALL survive a refresh: the board keeps showing it until it is sent. A held change rejected because the user was signed out SHALL stay held until they sign in again. Task edits SHALL NOT ask for Face ID `[D17]`.
+Status and assignee changes SHALL be held for 8 seconds `[D1]` `[D2]` with an undo bar that says what changed, counts down in text and offers Undo and Send now. They SHALL be sent when the window ends, when the user taps Send now, when the app leaves the foreground, or before another factory or company opens. Undo SHALL also be available from Edit ▸ Undo (⌘Z) while the window runs. Priority and project changes SHALL be sent at once, and their undo bar SHALL send the old value back. A held change SHALL survive a refresh: the board keeps showing it until it is sent. A held change rejected because the user was signed out SHALL stay held until they sign in again. Task edits SHALL NOT ask for Face ID `[D17]`.
 
 #### Scenario: Undo a move
 
@@ -80,6 +85,16 @@ Status and assignee changes SHALL be held for 8 seconds `[D1]` `[D2]` with an un
 
 - **WHEN** a status change is held and the app goes to the background
 - **THEN** the change is sent before the app suspends
+
+#### Scenario: Company switch during the window
+
+- **WHEN** a status change is held and the user switches to another company
+- **THEN** the change is sent for the original company before the new company shows
+
+#### Scenario: Signed out during the window
+
+- **WHEN** a held change can't be sent because the key was refused
+- **THEN** the undo bar says it wasn't sent and to sign in again, and the change is sent after signing in to the same factory
 
 #### Scenario: Refresh during the window
 
@@ -107,7 +122,7 @@ When the server refuses an edit (`422`, `409`, `403` or `404`), the card and det
 
 ### Requirement: Drag and drop on the board
 
-On iPad and Mac the user SHALL drag a card to another column to change its status. While dragging, each column SHALL say what a drop does. A column whose drop the server would refuse SHALL refuse it before anything is sent and say why: In progress for an unassigned task, Blocked for a task without an unresolved blocker `[D18]`. A drop SHALL follow the undo window. With Reduce Motion, a refused card SHALL fade back instead of flying, and a lifted card SHALL not tilt. Every drag result SHALL also be reachable without dragging.
+On iPad and Mac the user SHALL drag a card to another column to change its status. While dragging, each column SHALL say what a drop does. In progress SHALL refuse an unassigned task before anything is sent and say why. Blocked SHALL NOT be a drop target; the status menu offers it and the server decides `[D18]`. A drop SHALL follow the undo window. With Reduce Motion, a refused card SHALL fade back instead of flying, and a lifted card SHALL not tilt. Every drag result SHALL also be reachable without dragging.
 
 #### Scenario: Regular width
 
@@ -124,6 +139,11 @@ On iPad and Mac the user SHALL drag a card to another column to change its statu
 - **WHEN** the user drags an unassigned task over In progress
 - **THEN** the column says "Assign it first" and dropping does nothing
 
+#### Scenario: Blocked column
+
+- **WHEN** the user drags a card over Blocked
+- **THEN** the column says Blocked is set from the status menu and dropping does nothing
+
 #### Scenario: VoiceOver
 
 - **WHEN** VoiceOver focuses a card
@@ -136,7 +156,7 @@ On iPad and Mac the user SHALL drag a card to another column to change its statu
 
 ### Requirement: Context menu and keyboard
 
-Every card SHALL have a context menu with the same verbs as its VoiceOver actions. On macOS, and on iPadOS with a hardware keyboard, a Task menu SHALL offer New task (⌘N), New subtask (⇧⌘N), Open in new window (⌘O, macOS only), Comment (⌥⌘C), Plan history (⇧⌘H), Assign (⇧⌘A), Set project (⇧⌘P), status (⌃⌘1–7, in the order Backlog, Todo, In progress, In review, Blocked, Done, Cancelled) and priority (⌃⌥1–4) `[D16]`, and Undo inside the window (⌘Z). A command SHALL be disabled when no task is selected or the factory doesn't allow it.
+Every card SHALL have a context menu with the same verbs as its VoiceOver actions. On macOS, and on iPadOS with a hardware keyboard, a Task menu SHALL offer New task (⌘N, replacing New Window on macOS), New subtask (⇧⌘N), Open in new window (⌥⌘O, macOS only), Comment (⌥⌘C), Plan history (⇧⌘H), Assign (⇧⌘A), Set project (⇧⌘P), status (⌃⌘1–7, in the order Backlog, Todo, In progress, In review, Blocked, Done, Cancelled) and priority (⌃⇧1–4, Critical to Low) `[D16]`. Undo inside the window SHALL come from Edit ▸ Undo (⌘Z), not from a Task menu item. No shortcut SHALL be bound twice across the Factory, Inbox and Task menus. A command SHALL be disabled when no task is selected or the factory doesn't allow it.
 
 #### Scenario: Keyboard status change
 
@@ -148,9 +168,14 @@ Every card SHALL have a context menu with the same verbs as its VoiceOver action
 - **WHEN** the user presses ⌘2
 - **THEN** the second company opens, as before
 
+#### Scenario: New task on macOS
+
+- **WHEN** the user presses ⌘N on Mac
+- **THEN** the create form opens and no new window appears
+
 ### Requirement: Task in its own window
 
-On macOS a task SHALL open in its own window from the context menu, the Task menu or ⌘O. The window SHALL show the full detail with thread, documents, work products and runs, SHALL follow refreshes, and SHALL close itself with a note when the task's factory or company is no longer open.
+On macOS a task SHALL open in its own window from the context menu, the Task menu or ⌥⌘O. The window SHALL show the full detail with thread, documents, work products and runs, SHALL follow refreshes, and SHALL close itself with a note when the task's factory or company is no longer open.
 
 #### Scenario: Open in new window
 

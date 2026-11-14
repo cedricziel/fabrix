@@ -53,7 +53,12 @@ The service SHALL list a task's work products with type, provider, title, link, 
 
 ### Requirement: Runs on a task
 
-The service SHALL return a task's active run, or none, and its queued and running runs, each with agent, status and start time.
+The service SHALL return a task's active run, or none, and its queued and running runs, each with agent, status and start time. Runs in the company snapshot SHALL carry their outcome (succeeded, failed, timed out, cancelled or interrupted) once finished, mapped from the run's status; an unknown finished status SHALL map to interrupted.
+
+#### Scenario: Finished run outcome
+
+- **WHEN** the snapshot loads a run with status `timed_out`
+- **THEN** the run is finished with the outcome timed out
 
 #### Scenario: Nothing running
 
@@ -81,12 +86,17 @@ The service SHALL create a task in a company from a title, optional description,
 
 ### Requirement: Signed-in board user
 
-The service SHALL report the ID of the signed-in board user, so the app can offer Me as an assignee and name the user's own comments.
+The service SHALL report the ID of the signed-in board user, so the app can offer Me as an assignee and name the user's own comments. It SHALL read it once per connection. Only a route `404` SHALL mean unsupported; any other failure SHALL be reported as an error, so the next load asks again.
 
 #### Scenario: Board user from a live server
 
-- **WHEN** the app asks who is signed in
-- **THEN** the service reads `GET /api/cli-auth/me` and returns its `userId`
+- **WHEN** the app asks who is signed in twice on one connection
+- **THEN** the service reads `GET /api/cli-auth/me` once and returns its `userId` both times
+
+#### Scenario: Board user lookup fails
+
+- **WHEN** `GET /api/cli-auth/me` answers `500`
+- **THEN** the service reports an error, not unsupported
 
 ### Requirement: Task methods are optional
 

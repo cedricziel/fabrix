@@ -126,12 +126,17 @@ The detail SHALL list the task's work products, the primary one first, each with
 
 ### Requirement: Runs on a task
 
-The detail SHALL show the task's live run on top with its agent and elapsed time, then its queued runs, then the finished runs of this task among the company's recent runs, each with agent, outcome and duration. When finished runs may be missing, the list SHALL say that older runs aren't shown `[D3]`.
+The detail SHALL show the task's live run on top with its agent and elapsed time, then its queued runs, then the finished runs of this task among the company's recent runs, matched by the task's identifier, each with agent, outcome and duration. When finished runs may be missing, the list SHALL say that older runs aren't shown `[D3]`.
 
-#### Scenario: Live run
+#### Scenario: Live run at regular width
 
-- **WHEN** an agent is running the task
-- **THEN** its run is first, marked live, with a timer
+- **WHEN** an agent is running the task on iPad or Mac
+- **THEN** its run is first in the runs section, marked live, with a timer
+
+#### Scenario: Live run at compact width
+
+- **WHEN** an agent is running the task on iPhone
+- **THEN** a one-line live strip under the header names the agent with a timer, and the run is also first in the runs section
 
 #### Scenario: Nothing running
 
