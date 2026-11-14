@@ -404,7 +404,6 @@ public final class AppModel {
         }
     }
 
-    /// Shows a failed request. A rejected key asks for sign-in instead of failing every refresh.
     /// A rejected board key, or an identity-provider session that ended; "Sign in again" fixes both.
     private func isSignedOut(_ error: any Error) -> Bool {
         switch error as? PaperclipError {
@@ -510,7 +509,6 @@ public final class AppModel {
         await leaveForNextFactory()
     }
 
-    /// Leaves the open factory when it was removed elsewhere, e.g. from another window.
     /// Follows changes another window made to the saved factories: leaves the open factory when
     /// it was removed, and picks up new credentials when it was connected again.
     func followStoreChanges() async {
