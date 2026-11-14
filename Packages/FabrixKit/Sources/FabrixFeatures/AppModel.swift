@@ -398,13 +398,12 @@ public final class AppModel {
 
     private static func signInFailure(_ error: any Error) -> String {
         switch error as? PaperclipError {
-        case .signInExpired: "The sign-in request expired before it was approved."
-        case .signInCancelled: "The sign-in request was cancelled in the browser."
+        case .signInExpired: String(localized: "The sign-in request expired before it was approved.", bundle: .module)
+        case .signInCancelled: String(localized: "The sign-in request was cancelled in the browser.", bundle: .module)
         default: error.localizedDescription
         }
     }
 
-    /// Shows a failed request. A rejected key asks for sign-in instead of failing every refresh.
     /// A rejected board key, or an identity-provider session that ended; "Sign in again" fixes both.
     private func isSignedOut(_ error: any Error) -> Bool {
         switch error as? PaperclipError {
@@ -510,7 +509,6 @@ public final class AppModel {
         await leaveForNextFactory()
     }
 
-    /// Leaves the open factory when it was removed elsewhere, e.g. from another window.
     /// Follows changes another window made to the saved factories: leaves the open factory when
     /// it was removed, and picks up new credentials when it was connected again.
     func followStoreChanges() async {
@@ -599,8 +597,6 @@ public final class AppModel {
         reconnect = nil
     }
 
-    /// Staged decisions belong to the open factory. Callers send them before switching,
-    /// and anything still staged is dropped here so it can never reach the next factory.
     /// Swaps in new credentials for the open factory without dropping what is on screen.
     private func renew(_ connection: FactoryConnection) {
         factory = connection.factory
@@ -614,6 +610,8 @@ public final class AppModel {
         actionError = nil
     }
 
+    /// Staged decisions belong to the open factory. Callers send them before switching,
+    /// and anything still staged is dropped here so it can never reach the next factory.
     private func use(_ connection: FactoryConnection) {
         cancelBrowserSignIn()
         commitTimers.values.forEach { $0.cancel() }
@@ -721,8 +719,6 @@ public final class AppModel {
         }
     }
 
-    /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
-    /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
     /// A refresh the user asked for, shown on the button they tapped.
     func retry() async {
         guard !isRetrying else { return }
@@ -731,6 +727,8 @@ public final class AppModel {
         await refresh()
     }
 
+    /// Refreshes on a fixed interval until cancelled. Loads right away when nothing is loaded
+    /// yet or the data is older than `staleAfter` (e.g. on returning from the background).
     public func keepFresh(every interval: Duration = .seconds(20), staleAfter: Duration? = nil) async {
         let isStale = lastRefresh.map { $0.duration(to: clock.now) >= (staleAfter ?? interval) } ?? true
         if loadState != .loaded || isStale {
