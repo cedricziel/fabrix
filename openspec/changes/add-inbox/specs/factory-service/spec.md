@@ -11,7 +11,7 @@ The service SHALL return a company's attention feed for one view (mine, unassign
 
 #### Scenario: Server without the feed
 
-- **WHEN** the feed request answers `404`
+- **WHEN** the feed request answers `404` with "API route not found"
 - **THEN** the service reports the feed as unsupported
 
 #### Scenario: Feed without routing
@@ -116,7 +116,17 @@ The service SHALL report an action on a card that someone else already answered 
 
 ### Requirement: Inbox methods are optional
 
-Each inbox method SHALL have a default that reports unsupported, so a `FactoryService` that doesn't implement it keeps working. A `404` on an inbox route SHALL be reported as unsupported.
+Each inbox method SHALL have a default that reports unsupported, so a `FactoryService` that doesn't implement it keeps working. A `404` whose body is Paperclip's "API route not found", or that has no JSON error body, SHALL be reported as unsupported. A `404` with any other error SHALL be reported as not found, meaning the card or its source is gone.
+
+#### Scenario: Missing endpoint
+
+- **WHEN** a close request answers `404` with `{ "error": "API route not found" }`
+- **THEN** the service reports close as unsupported
+
+#### Scenario: Missing resource
+
+- **WHEN** an approval detail request answers `404` with `{ "error": "Approval not found" }`
+- **THEN** the service reports not found, and approval detail stays supported for other cards
 
 #### Scenario: Conformer without inbox methods
 

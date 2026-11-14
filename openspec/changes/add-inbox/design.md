@@ -136,7 +136,7 @@ How each screen treats `.unsupported`:
 | `people`                                                                               | Transfer is hidden, and names show as "A teammate".                                                                                 |
 | `dismissReceipt`                                                                       | The receipt hides locally until the next launch.                                                                                    |
 
-A method that is unsupported at run time, for example a `404` on a close route, is remembered as unsupported for the factory session. The action disappears, and the user sees "This factory doesn't support that yet" once.
+Two kinds of `404` are told apart by the body, because Paperclip's API router answers an unknown route with `{ "error": "API route not found" }`. That body, or a `404` without a JSON error body (a proxy in front of an older server), means the endpoint is missing: the method throws `.unsupported`. A `404` with any other error, such as "Approval not found" or "Card not found", means the resource is gone: the method throws `PaperclipError.notFound`, and the store refreshes the feed and closes the card. A method that is unsupported at run time is remembered as unsupported for the factory session. The action disappears, and the user sees "This factory doesn't support that yet" once.
 
 ### 4. Models (sketch)
 
@@ -174,7 +174,7 @@ It gets the current service, company and generation from `AppModel` through a sm
 
 - `let inbox: InboxStore`;
 - `refresh()` also calls `inbox.refresh(context)`, under the same generation check, so a stale feed can't land after a factory switch;
-- `use(_:)`, `renew(_:)` and `select(_:)` call `inbox.reset(…)`, which also drops staged actions, the same rule as `ApprovalDesk`;
+- `use(_:)` and `select(_:)` call `inbox.reset(…)`, which also drops staged actions, the same rule as `ApprovalDesk`. `renew(_:)` keeps the inbox and its staged actions, so actions held while signed out are sent by the `commitStagedDecisions()` that follows a same-factory sign-in;
 - `commitStagedDecisions()` also awaits `inbox.commitStaged()`;
 - `waitingCount` returns `inbox.badgeCount` when the inbox is supported, and the approvals count otherwise.
 
@@ -271,7 +271,7 @@ A generic `PaperclipError.conflict` (for example "Someone else claimed this card
 
 ### 12. Telemetry
 
-Fabrix adds no new spans and no new attributes. URL session spans for the new routes are already templated (`/api/companies/{id}/attention/issue_thread_interaction/{id}/close`) and lose their queries. Request and response bodies, where titles, comments, answers, reasons and payloads travel, are never recorded. Slice 2 adds `AttributeScrubberTests.attentionRoutesAreTemplated`, and slice 3 adds `ScrubbingExporterTests.inboxErrorLogsCarryNoText`. That test fails if any inbox error log or span status carries comment text, a decision note or a payload value, and it covers the failure paths `InboxStore` logs.
+Fabrix adds no new spans and no new attributes. URL session spans for the new routes are already templated (`/api/companies/{id}/attention/issue_thread_interaction/{id}/close`) and lose their queries. `paperclip.api.route` is filled today only from `url.path`, which the URL session instrumentation may not emit under the stable semantic conventions. Slice 2 changes `AttributeScrubber.scrub(attributes:)` to take the templated path from the scrubbed `url.full` when `url.path` is missing, with the same host and `/api/` checks. Request and response bodies, where titles, comments, answers, reasons and payloads travel, are never recorded. Slice 2 adds `AttributeScrubberTests.attentionRouteFromFullURL`, a span that carries only `url.full`, and slice 3 adds `ScrubbingExporterTests.inboxErrorLogsCarryNoText`. That test fails if any inbox error log or span status carries comment text, a decision note or a payload value, and it covers the failure paths `InboxStore` logs.
 
 ### 13. Docs
 

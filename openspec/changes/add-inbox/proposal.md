@@ -45,7 +45,7 @@ Paperclip's web UI now routes everything that waits for a person through one att
 
 Not in this change: decisions between options (`make_choice`), suggested tasks, join requests, tool access, the Archived and Everyone views, a cross-factory inbox, notifications (Phase 4) and task detail (Phase 2).
 
-Platforms: iOS, iPadOS and macOS ship together. Targets: FabrixCore, FabrixDesign, FabrixFeatures and the macOS app shell (menu commands). FabrixTelemetry only gains a test. The `FactoryService` change is additive. It adds 15 methods, each with a default that throws `FactoryServiceError.unsupported`, and one new error case, `FactoryServiceError.alreadyClosed`. No existing method changes.
+Platforms: iOS, iPadOS and macOS ship together. Targets: FabrixCore, FabrixDesign, FabrixFeatures and the macOS app shell (menu commands). FabrixTelemetry gets one fix: `paperclip.api.route` also comes from `url.full`. The `FactoryService` change is additive. It adds 15 methods, each with a default that throws `FactoryServiceError.unsupported`, and one new error case, `FactoryServiceError.alreadyClosed`. No existing method changes.
 
 ## Capabilities
 
@@ -58,6 +58,7 @@ Platforms: iOS, iPadOS and macOS ship together. Targets: FabrixCore, FabrixDesig
 - `factory-service`: the attention feed and history, approval detail, comments and revision, task-thread requests, close, claim and transfer, the company people list, the already-closed error, and demo inbox data.
 - `navigation`: Inbox replaces Approvals in the sidebar and tab bar when the server supports it, with its badge.
 - `approvals`: the Approvals screen is now the fallback for servers without `/attention`.
+- `company-overview`: Approve and Open on the overview's waiting approvals use the inbox when the factory has it.
 - `app-lock`: "Confirm approvals" covers every inbox decision and withdraw.
 - `design-system`: inbox components that take plain values only.
 - `telemetry`: inbox requests carry no titles, comment text, answers or payloads.
