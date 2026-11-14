@@ -276,6 +276,46 @@ struct BrowserSignInTests {
         #expect(model.snapshot?.company.name == "Atlas")
     }
 
+    @Test func decisionsStagedWhileSignedOutGoOutWhenAnotherWindowSignsInAgain() async throws {
+        let connector = RecordingConnector()
+        let model = await relaunched(connector, service: RejectingDecisions())
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+        await model.commitStagedDecisions()
+        #expect(model.needsSignIn)
+        let factory = try #require(model.factory)
+        let renewed = RecordingDecisions()
+
+        connector.saved[factory.id] = FactoryConnection(factory: factory, service: renewed, usesBoardKey: true)
+        await model.followStoreChanges()
+
+        #expect(renewed.decided.withLock { $0 } == [approval.id])
+    }
+
+    @Test func storeChangesLeaveARunningUndoWindowAlone() async throws {
+        let recording = RecordingDecisions()
+        let model = await relaunched(RecordingConnector(), service: recording)
+        let approval = try #require(model.waitingApprovals.first)
+        model.decide(approval, approve: true)
+
+        await model.followStoreChanges()
+
+        #expect(recording.decided.withLock { $0 }.isEmpty)
+        #expect(model.decidedApprovals.first { $0.id == approval.id }?.canUndo == true)
+    }
+
+    @Test func storeChangesKeepAVisibleActionErrorAndASignedInWindowSignedIn() async throws {
+        let connector = RecordingConnector()
+        let model = await relaunched(connector, service: FailingPause())
+        let agent = try #require(model.snapshot?.agents.first)
+        await model.pause(agent)
+        let shown = try #require(model.actionError)
+
+        await model.followStoreChanges()
+
+        #expect(model.actionError == shown)
+    }
+
     @Test func rejectedTokenWithoutABoardKeyIsAnError() async {
         let rejecting = RejectingService()
 
@@ -647,5 +687,16 @@ private final class RecordingDecisions: FactoryService {
     }
     func wake(agentID _: Agent.ID) async throws {}
     func pause(agentID _: Agent.ID) async throws {}
+    func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
+}
+
+private final class FailingPause: FactoryService {
+    let base = DemoFactoryService()
+
+    func companies() async throws -> [Company] { try await base.companies() }
+    func snapshot(companyID: Company.ID) async throws -> CompanySnapshot { try await base.snapshot(companyID: companyID) }
+    func decide(approvalID: Approval.ID, approve: Bool) async throws { try await base.decide(approvalID: approvalID, approve: approve) }
+    func wake(agentID _: Agent.ID) async throws {}
+    func pause(agentID _: Agent.ID) async throws { throw ConnectFailure(message: "Pause failed") }
     func setCompanyPaused(_: Bool, companyID _: Company.ID) async throws {}
 }
