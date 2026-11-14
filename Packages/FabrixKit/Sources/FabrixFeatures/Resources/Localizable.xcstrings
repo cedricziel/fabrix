@@ -635,6 +635,12 @@
     "The request expires at %@." : {
 
     },
+    "The sign-in request expired before it was approved." : {
+
+    },
+    "The sign-in request was cancelled in the browser." : {
+
+    },
     "This factory" : {
 
     },

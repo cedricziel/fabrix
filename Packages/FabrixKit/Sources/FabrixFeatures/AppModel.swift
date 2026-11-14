@@ -398,8 +398,8 @@ public final class AppModel {
 
     private static func signInFailure(_ error: any Error) -> String {
         switch error as? PaperclipError {
-        case .signInExpired: "The sign-in request expired before it was approved."
-        case .signInCancelled: "The sign-in request was cancelled in the browser."
+        case .signInExpired: String(localized: "The sign-in request expired before it was approved.", bundle: .module)
+        case .signInCancelled: String(localized: "The sign-in request was cancelled in the browser.", bundle: .module)
         default: error.localizedDescription
         }
     }
