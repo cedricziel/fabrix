@@ -2,7 +2,7 @@
 
 ### Requirement: Section navigation
 
-The app SHALL let the user reach Inbox, Overview, Tasks, Agents, Org chart and Activity for the selected company when the factory supports the inbox. When it doesn't, Approvals SHALL take Inbox's place, in today's position. Until the inbox is known to be supported, its section SHALL show a loading state.
+The app SHALL let the user reach Inbox, Overview, Tasks, Agents, Org chart and Activity for the selected company when the factory supports the inbox. When it doesn't, Approvals SHALL take Inbox's place, in today's position. The app SHALL lay out from the factory's remembered answer. When the answer is that the inbox is supported and the feed hasn't arrived yet, the Inbox section SHALL show a loading state. When there is no answer yet, or the answer is that it isn't supported, Approvals SHALL be shown. `[D24]`
 
 #### Scenario: Regular width
 

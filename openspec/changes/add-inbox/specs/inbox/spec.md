@@ -171,7 +171,7 @@ Cards Fabrix can't answer in place SHALL be listed and counted like the others, 
 
 ### Requirement: Staged inbox actions
 
-Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now, and Edit ▸ Undo SHALL undo it. All waiting actions SHALL be sent when the app leaves the foreground and when the user switches company or factory. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. Leaving the factory with Disconnect SHALL drop what is still staged, as it does for approvals today. `[D5]` `[D22]`
+Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now, and Edit ▸ Undo SHALL undo it. All waiting actions SHALL be sent when the app leaves the foreground and when the user switches company or factory. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. An action held because the sign-in expired SHALL survive a company switch and SHALL be sent once the user signs in again. Leaving the factory with Disconnect SHALL drop what is still staged, as it does for approvals today. `[D5]` `[D22]`
 
 #### Scenario: Undo inside the window
 
@@ -192,6 +192,11 @@ Approve, reject, request revision, accept, decline, submit answers, submit verdi
 
 - **WHEN** the user switches company while an action is in its window
 - **THEN** the action is sent to the factory right away, before the other company loads `[D22]`
+
+#### Scenario: Held action across a company switch
+
+- **WHEN** an action is held because the sign-in expired and the user switches company
+- **THEN** the action is still held, and it is sent once the user signs in again
 
 #### Scenario: Undo from the Edit menu
 
