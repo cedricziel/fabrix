@@ -3,9 +3,9 @@ import SwiftUI
 /// One row of an approval's payload.
 public struct KeyValueItem: Identifiable, Sendable {
     public let id: Int
-    let label: String
-    let value: String
-    let isMono: Bool
+    public let label: String
+    public let value: String
+    public let isMono: Bool
 
     public init(id: Int, label: String, value: String, isMono: Bool = false) {
         self.id = id

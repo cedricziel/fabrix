@@ -22,14 +22,15 @@ public struct ResolvedNotice: View {
 
     nonisolated static func text(resolver: ResolverKind, outcome: String, time: String?, attempted: String) -> String {
         let notRecorded = String(localized: "Your \(attempted) wasn't recorded.", bundle: .module)
-        let name: String
-        switch resolver {
-        case let .person(person): name = person
-        case let .agent(agent): name = String(localized: "The \(agent) agent", bundle: .module)
-        case .unknown: return "\(String(localized: "This was already decided.", bundle: .module)) \(notRecorded)"
+        func sentence(_ name: String) -> String {
+            time.map { String(localized: "\(name) \(outcome) this at \($0).", bundle: .module) }
+                ?? String(localized: "\(name) \(outcome) this.", bundle: .module)
         }
-        let what = time.map { String(localized: "\(name) \(outcome) this at \($0).", bundle: .module) }
-            ?? String(localized: "\(name) \(outcome) this.", bundle: .module)
+        let what = switch resolver {
+        case let .person(person): sentence(person)
+        case let .agent(agent): sentence(String(localized: "The \(agent) agent", bundle: .module))
+        case .unknown: String(localized: "This was already decided.", bundle: .module)
+        }
         return "\(what) \(notRecorded)"
     }
 

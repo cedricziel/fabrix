@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A mono key cap for shortcut hints in buttons, menus and the legend: "J", "⌥⌘S".
 public struct KeyHint: View {
-    public enum Modifier: CaseIterable, Comparable, Sendable {
+    public enum Modifier: CaseIterable, Comparable, Hashable, Sendable {
         case control, option, shift, command
 
         nonisolated var symbol: String {
@@ -25,11 +25,11 @@ public struct KeyHint: View {
     }
 
     private let key: String
-    private let modifiers: [Modifier]
+    private let modifiers: Set<Modifier>
 
     public init(_ key: String, modifiers: Set<Modifier> = []) {
         self.key = key
-        self.modifiers = modifiers.sorted()
+        self.modifiers = modifiers
     }
 
     nonisolated static func symbols(key: String, modifiers: Set<Modifier>) -> String {
@@ -52,7 +52,7 @@ public struct KeyHint: View {
     }
 
     public var body: some View {
-        Text(verbatim: Self.symbols(key: key, modifiers: Set(modifiers)))
+        Text(verbatim: Self.symbols(key: key, modifiers: modifiers))
             .font(.fabrix(.monoCaption))
             .foregroundStyle(Palette.steel)
             .padding(.horizontal, 6)
@@ -60,7 +60,7 @@ public struct KeyHint: View {
             .background(Palette.rail, in: RoundedRectangle(cornerRadius: Radius.tag, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Radius.tag, style: .continuous).strokeBorder(Palette.hairline))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: Self.spokenChord(key: key, modifiers: Set(modifiers))))
+            .accessibilityLabel(Text(verbatim: Self.spokenChord(key: key, modifiers: modifiers)))
     }
 }
 

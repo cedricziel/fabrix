@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A button on the decision bar.
 public struct DecisionBarAction {
-    let title: String
-    let perform: () -> Void
+    public let title: String
+    public let perform: () -> Void
 
     public init(_ title: String, perform: @escaping () -> Void) {
         self.title = title

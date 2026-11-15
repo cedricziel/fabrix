@@ -29,7 +29,7 @@ extension [String] {
     nonisolated func spokenSentences() -> String {
         map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .map { ".?!".contains($0.last!) ? $0 : $0 + "." }
+            .map { $0.last.map(".?!".contains) == true ? $0 : $0 + "." }
             .joined(separator: " ")
     }
 }

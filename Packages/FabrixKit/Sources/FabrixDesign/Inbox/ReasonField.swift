@@ -41,7 +41,7 @@ public struct ReasonField: View {
 
     nonisolated static func validate(_ text: String, isRequired: Bool) -> ReasonValidation {
         if text.count > limit { return .tooLong(excess: text.count - limit) }
-        if isRequired, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return .missing }
+        if isRequired, text.allSatisfy(\.isWhitespace) { return .missing }
         return .valid
     }
 
@@ -59,7 +59,9 @@ public struct ReasonField: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let hint = Self.hint(reader: reader)
+        let validation = validation
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 FieldTitle(title)
                 Spacer(minLength: Spacing.s)
@@ -70,11 +72,12 @@ public struct ReasonField: View {
             TextField(text: $text, axis: .vertical) { Text(title) }
                 .textFieldStyle(.fabrix)
                 .lineLimit(3...8)
-                .onChange(of: text) { hasEdited = true }
-                .accessibilityHint(Text(verbatim: Self.hint(reader: reader)))
-            Text(verbatim: Self.hint(reader: reader))
+                .onChange(of: text) { if !hasEdited { hasEdited = true } }
+                .accessibilityHint(Text(verbatim: hint))
+            Text(verbatim: hint)
                 .font(.fabrix(.caption))
                 .foregroundStyle(Palette.muted)
+                .accessibilityHidden(true)
             if let message = validation.message {
                 Label { Text(verbatim: message) } icon: { Image(systemName: "exclamationmark.circle.fill") }
                     .font(.fabrix(.caption))

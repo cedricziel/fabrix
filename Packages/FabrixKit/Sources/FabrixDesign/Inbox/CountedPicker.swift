@@ -9,8 +9,8 @@ public enum CountedPickerStyle: Equatable, Sendable {
 public struct CountedPicker<Selection: Hashable>: View {
     public struct Option: Identifiable {
         public let id: Selection
-        let title: String
-        let count: Int
+        public let title: String
+        public let count: Int
 
         public init(id: Selection, title: String, count: Int) {
             self.id = id

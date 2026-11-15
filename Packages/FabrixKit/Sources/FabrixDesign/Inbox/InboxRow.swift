@@ -66,10 +66,6 @@ public struct InboxRow: View {
             + [stale].compactMap { $0 }).spokenSentences()
     }
 
-    private var stacked: Bool {
-        typeSize.isAccessibilitySize
-    }
-
     public var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             AdaptiveStack(spacing: Spacing.s, rowAlignment: .center) {
@@ -79,11 +75,13 @@ public struct InboxRow: View {
                         KindTag(title: $0, tone: InboxRowTone.halt)
                     }
                 }
-                Text(verbatim: [requester, identifier].compactMap { $0 }.joined(separator: " · "))
-                    .font(.fabrix(.caption))
-                    .foregroundStyle(Palette.steel)
-                    .lineLimit(stacked ? nil : 1)
-                if !stacked {
+                if requester != nil || identifier != nil {
+                    Text(verbatim: [requester, identifier].compactMap { $0 }.joined(separator: " · "))
+                        .font(.fabrix(.caption))
+                        .foregroundStyle(Palette.steel)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                }
+                if !typeSize.isAccessibilitySize {
                     Spacer(minLength: Spacing.s)
                 }
                 Text(verbatim: age)
@@ -93,12 +91,12 @@ public struct InboxRow: View {
             Text(verbatim: title)
                 .font(.fabrix(.headline))
                 .foregroundStyle(Palette.graphite)
-                .lineLimit(stacked ? nil : 2)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
             if let summary {
                 Text(verbatim: summary)
                     .font(.fabrix(.subheadline))
                     .foregroundStyle(Palette.steel)
-                    .lineLimit(stacked ? nil : 1)
+                    .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             }
             if let staleReason {
                 Label {
