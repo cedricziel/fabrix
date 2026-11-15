@@ -134,3 +134,96 @@ extension InboxComponentTests {
         ) == "You, now. Hi. Not sent.")
     }
 }
+
+extension InboxComponentTests {
+    @Test func reasonFieldValidation() {
+        #expect(ReasonField.validate("", isRequired: true) == .missing)
+        #expect(ReasonField.validate("  \n ", isRequired: true) == .missing)
+        #expect(ReasonField.validate("", isRequired: false) == .valid)
+        #expect(ReasonField.validate("Too late", isRequired: true) == .valid)
+        #expect(ReasonField.validate(String(repeating: "a", count: 4000), isRequired: true) == .valid)
+        #expect(ReasonField.validate(String(repeating: "a", count: 4001), isRequired: false) == .tooLong(excess: 1))
+        #expect(ReasonField.limit == 4000)
+    }
+
+    @Test func reasonFieldSaysWhoReadsItAndIfRequired() {
+        #expect(ReasonField.hint(reader: "the CEO agent") == "the CEO agent will read this.")
+        #expect(ReasonField.requirementText(isRequired: true) == "Required")
+        #expect(ReasonField.requirementText(isRequired: false) == "Optional")
+        #expect(ReasonValidation.missing.message == "Add a reason.")
+        #expect(ReasonValidation.tooLong(excess: 12).message == "12 characters too long.")
+        #expect(ReasonValidation.valid.message == nil)
+    }
+
+    @Test func verdictPickerRequiresReason() {
+        let required: Set<VerdictChoice> = [.reject]
+        #expect(VerdictPicker.requiresReason(.reject, in: required))
+        #expect(!VerdictPicker.requiresReason(.approve, in: required))
+        #expect(!VerdictPicker.requiresReason(nil, in: required))
+
+        #expect(!VerdictPicker.isComplete(verdict: nil, reason: "", requiredFor: required))
+        #expect(VerdictPicker.isComplete(verdict: .approve, reason: "", requiredFor: required))
+        #expect(!VerdictPicker.isComplete(verdict: .reject, reason: " ", requiredFor: required))
+        #expect(VerdictPicker.isComplete(verdict: .reject, reason: "Wrong scope", requiredFor: required))
+        #expect(!VerdictPicker.isComplete(
+            verdict: .reject, reason: String(repeating: "a", count: 4001), requiredFor: required
+        ))
+    }
+
+    @Test func verdictsSayTheirNames() {
+        #expect(VerdictChoice.allCases.map(\.title) == ["Approve", "Reject", "Defer"])
+    }
+
+    @Test func choiceRowSpeaksItsState() {
+        #expect(ChoiceRow.accessibilityLabel(label: "Courier", description: "Cheaper", isRecommended: true)
+            == "Courier. Cheaper. Recommended.")
+        #expect(ChoiceRow.accessibilityLabel(label: "Other", description: nil, isRecommended: false) == "Other.")
+    }
+
+    @Test func decisionBarDisabledReason() {
+        #expect(DecisionBar.statusLine(status: "Waiting on you", disabledReason: "You're offline", isSending: false)
+            == "You're offline")
+        #expect(DecisionBar.statusLine(status: "Waiting on you", disabledReason: nil, isSending: false)
+            == "Waiting on you")
+        #expect(DecisionBar.statusLine(status: nil, disabledReason: nil, isSending: true) == "Sending…")
+        #expect(DecisionBar.statusLine(status: nil, disabledReason: nil, isSending: false) == nil)
+        #expect(DecisionBar.isDisabled(disabledReason: "You're offline", isSending: false))
+        #expect(DecisionBar.isDisabled(disabledReason: nil, isSending: true))
+        #expect(!DecisionBar.isDisabled(disabledReason: nil, isSending: false))
+    }
+
+    @Test func undoBarAnnouncements() {
+        let en = Locale(identifier: "en_US")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .counting(secondsLeft: 8), locale: en)
+            == "Approved. Sending in 8 seconds.")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .counting(secondsLeft: 1), locale: en)
+            == "Approved. Sending in 1 second.")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .sending, locale: en) == "Sending.")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .sent, locale: en) == "Sent.")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .failed(reason: "You're offline"), locale: en)
+            == "Not sent. You're offline.")
+    }
+
+    @Test func undoBarShowsTimeLeftAsText() {
+        let en = Locale(identifier: "en_US")
+        #expect(UndoBar.timeLeftText(secondsLeft: 6, locale: en) == "Sending in 6 sec")
+        #expect(UndoBar.timeLeftText(secondsLeft: -2, locale: en) == "Sending in 0 sec")
+    }
+
+    @Test func undoBarCountdownOnlyAnnouncesOncePerPhase() {
+        #expect(UndoPhase.counting(secondsLeft: 8).kind == UndoPhase.counting(secondsLeft: 3).kind)
+        #expect(UndoPhase.counting(secondsLeft: 8).kind != UndoPhase.sending.kind)
+        #expect(UndoPhase.failed(reason: "a").kind == UndoPhase.failed(reason: "b").kind)
+    }
+
+    @Test func resolvedNoticeText() {
+        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: "approved", time: "14:29", attempted: "rejection")
+            == "Priya approved this at 14:29. Your rejection wasn't recorded.")
+        #expect(ResolvedNotice.text(resolver: .agent("CEO"), outcome: "approved", time: "14:29", attempted: "rejection")
+            == "The CEO agent approved this at 14:29. Your rejection wasn't recorded.")
+        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: "rejected", time: nil, attempted: "approval")
+            == "Priya rejected this. Your approval wasn't recorded.")
+        #expect(ResolvedNotice.text(resolver: .unknown, outcome: "approved", time: "14:29", attempted: "rejection")
+            == "This was already decided. Your rejection wasn't recorded.")
+    }
+}
