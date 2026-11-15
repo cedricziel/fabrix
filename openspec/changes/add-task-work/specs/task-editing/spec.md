@@ -103,7 +103,7 @@ Status and assignee changes SHALL be held for 8 seconds `[D1]` `[D2]` with an un
 
 ### Requirement: Refused edits
 
-When the server refuses an edit (`422`, `409`, `403` or `404`), the card and detail SHALL return to the server's state and SHALL say why in plain words, quoting the server's reason when it has one. A refused edit SHALL NOT be retried. A transport failure SHALL return the card and offer Retry.
+When the server refuses an edit (`400`, `409` or `422`), the card and detail SHALL return to the server's state and SHALL say why in plain words, quoting the server's reason when it has one. When the edit fails because something it names is gone (`404`, such as "Project not found") or isn't allowed (`403`), the card and detail SHALL also return and say so. A refused edit SHALL NOT be retried. A transport failure SHALL return the card and offer Retry.
 
 #### Scenario: In progress without an assignee
 
@@ -156,7 +156,7 @@ On iPad and Mac the user SHALL drag a card to another column to change its statu
 
 ### Requirement: Context menu and keyboard
 
-Every card SHALL have a context menu with the same verbs as its VoiceOver actions. On macOS, and on iPadOS with a hardware keyboard, a Task menu SHALL offer New task (⌘N, replacing New Window on macOS), New subtask (⇧⌘N), Open in new window (⌥⌘O, macOS only), Comment (⌥⌘C), Plan history (⇧⌘H), Assign (⇧⌘A), Set project (⇧⌘P), status (⌃⌘1–7, in the order Backlog, Todo, In progress, In review, Blocked, Done, Cancelled) and priority (⌃⇧1–4, Critical to Low) `[D16]`. Undo inside the window SHALL come from Edit ▸ Undo (⌘Z), not from a Task menu item. No shortcut SHALL be bound twice across the Factory, Inbox and Task menus. A command SHALL be disabled when no task is selected or the factory doesn't allow it.
+Every card SHALL have a context menu with the same verbs as its VoiceOver actions. On macOS, and on iPadOS with a hardware keyboard, a Task menu SHALL offer New task (⌘N, replacing New Window on macOS), New subtask (⇧⌘N), Open in new window (⌥⌘O, macOS only), Comment (⌥⌘C), Plan history (⇧⌘H), Assign (⇧⌘A), Set project (⌃⌘P), status (⌃⌘1–7, in the order Backlog, Todo, In progress, In review, Blocked, Done, Cancelled) and priority (⌃⇧1–4, Critical to Low) `[D16]`. Undo inside the window SHALL come from Edit ▸ Undo (⌘Z), not from a Task menu item. No shortcut SHALL be bound twice across the Factory, Inbox and Task menus. A command SHALL be disabled when no task is selected or the factory doesn't allow it.
 
 #### Scenario: Keyboard status change
 
