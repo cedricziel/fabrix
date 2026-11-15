@@ -43,12 +43,12 @@ One codebase, but the devices have different jobs. Every phase below says what i
 
 ## Phase 0: fix what is promised
 
-Small, and first, because these are defects in what already ships.
+Small, and first, because these are defects in what already ships. Done on 2026-11-14.
 
-- `AppModel.followStoreChanges()` swaps in the new service when another window signs in again, but leaves `signedOutReason` set. The window stays on the signed-out screen. Call `renew(_:)` there and add the missing test.
-- The README says "work the task board" and "watch agent runs live". Neither is true yet. Reword until phases 2 and 7 land.
-- Several doc comments in `AppModel` sit above the wrong function. The two messages in `signInFailure` skip the string catalog.
-- `CLAUDE.md` doesn't list the `FabrixTelemetry` target.
+- [x] `AppModel.followStoreChanges()` swaps in the new service when another window signs in again, but leaves `signedOutReason` set. The window stays on the signed-out screen. Call `renew(_:)` there and add the missing test. ([#87](https://github.com/cedricziel/fabrix/pull/87), 2026-11-14)
+- [x] The README says "work the task board" and "watch agent runs live". Neither is true yet. Reword until phases 2 and 7 land. ([#85](https://github.com/cedricziel/fabrix/pull/85), 2026-11-14)
+- [x] Several doc comments in `AppModel` sit above the wrong function. The two messages in `signInFailure` skip the string catalog. ([#91](https://github.com/cedricziel/fabrix/pull/91), 2026-11-14)
+- [x] `CLAUDE.md` doesn't list the `FabrixTelemetry` target. ([#86](https://github.com/cedricziel/fabrix/pull/86), 2026-11-14)
 
 ## Phase 1: the inbox
 
