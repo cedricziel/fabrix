@@ -1,13 +1,64 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
     " · %lld done" : {
 
+    },
+    "%@ decided: %@ at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ decided: %2$@ at %3$@."
+          }
+        }
+      }
+    },
+    "%@, sending" : {
+
+    },
+    "%@, sending in %lld seconds" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, sending in %2$lld seconds"
+          }
+        }
+      }
+    },
+    "%@, sent" : {
+
+    },
+    "%@. Not sent yet. It goes out when you sign in again." : {
+
+    },
+    "%@. Not sent: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. Not sent: %2$@"
+          }
+        }
+      }
     },
     "%lld blocked" : {
 
     },
+    "%lld items" : {
+
+    },
     "%lld open · " : {
+
+    },
+    "1 item" : {
+
+    },
+    "Approve" : {
 
     },
     "Backlog" : {
@@ -25,10 +76,25 @@
     "Cancelled" : {
 
     },
+    "Choose a verdict" : {
+
+    },
+    "Command-" : {
+
+    },
     "Completed" : {
 
     },
+    "Control-" : {
+
+    },
+    "Defer" : {
+
+    },
     "Done" : {
+
+    },
+    "Enter a reason." : {
 
     },
     "Hire" : {
@@ -40,7 +106,16 @@
     "In progress" : {
 
     },
+    "Loading" : {
+
+    },
     "Needs you" : {
+
+    },
+    "Not selected" : {
+
+    },
+    "Option-" : {
 
     },
     "Other" : {
@@ -55,11 +130,134 @@
     "Project %@" : {
 
     },
+    "Raw JSON" : {
+
+    },
+    "Reason must be 4,000 characters or fewer." : {
+
+    },
+    "Reject" : {
+
+    },
+    "Required" : {
+
+    },
     "Running" : {
+
+    },
+    "Selected" : {
+
+    },
+    "Send now" : {
+
+    },
+    "Shift-" : {
+
+    },
+    "Someone" : {
 
     },
     "Strategy" : {
 
+    },
+    "Undo" : {
+
+    },
+    "Unknown error" : {
+
+    },
+    "Verdict" : {
+
+    },
+    "Your %@ wasn't recorded." : {
+
+    },
+    "inbox.comment.failed" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Failed"
+          }
+        }
+      }
+    },
+    "inbox.comment.retry" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Retry"
+          }
+        }
+      }
+    },
+    "inbox.comment.sending" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Sending…"
+          }
+        }
+      }
+    },
+    "inbox.receipt.dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss receipt"
+          }
+        }
+      }
+    },
+    "inbox.row.accessibility" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@. From %3$@, %4$@. %5$@."
+          }
+        }
+      }
+    },
+    "inbox.row.critical" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Critical."
+          }
+        }
+      }
+    },
+    "inbox.row.problem" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Problem."
+          }
+        }
+      }
+    },
+    "inbox.row.stale" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Stale: %@."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
