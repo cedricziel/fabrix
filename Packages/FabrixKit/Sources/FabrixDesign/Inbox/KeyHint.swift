@@ -24,35 +24,56 @@ public struct KeyHint: View {
         }
     }
 
-    private let key: String
-    private let modifiers: Set<Modifier>
+    /// A key with its modifiers, as plain values for buttons and menus.
+    public struct Chord: Equatable, Sendable {
+        public let key: String
+        public let modifiers: Set<Modifier>
 
-    public init(_ key: String, modifiers: Set<Modifier> = []) {
-        self.key = key
-        self.modifiers = modifiers
-    }
+        public init(_ key: String, modifiers: Set<Modifier> = []) {
+            self.key = key
+            self.modifiers = modifiers
+        }
 
-    nonisolated static func symbols(key: String, modifiers: Set<Modifier>) -> String {
-        modifiers.sorted().map(\.symbol).joined() + key
-    }
+        nonisolated var symbols: String {
+            modifiers.sorted().map(\.symbol).joined() + key
+        }
 
-    nonisolated static func spokenChord(key: String, modifiers: Set<Modifier>) -> String {
-        (modifiers.sorted().map(\.spoken) + [spokenKey(key)]).joined(separator: "-")
-    }
+        nonisolated var spoken: String {
+            (modifiers.sorted().map(\.spoken) + [Self.spokenKey(key)]).joined(separator: "-")
+        }
 
-    private nonisolated static func spokenKey(_ key: String) -> String {
-        switch key {
-        case "↩": String(localized: "Return", bundle: .module)
-        case "⌫": String(localized: "Delete", bundle: .module)
-        case "⎋": String(localized: "Escape", bundle: .module)
-        case "↑": String(localized: "Up Arrow", bundle: .module)
-        case "↓": String(localized: "Down Arrow", bundle: .module)
-        default: key
+        private nonisolated static func spokenKey(_ key: String) -> String {
+            switch key {
+            case "↩": String(localized: "Return", bundle: .module)
+            case "⌫": String(localized: "Delete", bundle: .module)
+            case "⎋": String(localized: "Escape", bundle: .module)
+            case "↑": String(localized: "Up Arrow", bundle: .module)
+            case "↓": String(localized: "Down Arrow", bundle: .module)
+            default: key
+            }
         }
     }
 
+    private let chord: Chord
+
+    public init(_ chord: Chord) {
+        self.chord = chord
+    }
+
+    public init(_ key: String, modifiers: Set<Modifier> = []) {
+        self.init(Chord(key, modifiers: modifiers))
+    }
+
+    nonisolated static func symbols(key: String, modifiers: Set<Modifier>) -> String {
+        Chord(key, modifiers: modifiers).symbols
+    }
+
+    nonisolated static func spokenChord(key: String, modifiers: Set<Modifier>) -> String {
+        Chord(key, modifiers: modifiers).spoken
+    }
+
     public var body: some View {
-        Text(verbatim: Self.symbols(key: key, modifiers: modifiers))
+        Text(verbatim: chord.symbols)
             .font(.fabrix(.monoCaption))
             .foregroundStyle(Palette.steel)
             .padding(.horizontal, 6)
@@ -60,7 +81,7 @@ public struct KeyHint: View {
             .background(Palette.rail, in: RoundedRectangle(cornerRadius: Radius.tag, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Radius.tag, style: .continuous).strokeBorder(Palette.hairline))
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(verbatim: Self.spokenChord(key: key, modifiers: modifiers)))
+            .accessibilityLabel(Text(verbatim: chord.spoken))
     }
 }
 
