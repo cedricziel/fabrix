@@ -58,6 +58,27 @@ struct ScrubbingExporterTests {
         #expect(exported.resource.attributes["factory.label"] == .string(hashedName))
     }
 
+    @Test func inboxRouteErrorHasNoQueryOrID() throws {
+        let capture = CapturingSpanExporter()
+        let provider = TracerProviderBuilder()
+            .add(spanProcessor: SimpleSpanProcessor(spanExporter: ScrubbingSpanExporter(anonymizer: anonymizer, sensitiveValues: StubSensitiveValues(["acme.lan"]), wrapping: capture)))
+            .build()
+        let span = provider.get(instrumentationName: "test")
+            .spanBuilder(spanName: "GET")
+            .setAttribute(key: "url.full", value: "https://acme.lan/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/attention?view=mine&cursor=abc123")
+            .startSpan()
+        span.status = .error(description: "failed https://acme.lan/api/companies/0b6c4a8e-2f43-4c47-9a3e-6d1f5c2b7e91/attention?view=mine&cursor=abc123")
+        span.end()
+        provider.forceFlush()
+
+        let exported = try #require(capture.spans.withLock { $0.first })
+        #expect(exported.attributes[PaperclipAttribute.apiRoute.rawValue] == .string("/api/companies/{id}/attention"))
+        let everything = "\(exported.attributes) \(exported.status)"
+        #expect(!everything.contains("view=mine"))
+        #expect(!everything.contains("cursor"))
+        #expect(!everything.contains("0b6c4a8e"))
+    }
+
     @Test func logRecordsLeaveWithScrubbedBodyAndAttributes() throws {
         let capture = CapturingLogExporter()
         let provider = LoggerProviderBuilder()
