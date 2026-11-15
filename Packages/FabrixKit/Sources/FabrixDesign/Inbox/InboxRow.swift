@@ -45,12 +45,11 @@ public struct InboxRow: View {
 
     nonisolated static func accessibilityLabel(
         kind: String, title: String, requester: String?, age: String, owner: InboxOwner,
-        isCritical: Bool, isProblem: Bool, staleReason: String?
+        isCritical: Bool, isProblem: Bool, staleReason: String?, identifier: String? = nil, summary: String? = nil
     ) -> String {
         let from = requester.map { String(localized: "From \($0), \(age)", bundle: .module) } ?? age
         let stale = staleReason.map { String(localized: "Stale: \($0)", bundle: .module) }
-        return ([kind] + flagTitles(isCritical: isCritical, isProblem: isProblem) + [title, from, owner.spoken]
-            + [stale].compactMap { $0 }).spokenSentences()
+        return ([kind] + flagTitles(isCritical: isCritical, isProblem: isProblem) + [title, from, owner.spoken, identifier, summary, stale].compactMap { $0 }).spokenSentences()
     }
 
     public var body: some View {
@@ -103,7 +102,8 @@ public struct InboxRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: Self.accessibilityLabel(
             kind: kind, title: title, requester: requester, age: age, owner: owner,
-            isCritical: isCritical, isProblem: isProblem, staleReason: staleReason
+            isCritical: isCritical, isProblem: isProblem, staleReason: staleReason,
+            identifier: identifier, summary: summary
         )))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

@@ -43,7 +43,7 @@ public struct VerdictPicker: View {
 
     nonisolated static func isComplete(verdict: VerdictChoice?, reason: String, requiredFor: Set<VerdictChoice>) -> Bool {
         guard verdict != nil else { return false }
-        return ReasonField.validate(reason, isRequired: requiresReason(verdict, in: requiredFor)) == .valid
+        return !requiresReason(verdict, in: requiredFor) || ReasonField.validate(reason, isRequired: true) == .valid
     }
 
     public var body: some View {

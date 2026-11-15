@@ -59,7 +59,7 @@ public struct OwnerLabel: View {
                 .frame(width: avatarSize, height: avatarSize)
                 .background(Palette.signal, in: Circle())
         case let .person(name):
-            AvatarBadge(name, size: avatarSize)
+            AvatarBadge(name, size: 20)
         }
     }
 }

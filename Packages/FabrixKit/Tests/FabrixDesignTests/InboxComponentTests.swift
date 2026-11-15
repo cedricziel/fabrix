@@ -58,6 +58,14 @@ extension InboxComponentTests {
         ).hasSuffix("For you, transferred by Priya."))
     }
 
+    @Test func rowLabelIncludesIdentifierAndSummary() {
+        let label = InboxRow.accessibilityLabel(
+            kind: "Approval", title: "Hire a Designer agent", requester: "CEO", age: "12 minutes ago", owner: .you,
+            isCritical: false, isProblem: false, staleReason: nil, identifier: "ATL-148", summary: "Needs a $40 budget."
+        )
+        #expect(label == "Approval. Hire a Designer agent. From CEO, 12 minutes ago. For you. ATL-148. Needs a $40 budget.")
+    }
+
     @Test func criticalAndProblemAreText() {
         #expect(InboxRow.flagTitles(isCritical: true, isProblem: true) == ["Critical", "Problem"])
         #expect(InboxRow.flagTitles(isCritical: false, isProblem: true) == ["Problem"])
@@ -161,6 +169,12 @@ extension InboxComponentTests {
         #expect(VerdictPicker.isComplete(verdict: .reject, reason: "Wrong scope", requiredFor: required))
         #expect(!VerdictPicker.isComplete(
             verdict: .reject, reason: String(repeating: "a", count: 4001), requiredFor: required
+        ))
+    }
+
+    @Test func hiddenReasonDoesNotBlockAVerdictThatNeedsNone() {
+        #expect(VerdictPicker.isComplete(
+            verdict: .approve, reason: String(repeating: "a", count: 4001), requiredFor: [.reject]
         ))
     }
 
