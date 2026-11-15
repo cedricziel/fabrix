@@ -11,6 +11,7 @@ private struct FabrixButtonBody: View {
 
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var height: CGFloat {
         switch controlSize {
@@ -32,7 +33,7 @@ private struct FabrixButtonBody: View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         configuration.label
             .font(.fabrix(.headline))
-            .lineLimit(1)
+            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
             .foregroundStyle(foreground)
             .padding(.horizontal, height < minimumTapTarget ? Spacing.m : 18)
             .frame(minHeight: height)

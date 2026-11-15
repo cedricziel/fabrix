@@ -34,7 +34,27 @@ private struct FabrixTransitionModifier: ViewModifier {
     }
 }
 
+private struct FabrixPulseModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dimmed = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(dimmed ? 0.5 : 1)
+            .task(id: reduceMotion) {
+                dimmed = false
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dimmed = true }
+            }
+    }
+}
+
 public extension View {
+    /// Fades in and out slowly, for a loading skeleton. It stays still when Reduce Motion is on.
+    func fabrixPulse() -> some View {
+        modifier(FabrixPulseModifier())
+    }
+
     /// Applies a Fabrix transition that respects Reduce Motion.
     func fabrixTransition(_ kind: FabrixTransition) -> some View {
         modifier(FabrixTransitionModifier(kind: kind))

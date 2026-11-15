@@ -56,10 +56,6 @@ public struct KindTag: View {
         self.tone = tone
     }
 
-    public init(title: String, tone: InboxRowTone) {
-        self.init(title: title, tone: tone.tone)
-    }
-
     @_disfavoredOverload
     public init(title: String, tone: Tone = .signal) {
         self.title = Text(verbatim: title)

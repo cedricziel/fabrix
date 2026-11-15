@@ -2,9 +2,6 @@ import SwiftUI
 
 /// A skeleton in the shape of `InboxRow`, for the first load. It pulses, or stays still with Reduce Motion.
 public struct PlaceholderRow: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dimmed = false
-
     public init() {}
 
     public var body: some View {
@@ -17,14 +14,9 @@ public struct PlaceholderRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, Spacing.m)
         .padding(.horizontal, Spacing.l)
-        .opacity(dimmed ? 0.5 : 1)
+        .fabrixPulse()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Loading", bundle: .module))
-        .task(id: reduceMotion) {
-            dimmed = false
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dimmed = true }
-        }
     }
 
     private func bar(width: CGFloat, height: CGFloat) -> some View {

@@ -1,23 +1,10 @@
 import SwiftUI
 
-/// The color of an inbox row's kind tag: signal for cards for you, neutral for other people's, halt for problems.
-public enum InboxRowTone: CaseIterable, Sendable {
-    case signal, neutral, halt
-
-    var tone: Tone {
-        switch self {
-        case .signal: .signal
-        case .neutral: .neutral
-        case .halt: .halt
-        }
-    }
-}
-
 /// One card in the inbox list: kind tag, requester and task, age, title, one-line summary and owner.
 /// It reads as one VoiceOver element. Actions are the caller's to add, as custom actions.
 public struct InboxRow: View {
     private let kind: String
-    private let tone: InboxRowTone
+    private let tone: Tone
     private let requester: String?
     private let identifier: String?
     private let age: String
@@ -33,7 +20,7 @@ public struct InboxRow: View {
     /// - Parameters:
     ///   - age: already phrased for reading, such as "12 minutes ago".
     public init(
-        kind: String, tone: InboxRowTone, requester: String? = nil, identifier: String? = nil, age: String,
+        kind: String, tone: Tone, requester: String? = nil, identifier: String? = nil, age: String,
         title: String, summary: String? = nil, owner: InboxOwner, staleReason: String? = nil,
         isCritical: Bool = false, isProblem: Bool = false, isSelected: Bool = false
     ) {
@@ -72,7 +59,7 @@ public struct InboxRow: View {
                 HStack(spacing: Spacing.xs) {
                     KindTag(title: kind, tone: tone)
                     ForEach(Self.flagTitles(isCritical: isCritical, isProblem: isProblem), id: \.self) {
-                        KindTag(title: $0, tone: InboxRowTone.halt)
+                        KindTag(title: $0, tone: Tone.halt)
                     }
                 }
                 if requester != nil || identifier != nil {
