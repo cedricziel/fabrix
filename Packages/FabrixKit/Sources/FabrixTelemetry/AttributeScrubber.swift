@@ -107,10 +107,23 @@ struct AttributeScrubber: Sendable {
                 result[key] = scrub(value)
             }
         }
-        if isPaperclipRequest, case let .string(path) = result[SemanticConventions.Url.path.rawValue], path.hasPrefix("/api/") {
-            result[PaperclipAttribute.apiRoute.rawValue] = .string(path)
+        if isPaperclipRequest, let route = apiRoute(scrubbed: result, original: attributes) {
+            result[PaperclipAttribute.apiRoute.rawValue] = .string(route)
         }
         return result
+    }
+
+    /// The templated `/api/` path, from `url.path` or, when a span has only `url.full`, from that URL.
+    private func apiRoute(scrubbed: [String: AttributeValue], original: [String: AttributeValue]) -> String? {
+        let path: String?
+        if case let .string(scrubbedPath) = scrubbed[SemanticConventions.Url.path.rawValue] {
+            path = scrubbedPath
+        } else if case let .string(url) = original[SemanticConventions.Url.full.rawValue] {
+            path = URLComponents(string: url).map { Self.template($0.path) }
+        } else {
+            path = nil
+        }
+        return path.flatMap { $0.hasPrefix("/api/") ? replaceSensitiveValues(in: $0) : nil }
     }
 
     /// Replaces path segments that look like identifiers (UUIDs, numbers, long opaque tokens) with `{id}`.
