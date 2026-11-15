@@ -120,6 +120,19 @@ struct AttributeScrubberTests {
         #expect(scrubbed[PaperclipAttribute.apiRoute.rawValue] == .string("/api/companies/{id}/attention/issue_thread_interaction/{id}/close"))
     }
 
+    @Test(arguments: ["paperclip.acme.lan", "Acme%20Factory", "acme%20factory"])
+    func routeFromFullURLHidesSensitiveValuesInThePath(segment: String) {
+        let scrubbed = scrubber.scrub(attributes: [
+            "url.full": .string("https://paperclip.acme.lan/api/companies/\(segment)/attention"),
+        ])
+        guard case let .string(route)? = scrubbed[PaperclipAttribute.apiRoute.rawValue] else {
+            Issue.record("expected a route")
+            return
+        }
+        #expect(route.hasPrefix("/api/companies/"))
+        #expect(!route.localizedCaseInsensitiveContains("acme"))
+    }
+
     @Test func fullURLOnOtherHostsOrNonAPIPathsGetsNoRoute() {
         let otherHost = scrubber.scrub(attributes: ["url.full": .string("https://api.example.com/api/v1/things")])
         let nonAPI = scrubber.scrub(attributes: ["url.full": .string("https://paperclip.acme.lan/health")])

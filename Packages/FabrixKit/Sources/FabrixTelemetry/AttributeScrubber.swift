@@ -123,7 +123,7 @@ struct AttributeScrubber: Sendable {
         } else {
             path = nil
         }
-        return path.flatMap { $0.hasPrefix("/api/") ? $0 : nil }
+        return path.flatMap { $0.hasPrefix("/api/") ? replaceSensitiveValues(in: $0) : nil }
     }
 
     /// Replaces path segments that look like identifiers (UUIDs, numbers, long opaque tokens) with `{id}`.
