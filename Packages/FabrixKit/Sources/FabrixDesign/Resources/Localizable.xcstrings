@@ -4,10 +4,54 @@
     " · %lld done" : {
 
     },
+    "%@ %@ this at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ this at %3$@."
+          }
+        }
+      }
+    },
+    "%@ %@ this." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@ this."
+          }
+        }
+      }
+    },
+    "%@ will read this." : {
+
+    },
     "%lld blocked" : {
 
     },
+    "%lld characters too long." : {
+
+    },
     "%lld open · " : {
+
+    },
+    "%lld waiting" : {
+
+    },
+    "Add a reason." : {
+
+    },
+    "Agent" : {
+
+    },
+    "Answered" : {
+
+    },
+    "Approve" : {
+
+    },
+    "Approved" : {
 
     },
     "Backlog" : {
@@ -25,11 +69,60 @@
     "Cancelled" : {
 
     },
+    "Command" : {
+
+    },
     "Completed" : {
+
+    },
+    "Control" : {
+
+    },
+    "Critical" : {
+
+    },
+    "Decided" : {
+
+    },
+    "Defer" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Dismiss" : {
 
     },
     "Done" : {
 
+    },
+    "Down Arrow" : {
+
+    },
+    "Escape" : {
+
+    },
+    "Expired" : {
+
+    },
+    "For %@" : {
+
+    },
+    "For you" : {
+
+    },
+    "For you, transferred by %@" : {
+
+    },
+    "From %@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "From %1$@, %2$@"
+          }
+        }
+      }
     },
     "Hire" : {
 
@@ -40,7 +133,22 @@
     "In progress" : {
 
     },
+    "Loading" : {
+
+    },
     "Needs you" : {
+
+    },
+    "Not sent" : {
+
+    },
+    "Not sent. %@" : {
+
+    },
+    "Option" : {
+
+    },
+    "Optional" : {
 
     },
     "Other" : {
@@ -52,13 +160,94 @@
     "Planned" : {
 
     },
+    "Problem" : {
+
+    },
     "Project %@" : {
+
+    },
+    "Raw JSON" : {
+
+    },
+    "Reason" : {
+
+    },
+    "Recommended" : {
+
+    },
+    "Reject" : {
+
+    },
+    "Rejected" : {
+
+    },
+    "Required" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Return" : {
 
     },
     "Running" : {
 
     },
+    "Send now" : {
+
+    },
+    "Sending" : {
+
+    },
+    "Sending in %@" : {
+
+    },
+    "Sending…" : {
+
+    },
+    "Sent" : {
+
+    },
+    "Shift" : {
+
+    },
+    "Stale: %@" : {
+
+    },
     "Strategy" : {
+
+    },
+    "The %@ agent" : {
+
+    },
+    "This was already decided." : {
+
+    },
+    "Transferred" : {
+
+    },
+    "Unassigned" : {
+
+    },
+    "Undo" : {
+
+    },
+    "Up Arrow" : {
+
+    },
+    "Withdrawn" : {
+
+    },
+    "You" : {
+
+    },
+    "You, transferred by %@" : {
+
+    },
+    "Your %@ wasn't recorded." : {
+
+    },
+    "agent" : {
 
     }
   },
