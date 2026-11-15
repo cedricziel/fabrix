@@ -87,7 +87,7 @@ The service SHALL withdraw a card with a reason, archive it, or snooze it until 
 
 #### Scenario: People not available
 
-- **WHEN** the user-directory request answers `403` or `404`
+- **WHEN** the user-directory request answers `403`, or `404` with "API route not found"
 - **THEN** the service reports people as unsupported
 
 ### Requirement: Already-closed error
@@ -137,6 +137,11 @@ Each inbox method SHALL have a default that reports unsupported, so a `FactorySe
 
 - **WHEN** an approval detail request answers `404` with `{ "error": "Approval not found" }`
 - **THEN** the service reports not found, and approval detail stays supported for other cards
+
+#### Scenario: Card gone on close
+
+- **WHEN** a snooze request answers `404` with `{ "error": "Card not found" }`
+- **THEN** the service reports not found, and close stays supported for other cards
 
 #### Scenario: Conformer without inbox methods
 

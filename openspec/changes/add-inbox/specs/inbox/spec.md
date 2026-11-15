@@ -323,7 +323,7 @@ A factory without the attention feed SHALL keep today's Approvals section, tab a
 
 #### Scenario: Older server
 
-- **WHEN** the feed request answers `404`
+- **WHEN** the feed request answers `404` with "API route not found"
 - **THEN** the app shows Approvals as before and never shows an Inbox for that factory session
 
 #### Scenario: First load fails on a new factory
