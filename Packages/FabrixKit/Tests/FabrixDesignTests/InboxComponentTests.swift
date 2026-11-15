@@ -1,5 +1,6 @@
 @testable import FabrixDesign
 import Foundation
+import SwiftUI
 import Testing
 
 struct InboxComponentTests {
@@ -80,5 +81,56 @@ extension InboxComponentTests {
         #expect(InboxOwner.person("Priya").displayName == "Priya")
         #expect(InboxOwner.unassigned.displayName == "Unassigned")
         #expect(InboxOwner.transferredToYou(by: "Priya").displayName == "You, transferred by Priya")
+    }
+}
+
+extension InboxComponentTests {
+    @Test(arguments: [(false, CountedPickerStyle.segmented), (true, .menu)])
+    func countedPickerStyle(forAccessibilitySize isAccessibilitySize: Bool, expected: CountedPickerStyle) {
+        #expect(CountedPicker<Int>.style(forAccessibilitySize: isAccessibilitySize) == expected)
+        #expect(CountedPicker<Int>.style(forAccessibilitySize: DynamicTypeSize.large.isAccessibilitySize) == .segmented)
+        #expect(CountedPicker<Int>.style(forAccessibilitySize: DynamicTypeSize.accessibility1.isAccessibilitySize) == .menu)
+    }
+
+    @Test func hidesZeroCount() {
+        #expect(CountedPicker<Int>.label(title: "Unassigned", count: 0) == "Unassigned")
+        #expect(CountedPicker<Int>.label(title: "For you", count: 3) == "For you 3")
+        #expect(CountedPicker<Int>.label(title: "Company", count: 140) == "Company 99+")
+        #expect(CountedPicker<Int>.spokenLabel(title: "For you", count: 3) == "For you, 3")
+        #expect(CountedPicker<Int>.spokenLabel(title: "For you", count: 0) == "For you")
+    }
+
+    @Test func historyRowStartsWithVerb() {
+        let label = HistoryRow.accessibilityLabel(
+            outcome: .approved, title: "Hire a Designer agent", detail: "Budget fits", time: "14:29"
+        )
+        #expect(label == "Approved. Hire a Designer agent. Budget fits. 14:29.")
+        for outcome in HistoryOutcome.allCases {
+            let label = HistoryRow.accessibilityLabel(outcome: outcome, title: "X", detail: nil, time: "14:29")
+            #expect(label.hasPrefix(outcome.verb))
+        }
+    }
+
+    @Test func historyVerbsAreWords() {
+        #expect(HistoryOutcome.allCases.map(\.verb) == [
+            "Approved", "Rejected", "Answered", "Decided", "Withdrawn", "Transferred", "Expired",
+        ])
+    }
+
+    @Test func keyValueListStacksAtAccessibilitySizes() {
+        #expect(KeyValueList.stacks(forAccessibilitySize: DynamicTypeSize.large.isAccessibilitySize) == false)
+        #expect(KeyValueList.stacks(forAccessibilitySize: DynamicTypeSize.accessibility3.isAccessibilitySize) == true)
+    }
+
+    @Test func commentRowSpeaksItsState() {
+        #expect(CommentRow.accessibilityLabel(
+            author: "Priya", isAgent: false, age: "3 minutes ago", text: "Looks good", state: .sent
+        ) == "Priya, 3 minutes ago. Looks good.")
+        #expect(CommentRow.accessibilityLabel(
+            author: "CEO", isAgent: true, age: "now", text: "Done", state: .sending
+        ) == "CEO, agent, now. Done. Sending.")
+        #expect(CommentRow.accessibilityLabel(
+            author: "You", isAgent: false, age: "now", text: "Hi", state: .failed
+        ) == "You, now. Hi. Not sent.")
     }
 }
