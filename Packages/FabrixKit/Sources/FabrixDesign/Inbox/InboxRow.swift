@@ -12,8 +12,10 @@ public struct InboxRow: View {
         self.staleReason = staleReason; self.isCritical = isCritical; self.isProblem = isProblem
     }
 
-    nonisolated static func announcement(kind: String, title: String, requester: String, age: String, owner: String, staleReason: String?, isCritical: Bool, isProblem: Bool) -> String {
+    nonisolated static func announcement(kind: String, title: String, requester: String, age: String, owner: String, staleReason: String?, isCritical: Bool, isProblem: Bool, taskIdentifier: String = "", summary: String = "") -> String {
         var parts = [String(localized: "inbox.row.accessibility", defaultValue: "\(kind). \(title). From \(requester), \(age). \(owner).", bundle: .module)]
+        if !taskIdentifier.isEmpty { parts.append(String(localized: "Task \(taskIdentifier).", bundle: .module)) }
+        if !summary.isEmpty { parts.append(summary) }
         if let staleReason { parts.append(String(localized: "inbox.row.stale", defaultValue: "Stale: \(staleReason).", bundle: .module)) }
         if isCritical { parts.append(String(localized: "inbox.row.critical", defaultValue: "Critical.", bundle: .module)) }
         if isProblem { parts.append(String(localized: "inbox.row.problem", defaultValue: "Problem.", bundle: .module)) }
@@ -31,7 +33,7 @@ public struct InboxRow: View {
         Group { if isAccessibilitySize { VStack(alignment: .leading, spacing: Spacing.s) { content } } else { HStack(alignment: .top, spacing: Spacing.m) { content } } }
         .padding(Spacing.l)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: Self.announcement(kind: kind, title: title, requester: requester, age: age, owner: owner, staleReason: staleReason, isCritical: isCritical, isProblem: isProblem)))
+        .accessibilityLabel(Text(verbatim: Self.announcement(kind: kind, title: title, requester: requester, age: age, owner: owner, staleReason: staleReason, isCritical: isCritical, isProblem: isProblem, taskIdentifier: taskIdentifier, summary: summary)))
     }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

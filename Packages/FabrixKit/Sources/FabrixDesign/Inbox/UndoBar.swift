@@ -4,10 +4,12 @@ public enum UndoPhase: Sendable, Equatable { case counting, sending, sent, held,
 
 struct UndoAnnouncementState {
     private var lastPhase: UndoPhase?
+    private var lastVerdict: String?
 
     mutating func message(phase: UndoPhase, verdict: String, remainingSeconds: Int, failureReason: String?) -> String? {
-        guard phase != lastPhase else { return nil }
+        guard phase != lastPhase || verdict != lastVerdict else { return nil }
         lastPhase = phase
+        lastVerdict = verdict
         return UndoBar.announcement(phase: phase, verdict: verdict, remainingSeconds: remainingSeconds, failureReason: failureReason)
     }
 }
@@ -48,10 +50,13 @@ public struct UndoBar: View {
         }
         .padding(Spacing.m).frame(maxWidth: .infinity, alignment: .leading).background(Palette.card)
         .accessibilityElement(children: .contain).accessibilityAddTraits(.updatesFrequently)
-        .onChange(of: phase, initial: true) { _, newPhase in
-            if let announcement = announcements.message(phase: newPhase, verdict: verdict, remainingSeconds: remainingSeconds, failureReason: failureReason) {
-                AccessibilityNotification.Announcement(announcement).post()
-            }
+        .onChange(of: phase, initial: true) { _, _ in announceIfNeeded() }
+        .onChange(of: verdict) { _, _ in announceIfNeeded() }
+    }
+
+    private func announceIfNeeded() {
+        if let announcement = announcements.message(phase: phase, verdict: verdict, remainingSeconds: remainingSeconds, failureReason: failureReason) {
+            AccessibilityNotification.Announcement(announcement).post()
         }
     }
 }

@@ -11,11 +11,23 @@ public struct KeyHint: View {
     }
 
     nonisolated static func keyHintChord(_ chord: String) -> String {
-        chord.replacingOccurrences(of: "⌥", with: String(localized: "Option-", bundle: .module))
-            .replacingOccurrences(of: "⌘", with: String(localized: "Command-", bundle: .module))
-            .replacingOccurrences(of: "⇧", with: String(localized: "Shift-", bundle: .module))
-            .replacingOccurrences(of: "⌃", with: String(localized: "Control-", bundle: .module))
-            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        var key = chord[...]
+        var parts: [String] = []
+        while let symbol = key.first {
+            let modifier: String
+            switch symbol {
+            case "⌥": modifier = String(localized: "Option", bundle: .module)
+            case "⌘": modifier = String(localized: "Command", bundle: .module)
+            case "⇧": modifier = String(localized: "Shift", bundle: .module)
+            case "⌃": modifier = String(localized: "Control", bundle: .module)
+            default:
+                parts.append(key == "-" ? String(localized: "Minus", bundle: .module) : String(key))
+                return parts.joined(separator: "-")
+            }
+            parts.append(modifier)
+            key.removeFirst()
+        }
+        return parts.joined(separator: "-")
     }
 
     public var body: some View {

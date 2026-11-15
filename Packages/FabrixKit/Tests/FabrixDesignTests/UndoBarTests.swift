@@ -20,3 +20,10 @@ import Testing
     #expect(UndoBar.announcement(phase: .held, verdict: "Approved", remainingSeconds: 0, failureReason: nil).contains("Not sent yet"))
     #expect(UndoBar.announcement(phase: .failed, verdict: "Approved", remainingSeconds: 0, failureReason: "Offline").contains("Not sent: Offline"))
 }
+
+@Test func changedVerdictAnnouncesWithoutRepeatingCountdown() {
+    var state = UndoAnnouncementState()
+    #expect(state.message(phase: .counting, verdict: "Approved", remainingSeconds: 8, failureReason: nil) != nil)
+    #expect(state.message(phase: .counting, verdict: "Rejected", remainingSeconds: 8, failureReason: nil)?.contains("Rejected") == true)
+    #expect(state.message(phase: .counting, verdict: "Rejected", remainingSeconds: 7, failureReason: nil) == nil)
+}

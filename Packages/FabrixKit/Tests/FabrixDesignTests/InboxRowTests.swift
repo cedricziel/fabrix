@@ -7,3 +7,9 @@ struct InboxRowTests {
         #expect(InboxRow.announcement(kind: "Approval", title: "Hire", requester: "CEO", age: "now", owner: "For you", staleReason: "old", isCritical: true, isProblem: true).contains("Stale: old. Critical. Problem."))
     }
 }
+
+@Test func rowAnnouncementIncludesTaskAndSummary() {
+    let text = InboxRow.announcement(kind: "Approval", title: "Budget", requester: "CEO", age: "now", owner: "For you", staleReason: nil, isCritical: false, isProblem: false, taskIdentifier: "T-42", summary: "Requires finance approval")
+    #expect(text.contains("T-42"))
+    #expect(text.contains("Requires finance approval"))
+}

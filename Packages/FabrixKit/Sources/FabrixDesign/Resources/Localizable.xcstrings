@@ -79,13 +79,13 @@
     "Choose a verdict" : {
 
     },
-    "Command-" : {
+    "Command" : {
 
     },
     "Completed" : {
 
     },
-    "Control-" : {
+    "Control" : {
 
     },
     "Defer" : {
@@ -109,13 +109,16 @@
     "Loading" : {
 
     },
+    "Minus" : {
+
+    },
     "Needs you" : {
 
     },
     "Not selected" : {
 
     },
-    "Option-" : {
+    "Option" : {
 
     },
     "Other" : {
@@ -151,13 +154,16 @@
     "Send now" : {
 
     },
-    "Shift-" : {
+    "Shift" : {
 
     },
     "Someone" : {
 
     },
     "Strategy" : {
+
+    },
+    "Task %@." : {
 
     },
     "Undo" : {

@@ -33,5 +33,7 @@ struct InboxComponentTests {
 
     @Test func keyHintChord() {
         #expect(KeyHint.keyHintChord("⌥⌘S") == "Option-Command-S")
+        #expect(KeyHint.keyHintChord("⌘-") == "Command-Minus")
+        #expect(KeyHint.keyHintChord("-") == "Minus")
     }
 }
