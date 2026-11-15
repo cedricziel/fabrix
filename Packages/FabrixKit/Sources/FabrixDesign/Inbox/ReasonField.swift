@@ -46,7 +46,7 @@ public struct ReasonField: View {
     }
 
     nonisolated static func hint(reader: String) -> String {
-        String(localized: "\(reader) will read this.", bundle: .module)
+        String(localized: "Read by \(reader).", bundle: .module)
     }
 
     nonisolated static func requirementText(isRequired: Bool) -> String {

@@ -4,7 +4,38 @@ import SwiftUI
 public enum ResolverKind: Equatable, Sendable {
     case person(String)
     case agent(String)
+    /// You, with an earlier answer.
+    case you
     case unknown
+}
+
+/// What someone did, or what you tried to do. Each kind has its words here, so callers never build sentences.
+public enum ResolutionKind: CaseIterable, Sendable {
+    case approved, rejected, accepted, declined, answered, decided, closed
+
+    nonisolated var pastTense: String {
+        switch self {
+        case .approved: String(localized: "approved", bundle: .module)
+        case .rejected: String(localized: "rejected", bundle: .module)
+        case .accepted: String(localized: "accepted", bundle: .module)
+        case .declined: String(localized: "declined", bundle: .module)
+        case .answered: String(localized: "answered", bundle: .module)
+        case .decided: String(localized: "decided", bundle: .module)
+        case .closed: String(localized: "closed", bundle: .module)
+        }
+    }
+
+    nonisolated var noun: String {
+        switch self {
+        case .approved: String(localized: "approval", bundle: .module)
+        case .rejected: String(localized: "rejection", bundle: .module)
+        case .accepted: String(localized: "acceptance", bundle: .module)
+        case .declined: String(localized: "refusal", bundle: .module)
+        case .answered: String(localized: "answer", bundle: .module)
+        case .decided: String(localized: "decision", bundle: .module)
+        case .closed: String(localized: "closing", bundle: .module)
+        }
+    }
 }
 
 /// "Priya approved this at 14:29. Your rejection wasn't recorded." for a card someone else already closed.
@@ -13,23 +44,33 @@ public struct ResolvedNotice: View {
     private let text: String
 
     /// - Parameters:
-    ///   - outcome: the past-tense verb, such as "approved".
+    ///   - outcome: what the resolver did.
     ///   - time: when it happened, already formatted.
-    ///   - attempted: what you tried, such as "rejection".
-    public init(resolver: ResolverKind, outcome: String, time: String?, attempted: String) {
+    ///   - attempted: what you tried to do.
+    public init(resolver: ResolverKind, outcome: ResolutionKind, time: String?, attempted: ResolutionKind) {
         text = Self.text(resolver: resolver, outcome: outcome, time: time, attempted: attempted)
     }
 
-    nonisolated static func text(resolver: ResolverKind, outcome: String, time: String?, attempted: String) -> String {
-        let notRecorded = String(localized: "Your \(attempted) wasn't recorded.", bundle: .module)
-        func sentence(_ name: String) -> String {
-            time.map { String(localized: "\(name) \(outcome) this at \($0).", bundle: .module) }
-                ?? String(localized: "\(name) \(outcome) this.", bundle: .module)
+    nonisolated static func text(resolver: ResolverKind, outcome: ResolutionKind, time: String?, attempted: ResolutionKind) -> String {
+        let notRecorded = String(localized: "Your \(attempted.noun) wasn't recorded.", bundle: .module)
+        func at(_ sentence: String, _ withTime: (String) -> String) -> String {
+            time.map(withTime) ?? sentence
         }
         let what = switch resolver {
-        case let .person(person): sentence(person)
-        case let .agent(agent): sentence(String(localized: "The \(agent) agent", bundle: .module))
-        case .unknown: String(localized: "This was already decided.", bundle: .module)
+        case let .person(name):
+            at(String(localized: "\(name) \(outcome.pastTense) this.", bundle: .module)) {
+                String(localized: "\(name) \(outcome.pastTense) this at \($0).", bundle: .module)
+            }
+        case let .agent(name):
+            at(String(localized: "The \(name) agent \(outcome.pastTense) this.", bundle: .module)) {
+                String(localized: "The \(name) agent \(outcome.pastTense) this at \($0).", bundle: .module)
+            }
+        case .you:
+            at(String(localized: "You already answered this.", bundle: .module)) {
+                String(localized: "You already answered this at \($0).", bundle: .module)
+            }
+        case .unknown:
+            String(localized: "Someone already answered this.", bundle: .module)
         }
         return "\(what) \(notRecorded)"
     }
@@ -52,9 +93,10 @@ public struct ResolvedNotice: View {
 private struct ResolvedNoticePreview: View {
     var body: some View {
         VStack(spacing: Spacing.m) {
-            ResolvedNotice(resolver: .person("Priya"), outcome: "approved", time: "14:29", attempted: "rejection")
-            ResolvedNotice(resolver: .agent("CEO"), outcome: "rejected", time: "14:29", attempted: "approval")
-            ResolvedNotice(resolver: .unknown, outcome: "approved", time: nil, attempted: "rejection")
+            ResolvedNotice(resolver: .person("Priya"), outcome: .approved, time: "14:29", attempted: .rejected)
+            ResolvedNotice(resolver: .agent("CEO"), outcome: .rejected, time: "14:29", attempted: .approved)
+            ResolvedNotice(resolver: .you, outcome: .answered, time: "14:29", attempted: .answered)
+            ResolvedNotice(resolver: .unknown, outcome: .approved, time: nil, attempted: .rejected)
         }
         .padding()
         .background(Palette.paper)
