@@ -70,12 +70,6 @@ extension InboxComponentTests {
         #expect(label == "Budget. Critical. Problem. Over budget. From CFO, 1 hour ago. For you. Stale: Task closed.")
     }
 
-    @Test func kindTagTonesMapToPillTones() {
-        #expect(KindTag(title: "Approval", tone: InboxRowTone.signal).tone == .signal)
-        #expect(KindTag(title: "Approval", tone: InboxRowTone.neutral).tone == .neutral)
-        #expect(KindTag(title: "Problem", tone: InboxRowTone.halt).tone == .halt)
-    }
-
     @Test func ownerLabelText() {
         #expect(InboxOwner.you.displayName == "You")
         #expect(InboxOwner.person("Priya").displayName == "Priya")
@@ -147,7 +141,7 @@ extension InboxComponentTests {
     }
 
     @Test func reasonFieldSaysWhoReadsItAndIfRequired() {
-        #expect(ReasonField.hint(reader: "the CEO agent") == "the CEO agent will read this.")
+        #expect(ReasonField.hint(reader: "the CEO agent") == "Read by the CEO agent.")
         #expect(ReasonField.requirementText(isRequired: true) == "Required")
         #expect(ReasonField.requirementText(isRequired: false) == "Optional")
         #expect(ReasonValidation.missing.message == "Add a reason.")
@@ -200,8 +194,11 @@ extension InboxComponentTests {
             == "Approved. Sending in 1 second.")
         #expect(UndoBar.announcement(verdict: "Approved", phase: .sending, locale: en) == "Sending.")
         #expect(UndoBar.announcement(verdict: "Approved", phase: .sent, locale: en) == "Sent.")
+        #expect(UndoBar.announcement(verdict: "Approved", phase: .held, locale: en)
+            == "Not sent yet. It goes out when you sign in again.")
+        #expect(!UndoBar.announcement(verdict: "Approved", phase: .held, locale: en).contains("Sent"))
         #expect(UndoBar.announcement(verdict: "Approved", phase: .failed(reason: "You're offline"), locale: en)
-            == "Not sent. You're offline.")
+            == "Not sent: You're offline.")
     }
 
     @Test func undoBarShowsTimeLeftAsText() {
@@ -214,16 +211,46 @@ extension InboxComponentTests {
         #expect(UndoPhase.counting(secondsLeft: 8).kind == UndoPhase.counting(secondsLeft: 3).kind)
         #expect(UndoPhase.counting(secondsLeft: 8).kind != UndoPhase.sending.kind)
         #expect(UndoPhase.failed(reason: "a").kind == UndoPhase.failed(reason: "b").kind)
+        #expect(UndoPhase.held.kind != UndoPhase.sent.kind)
     }
 
     @Test func resolvedNoticeText() {
-        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: "approved", time: "14:29", attempted: "rejection")
+        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: .approved, time: "14:29", attempted: .rejected)
             == "Priya approved this at 14:29. Your rejection wasn't recorded.")
-        #expect(ResolvedNotice.text(resolver: .agent("CEO"), outcome: "approved", time: "14:29", attempted: "rejection")
+        #expect(ResolvedNotice.text(resolver: .agent("CEO"), outcome: .approved, time: "14:29", attempted: .rejected)
             == "The CEO agent approved this at 14:29. Your rejection wasn't recorded.")
-        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: "rejected", time: nil, attempted: "approval")
+        #expect(ResolvedNotice.text(resolver: .person("Priya"), outcome: .rejected, time: nil, attempted: .approved)
             == "Priya rejected this. Your approval wasn't recorded.")
-        #expect(ResolvedNotice.text(resolver: .unknown, outcome: "approved", time: "14:29", attempted: "rejection")
-            == "This was already decided. Your rejection wasn't recorded.")
+        #expect(ResolvedNotice.text(resolver: .unknown, outcome: .approved, time: "14:29", attempted: .rejected)
+            == "Someone already answered this. Your rejection wasn't recorded.")
+    }
+
+    @Test func resolvedNoticeOwnEarlierAnswer() {
+        #expect(ResolvedNotice.text(resolver: .you, outcome: .answered, time: "14:29", attempted: .answered)
+            == "You already answered this at 14:29. Your answer wasn't recorded.")
+        #expect(ResolvedNotice.text(resolver: .you, outcome: .answered, time: nil, attempted: .answered)
+            == "You already answered this. Your answer wasn't recorded.")
+    }
+
+    @Test func resolutionWordsCoverEveryKind() {
+        for kind in ResolutionKind.allCases {
+            #expect(!kind.pastTense.isEmpty)
+            #expect(!kind.noun.isEmpty)
+        }
+    }
+
+    @Test func decisionBarActionsCanBeDisabledOnTheirOwn() {
+        let submit = DecisionBarAction("Submit", isEnabled: false) {}
+        let reject = DecisionBarAction("Reject", role: .destructive) {}
+        #expect(DecisionBar.isDisabled(submit, disabledReason: nil, isSending: false))
+        #expect(!DecisionBar.isDisabled(reject, disabledReason: nil, isSending: false))
+        #expect(DecisionBar.isDisabled(reject, disabledReason: "You're offline", isSending: false))
+        #expect(reject.role == .destructive)
+    }
+
+    @Test func decisionBarActionSpeaksItsShortcut() {
+        let action = DecisionBarAction("Approve", shortcut: .init("↩", modifiers: [.command])) {}
+        #expect(action.shortcut?.spoken == "Command-Return")
+        #expect(action.shortcut?.symbols == "⌘↩")
     }
 }

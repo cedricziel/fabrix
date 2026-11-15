@@ -24,9 +24,6 @@
         }
       }
     },
-    "%@ will read this." : {
-
-    },
     "%lld blocked" : {
 
     },
@@ -142,7 +139,10 @@
     "Not sent" : {
 
     },
-    "Not sent. %@" : {
+    "Not sent yet. It goes out when you sign in again." : {
+
+    },
+    "Not sent: %@" : {
 
     },
     "Option" : {
@@ -167,6 +167,9 @@
 
     },
     "Raw JSON" : {
+
+    },
+    "Read by %@." : {
 
     },
     "Reason" : {
@@ -211,17 +214,34 @@
     "Shift" : {
 
     },
+    "Someone already answered this." : {
+
+    },
     "Stale: %@" : {
 
     },
     "Strategy" : {
 
     },
-    "The %@ agent" : {
-
+    "The %@ agent %@ this at %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The %1$@ agent %2$@ this at %3$@."
+          }
+        }
+      }
     },
-    "This was already decided." : {
-
+    "The %@ agent %@ this." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The %1$@ agent %2$@ this."
+          }
+        }
+      }
     },
     "Transferred" : {
 
@@ -241,13 +261,61 @@
     "You" : {
 
     },
+    "You already answered this at %@." : {
+
+    },
+    "You already answered this." : {
+
+    },
     "You, transferred by %@" : {
 
     },
     "Your %@ wasn't recorded." : {
 
     },
+    "acceptance" : {
+
+    },
+    "accepted" : {
+
+    },
     "agent" : {
+
+    },
+    "answer" : {
+
+    },
+    "answered" : {
+
+    },
+    "approval" : {
+
+    },
+    "approved" : {
+
+    },
+    "closed" : {
+
+    },
+    "closing" : {
+
+    },
+    "decided" : {
+
+    },
+    "decision" : {
+
+    },
+    "declined" : {
+
+    },
+    "refusal" : {
+
+    },
+    "rejected" : {
+
+    },
+    "rejection" : {
 
     }
   },
