@@ -114,6 +114,11 @@ The service SHALL report an action on a card that someone else already answered 
 - **WHEN** an accept answers `409 interaction_already_resolved` and the request was accepted by the signed-in user
 - **THEN** the service reports success
 
+#### Scenario: Own different answer
+
+- **WHEN** a respond answers `409 interaction_already_resolved`, the request was answered by the signed-in user, and the recorded answers differ from the submitted ones
+- **THEN** the service reports already closed, with the user as the resolver
+
 #### Scenario: Message on the Approvals screen
 
 - **WHEN** a reject on the fallback Approvals screen finds the approval already decided

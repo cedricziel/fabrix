@@ -38,7 +38,7 @@ How the slices are built:
 - [ ] 2.4 Add `CountedPicker`, which becomes a menu at accessibility sizes and hides a count of 0. Tests: `InboxComponentTests.countedPickerStyle(forAccessibilitySize:)` and `hidesZeroCount`. Touches `FabrixDesign/Inbox/CountedPicker.swift`.
 - [ ] 2.5 Add `ReceiptRow`, `KeyValueList` (raw-JSON disclosure; stacks at accessibility sizes), `CommentRow` (sending, failed) and `HistoryRow` (verb first). Tests: `InboxComponentTests.historyRowStartsWithVerb` and `keyValueListStacksAtAccessibilitySizes`. Touches `FabrixDesign/Inbox/*.swift`.
 - [ ] 2.6 Add `ChoiceRow`, `VerdictPicker` and `ReasonField`. The field says who reads it, marks it required, and flags text past 4,000 characters as too long. Tests: `InboxComponentTests.reasonFieldValidation` and `verdictPickerRequiresReason`. Touches `FabrixDesign/Inbox/*.swift`.
-- [ ] 2.7 Add `DecisionBar` (can be disabled with a reason), `UndoBar` and `ResolvedNotice` (by person, by agent, unknown). The undo bar has four phases (counting, sending, sent, failed), shows the time left as text, and has an announcement per phase. Tests: `InboxComponentTests.undoBarAnnouncements`, `resolvedNoticeText` and `decisionBarDisabledReason`. Touches `FabrixDesign/Inbox/*.swift`, FabrixDesign `Localizable.xcstrings`.
+- [ ] 2.7 Add `DecisionBar` (can be disabled with a reason), `UndoBar` and `ResolvedNotice` (by person, by agent, unknown). The undo bar has five phases (counting, sending, sent, held, failed), shows the time left as text, and has an announcement per phase. "Sent" is announced only in the sent phase, which the caller sets after the factory accepted the action. Tests: `InboxComponentTests.undoBarAnnouncements` (including held and failed), `resolvedNoticeText` and `decisionBarDisabledReason`. Touches `FabrixDesign/Inbox/*.swift`, FabrixDesign `Localizable.xcstrings`.
 
 ## 3. Feed in Core (stack 3, FabrixCore)
 
@@ -53,7 +53,7 @@ How the slices are built:
 ## 4. Feed screens (stack 4, FabrixFeatures)
 
 - [ ] 4.1 Add `InboxStore`: support, view, feed, selection, load states, paging, people cache and the generation guard. Tests: `InboxStoreTests.unsupportedIsRemembered`, `staleFeedAfterFactorySwitchIsDropped`, `firstLoadFailureKeepsCompanyUsable`, `badgeCountFromDeskBadgeCount` and `nextPageAppends`. `reset(keepingHeld:)` exists from here, with nothing to keep until slice 6. Touches `FabrixFeatures/Inbox/InboxStore.swift`, `InboxContext.swift`.
-- [ ] 4.2 Add `InboxSupportCache`: the answer is kept per factory ID, changed only by a loaded feed or a `404` "API route not found", and absent means Approvals `[D24]`. Tests: `InboxSupportCacheTests.networkErrorKeepsAnswer`, `missingEndpointSetsUnsupported` and `unknownFactoryShowsApprovals`. Touches `FabrixFeatures/Inbox/InboxSupportCache.swift`.
+- [ ] 4.2 Add `InboxSupportCache`: the answer is kept per factory ID, changed only by a loaded feed or a response the service reports as `.unsupported` (`404` "API route not found", `404` without a JSON body, `403` "Board user context required"), and absent means Approvals `[D24]`. Tests: `InboxSupportCacheTests.networkErrorKeepsAnswer`, `missingEndpointSetsUnsupported`, `bodylessNotFoundSetsUnsupported`, `boardContextRequiredSetsUnsupported` and `unknownFactoryShowsApprovals`. Touches `FabrixFeatures/Inbox/InboxSupportCache.swift`.
 - [ ] 4.3 Wire `AppModel`:
   - an `inbox` property and `inboxBadgeCount`, with `waitingCount` unchanged;
   - refresh under the generation check;
@@ -81,7 +81,7 @@ How the slices are built:
 - [ ] 6.2 Add `PaperclipError.alreadyClosed(AttentionClosure)` and `.interactionClosed(code:message:)`. `perform` throws them only for the coded `409` bodies in design §2, and other coded `409`s stay `.conflict`. Give both cases a description, and update the existing `switch` statements. Tests: `PaperclipClientTests.alreadyClosedBodyIsDecoded` (the body from design §2), `interactionCodesAreInteractionClosed`, `workspaceSyncConflictStaysConflict` and `PaperclipErrorMessageTests.alreadyClosedMessage`. Touches `PaperclipClient.swift`, `PaperclipError.swift`, `PaperclipDTOs.swift`.
 - [ ] 6.3 Live approval detail and revision, plus `closingErrors(_:reread:)` in `PaperclipFactoryService` with the signed-in user from `cli-auth/me`, cached per connection. A `422 "Only pending…"` on approve, reject or revision re-reads the approval and becomes `.alreadyClosed` `[D16]`. The user's own earlier answer counts as success. Tests: `PaperclipFactoryServiceTests.approvalDetailReadsBoth`, `rejectAfterOtherDecisionIsAlreadyClosed`, `ownEarlierRejectIsSuccess`, `sameVerdictRepeatedSucceeds` and `requestRevisionSendsNote`. Touches `PaperclipFactoryService.swift`, `AttentionMapping.swift`.
 - [ ] 6.4 Add a guard: the fallback Approvals message doesn't change. Test: `ApprovalFlowTests.alreadyDecidedMessageUnchanged`. With a service whose `decide` throws `.alreadyClosed`, `decisionErrors` holds "This was already decided on the board.". Touches `Tests/FabrixFeaturesTests/ApprovalFlowTests.swift`.
-- [ ] 6.5 Add `InboxDesk` with the same tests as `ApprovalDesk`, for `.approve`, `.reject` and `.requestRevision`. Tests: `InboxDeskTests.undoInsideWindow`, `beginCommitLocks`, `restageAfterSignOut` and `keepOnlyDropsGoneCards`. Touches `FabrixFeatures/Inbox/InboxDesk.swift`.
+- [ ] 6.5 Add `InboxDesk` with the same tests as `ApprovalDesk`, for `.approve`, `.reject` and `.requestRevision`. Tests: `InboxDeskTests.undoInsideWindow`, `beginCommitLocks`, `restageAfterSignOut`, `keepOnlyDropsGoneCards`, `stagedActionKeepsItsCompany` and `failedSendFinishesWithoutRestage`. Touches `FabrixFeatures/Inbox/InboxDesk.swift`.
 - [ ] 6.6 Add decisions to `InboxStore`:
   - stage after `AppLock.confirmDecision()`, with a commit timer and Send now;
   - register each staged action with the window's `UndoManager`;
@@ -91,7 +91,7 @@ How the slices are built:
   - keep decision failure logs free of text;
   - `AppModel.select` awaits `inbox.commitStaged()` before its reset `[D22]`, and the reset keeps actions held for sign-in.
 
-  Tests: `InboxStoreTests.decisionWaitsForWindow`, `cancelledAuthenticationStagesNothing`, `undoManagerUndoesStagedAction`, `alreadyClosedShowsNoticeAndRefreshesWithoutRetry`, `offlineDisablesDecisions`, `backgroundCommitsInboxAndApprovals`, `failureLogsCarryNoContent` (a failed decision; an injected log sink sees only operation, card kind and error type), `AppModelTests.companySwitchCommitsThenResetsInbox`, `heldActionSurvivesCompanySwitch` and `renewKeepsStagedInboxActions`. Touches `InboxStore.swift`, `InboxDesk.swift`, `AppModel.swift` (`select`, `commitStagedDecisions`), `Lock/AppLock+Approvals.swift`.
+  Tests: `InboxStoreTests.decisionWaitsForWindow`, `cancelledAuthenticationStagesNothing`, `undoManagerUndoesStagedAction`, `alreadyClosedShowsNoticeAndRefreshesWithoutRetry`, `offlineDisablesDecisions`, `failedSendReturnsCardWithReason`, `backgroundCommitsInboxAndApprovals`, `failureLogsCarryNoContent` (a failed decision; an injected log sink sees only operation, card kind and error type), `AppModelTests.companySwitchCommitsThenResetsInbox`, `heldActionSurvivesCompanySwitch` and `renewKeepsStagedInboxActions`. Touches `InboxStore.swift`, `InboxDesk.swift`, `AppModel.swift` (`select`, `commitStagedDecisions`), `Lock/AppLock+Approvals.swift`.
 
 - [ ] 6.7 Build the approval card UI: the `KeyValueList` payload, Request revision with a required note `[D3]`, `UndoBar` and `ResolvedNotice`. Test: `InboxStoreTests.revisionNeedsNote`. Touches `InboxCardView.swift`, `ApprovalCardContent.swift`.
 - [ ] 6.8 Navigation and Overview:
@@ -99,9 +99,9 @@ How the slices are built:
   - Overview's approve and reject go to `inbox`.
   - `waitingApprovals` leaves out what `InboxDesk` holds.
   - "Waiting on you" shows `inboxBadgeCount` `[D23]`.
-  - Open picks the view that holds the card.
+  - Open picks the view that holds the card, or shows the card on its own when it is snoozed or archived.
 
-  Tests: `NavigatorTests.approvalsOnlyWithoutInbox`, `overviewOpenSelectsCardInItsView`, `AppModelTests.overviewDecisionUsesInboxDesk`, `waitingApprovalsSkipsInboxStaged` and `OverviewMetricsTests.waitingUsesInboxBadge`. Touches `AppSection.swift`, `CompactShell.swift`, `SplitShell.swift`, `OverviewView.swift`, `AppModel.swift`, `Logic/OverviewMetrics.swift`.
+  Tests: `NavigatorTests.approvalsOnlyWithoutInbox`, `overviewOpenSelectsCardInItsView`, `overviewOpenShowsHiddenApprovalAlone`, `AppModelTests.overviewDecisionUsesInboxDesk`, `waitingApprovalsSkipsInboxStaged` and `OverviewMetricsTests.waitingUsesInboxBadge`. Touches `AppSection.swift`, `CompactShell.swift`, `SplitShell.swift`, `OverviewView.swift`, `AppModel.swift`, `Logic/OverviewMetrics.swift`.
 
 - [ ] 6.9 Demo: approval payload and `simulateAlreadyClosed`. Test: `DemoFactoryServiceTests.demoApprovalAlreadyClosed`. Touches `DemoFactoryService+Inbox.swift`.
 - [ ] 6.10 Inbox menu: Approve or accept (⌘↩), Reject (⌥⌘⌫) `[D14]` and Request revision (⌥⌘↩). All three are disabled while a text field has focus. Tests: `InboxCommandsTests.approveDisabledWhenCardDoesNotAllowIt` and `decideDisabledWhileTyping`. Touches `InboxCommands.swift`.
@@ -125,14 +125,14 @@ How the slices are built:
 ## 9. Questions (stack 9)
 
 - [ ] 9.1 Add `Question`, `QuestionOption` (`recommended`, `freeText`) and `QuestionAnswer`, plus `answerQuestions` with its default. Test: `AttentionMappingTests.questionSetRecommendedCopiedToOptions`. Touches `InboxModels.swift`, `FactoryService.swift`, `AttentionMapping.swift`.
-- [ ] 9.2 Live `respond` through `closingErrors`. Tests: `PaperclipFactoryServiceTests.answerQuestionsBody` (option IDs and `otherText`) and `ownEarlierAnswerIsSuccess`. Touches `PaperclipFactoryService.swift`.
+- [ ] 9.2 Live `respond` through `closingErrors`. Tests: `PaperclipFactoryServiceTests.answerQuestionsBody` (option IDs and `otherText`), `ownEarlierAnswerIsSuccess` (same answers) and `ownDifferentAnswerIsAlreadyClosed`. Touches `PaperclipFactoryService.swift`.
 - [ ] 9.3 Store and UI: `.answer` staged with Face ID. Submit is enabled only when the required questions are answered, and Other text is sent. Tests: `InboxStoreTests.submitNeedsRequiredAnswers` and `otherTextIsSent`. Touches `InboxDesk.swift`, `InboxStore.swift`, `QuestionsCardContent.swift`.
 - [ ] 9.4 Demo questions card. Test: `DemoFactoryServiceTests.demoQuestionsAnswered`. Docs and `validate`: `SandboxContractTests.questions`, which also records how `answerMode: text` behaves `[D17]`. Touches `docs/paperclip-api.md`, `Tests/FabrixCoreTests/SandboxContractTests.swift`.
 
 ## 10. Item verdicts (stack 10)
 
 - [ ] 10.1 Add `VerdictItem`, `Verdict` and `ItemVerdict`, plus `submitVerdicts` with its default. Test: `AttentionMappingTests.verdictsDefaultToAllThree`. Touches `InboxModels.swift`, `FactoryService.swift`, `AttentionMapping.swift`.
-- [ ] 10.2 Live `verdicts` through `closingErrors`. Test: `PaperclipFactoryServiceTests.submitVerdictsBody`. Touches `PaperclipFactoryService.swift`.
+- [ ] 10.2 Live `verdicts` through `closingErrors`, comparing recorded verdicts per item. Tests: `PaperclipFactoryServiceTests.submitVerdictsBody`, `ownEarlierVerdictsAreSuccess` and `ownDifferentVerdictsAreAlreadyClosed`. Touches `PaperclipFactoryService.swift`.
 - [ ] 10.3 Store and UI: a `VerdictPicker` per item, reasons required on `requireReasonOn`, and Approve all only when allowed. Tests: `InboxStoreTests.verdictsNeedReasonWhereRequired` and `approveAllOnlyWhenAllowed`. Touches `InboxDesk.swift`, `InboxStore.swift`, `VerdictsCardContent.swift`.
 - [ ] 10.4 Demo item review. Test: `DemoFactoryServiceTests.demoVerdictsSubmitted`. Docs and `validate`: `SandboxContractTests.itemVerdicts`. Touches `docs/paperclip-api.md`, `Tests/FabrixCoreTests/SandboxContractTests.swift`.
 
@@ -140,7 +140,7 @@ How the slices are built:
 
 - [ ] 11.1 Add `AttentionCloseMode`, plus `closeAttention` and `dismissReceipt` with their defaults. Test: `InboxModelTests.closeModesFromCard`: only the server's `closeModes`, none without routing `[D19]`. Touches `InboxModels.swift`, `FactoryService.swift`.
 - [ ] 11.2 Live close with fingerprint and until. `409 attention_already_closed` becomes `.alreadyClosed`. A `404` "API route not found" means `.unsupported`, and "Card not found" means the card is gone. Also live receipt dismissal. Tests: `PaperclipFactoryServiceTests.snoozeBody`, `archiveSendsFingerprint`, `withdrawSendsReason`, `closeAlreadyClosed` and `dismissReceiptBody`. Touches `PaperclipFactoryService.swift`.
-- [ ] 11.3 Desk: `.snooze(until)` and `.archive`, staged with no Face ID `[D5]`. Snooze presets are in local time. Tests: `SnoozePresetTests.tomorrowMorningAcrossDST`, `nextMondayFromSunday` and `InboxStoreTests.snoozeDoesNotAskForFaceID`. Touches `InboxDesk.swift`, `SnoozePreset.swift`, `InboxStore.swift`.
+- [ ] 11.3 Desk: `.snooze(until)` and `.archive`, staged with no Face ID `[D5]`. Snooze presets are in local time. Tests: `SnoozePresetTests.tomorrowMorningAcrossDST`, `nextMondayFromSunday` `InboxStoreTests.snoozeDoesNotAskForFaceID` and `heldSnoozeClosesUnderItsCompany` (held, company switched, signed in again: sent to the first company's close route). Touches `InboxDesk.swift`, `SnoozePreset.swift`, `InboxStore.swift`.
 - [ ] 11.4 Withdraw: a reason, then a destructive confirmation, then Face ID, sent at once `[D4]`. It is hidden for hire approvals and wherever `closeModes` lacks it. Tests: `InboxStoreTests.withdrawNeedsReasonAndConfirmation` and `withdrawHiddenOnHire`. Touches `InboxStore.swift`, `WithdrawSheet.swift`.
 - [ ] 11.5 UI:
   - swipe actions on iPhone;

@@ -171,7 +171,7 @@ Cards Fabrix can't answer in place SHALL be listed and counted like the others, 
 
 ### Requirement: Staged inbox actions
 
-Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now, and Edit ▸ Undo SHALL undo it. All waiting actions SHALL be sent when the app leaves the foreground and when the user switches company or factory. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. An action held because the sign-in expired SHALL survive a company switch and SHALL be sent once the user signs in again. Leaving the factory with Disconnect SHALL drop what is still staged, as it does for approvals today. `[D5]` `[D22]`
+Approve, reject, request revision, accept, decline, submit answers, submit verdicts, snooze and archive SHALL wait for the 8-second undo window before reaching the factory. While an action waits, an undo bar SHALL show the action, the card and the time left as text, with Undo and Send now, and Edit ▸ Undo SHALL undo it. All waiting actions SHALL be sent when the app leaves the foreground and when the user switches company or factory. An action the factory refuses because the sign-in expired SHALL stay staged until the user signs in again. An action whose send fails for any other reason, such as the device going offline, SHALL not be retried or queued. Its card SHALL return to the list with "Your decision wasn't sent:" and the reason, so the user can act again, as on today's Approvals screen. An action held because the sign-in expired SHALL survive a company switch and SHALL be sent once the user signs in again. Leaving the factory with Disconnect SHALL drop what is still staged, as it does for approvals today. `[D5]` `[D22]`
 
 #### Scenario: Undo inside the window
 
@@ -196,7 +196,12 @@ Approve, reject, request revision, accept, decline, submit answers, submit verdi
 #### Scenario: Held action across a company switch
 
 - **WHEN** an action is held because the sign-in expired and the user switches company
-- **THEN** the action is still held, and it is sent once the user signs in again
+- **THEN** the action is still held, and once the user signs in again it is sent for the company it was made in
+
+#### Scenario: Send fails offline
+
+- **WHEN** the undo window ends while the device is offline
+- **THEN** nothing is retried, and the card returns to the list with "Your decision wasn't sent: You're offline." and its actions enabled once the factory is back
 
 #### Scenario: Undo from the Edit menu
 
@@ -294,6 +299,11 @@ When someone else answered or closed a card first, the app SHALL say who decided
 - **WHEN** an answer is sent again after its response was lost, and the factory shows the user resolved the request with that same answer
 - **THEN** the action counts as sent, and no "already decided" notice is shown
 
+#### Scenario: Own different answer
+
+- **WHEN** the user answered a question with one option in another session, and Fabrix later submits a different option
+- **THEN** the notice says the user already answered at that time and this answer wasn't recorded
+
 ### Requirement: Offline
 
 While the factory can't be reached, the decide buttons SHALL be disabled with the reason shown. Nothing new SHALL be queued, and actions already staged SHALL keep their behavior. The last loaded cards SHALL stay visible and be marked as not current. `[D13]`
@@ -319,12 +329,17 @@ The inbox SHALL show placeholder rows on first load, a "Nothing waiting for you"
 
 ### Requirement: Server without the inbox
 
-A factory without the attention feed SHALL keep today's Approvals section, tab and badge, with no Inbox. A factory with the feed but without routing SHALL show one list without the view switch, answer cards in place, and hide snooze, archive, withdraw, claim and transfer. The app SHALL remember per factory whether the feed was found, and SHALL lay out from that answer at launch. Until a factory's feed has loaded once, Approvals SHALL stay. Only a loaded feed or a missing endpoint SHALL change the answer. Other failures SHALL not. `[D19]` `[D24]`
+A factory without the attention feed SHALL keep today's Approvals section, tab and badge, with no Inbox. A factory with the feed but without routing SHALL show one list without the view switch, answer cards in place, and hide snooze, archive, withdraw, claim and transfer. The app SHALL remember per factory whether the feed was found, and SHALL lay out from that answer at launch. Until a factory's feed has loaded once, Approvals SHALL stay. Only a loaded feed, or a response that says the factory has no inbox for this user (a missing endpoint, or no board user to route to), SHALL change the answer. Other failures SHALL not. `[D19]` `[D24]`
 
 #### Scenario: Older server
 
-- **WHEN** the feed request answers `404` with "API route not found"
+- **WHEN** the feed request answers `404` with "API route not found", or a `404` without a JSON error body
 - **THEN** the app shows Approvals as before and never shows an Inbox for that factory session
+
+#### Scenario: Remembered inbox no longer available
+
+- **WHEN** a factory remembered as having the inbox answers the feed request with `403` "Board user context required" or a missing endpoint
+- **THEN** the Inbox gives way to Approvals at once, and the factory is remembered as having no inbox
 
 #### Scenario: First load fails on a new factory
 
@@ -423,7 +438,7 @@ Undo SHALL use the Edit menu's Undo (⌘Z), and Refresh SHALL stay the existing 
 
 ### Requirement: Inbox accessibility
 
-Every inbox row SHALL be one VoiceOver element that reads kind, title, requester, age and owner, with its swipe and menu actions as custom actions. The undo bar SHALL announce the action and the time left, then "sent". The "already decided" notice SHALL be announced when it appears. Decided rows SHALL fade instead of sliding when Reduce Motion is on. Every swipe action SHALL also be in the context menu.
+Every inbox row SHALL be one VoiceOver element that reads kind, title, requester, age and owner, with its swipe and menu actions as custom actions. The undo bar SHALL announce the action and the time left. It SHALL announce "Sent" only after the factory accepted the action. When the action is held for sign-in it SHALL announce that, and when the send failed it SHALL announce the reason. The "already decided" notice SHALL be announced when it appears. Decided rows SHALL fade instead of sliding when Reduce Motion is on. Every swipe action SHALL also be in the context menu.
 
 #### Scenario: VoiceOver row
 
@@ -433,4 +448,9 @@ Every inbox row SHALL be one VoiceOver element that reads kind, title, requester
 #### Scenario: Undo announcement
 
 - **WHEN** the user approves with VoiceOver on
-- **THEN** VoiceOver announces "Approved. Sending in 8 seconds." and later "Sent."
+- **THEN** VoiceOver announces "Approved. Sending in 8 seconds." and, once the factory accepts it, "Sent."
+
+#### Scenario: Held announcement
+
+- **WHEN** the window ends with VoiceOver on and the factory refuses the action because the sign-in expired
+- **THEN** VoiceOver announces "Not sent yet. It goes out when you sign in again." and never "Sent"

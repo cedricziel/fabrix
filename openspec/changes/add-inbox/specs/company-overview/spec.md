@@ -2,7 +2,7 @@
 
 ### Requirement: Decisions and activity
 
-The overview SHALL list approvals waiting on the user with Approve and Open, and the latest activity with a link to all of it. On a factory with the inbox, Approve SHALL stage the decision in the inbox, Open SHALL select the approval's card in the view that holds it (For you, then Unassigned, then Company), and "Waiting on you" SHALL show the inbox's count of cards for the user. An approval staged in the inbox SHALL not be listed. On a factory without the inbox, all of these SHALL work with the Approvals screen as before. `[D23]`
+The overview SHALL list approvals waiting on the user with Approve and Open, and the latest activity with a link to all of it. On a factory with the inbox, Approve SHALL stage the decision in the inbox, Open SHALL select the approval's card in the view that holds it (For you, then Unassigned, then Company). When no view holds it, for example because the user snoozed or archived it, Open SHALL show the approval's card on its own, read from the approval itself, marked as hidden from the user's inbox, and "Waiting on you" SHALL show the inbox's count of cards for the user. An approval staged in the inbox SHALL not be listed. On a factory without the inbox, all of these SHALL work with the Approvals screen as before. `[D23]`
 
 #### Scenario: Approving from the overview
 
@@ -23,6 +23,11 @@ The overview SHALL list approvals waiting on the user with Approve and Open, and
 
 - **WHEN** the user taps Open on an approval that is only in the Company view
 - **THEN** the Inbox is shown on Company with that card selected
+
+#### Scenario: Opening a snoozed approval
+
+- **WHEN** the user taps Open on an approval whose inbox card they snoozed
+- **THEN** the approval's card is shown on its own, can still be decided, and says it is hidden from the inbox
 
 #### Scenario: Opening an approval without the inbox
 
