@@ -188,6 +188,12 @@ public struct PaperclipClient: Sendable {
         var url = baseURL.appending(path: "api").appending(path: path)
         if !query.isEmpty {
             url.append(queryItems: query.map { URLQueryItem(name: $0.key, value: $0.value) })
+            // Form-style query parsers interpret a literal plus as a space.
+            // Escape only that character after URLQueryItem has encoded the rest.
+            if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+                components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+                if let encodedURL = components.url { url = encodedURL }
+            }
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
