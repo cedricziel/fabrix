@@ -14,7 +14,7 @@ struct DemoInbox: Sendable {
         let me = AttentionAudience(kind: "user", userID: "me")
         let thread = RequesterRef(id: "cto", name: "Chief Technology Officer", kind: "agent")
         items = [
-            item("hire-designer", .boardApproval, "Hire a Designer agent", "approval", "a-hire", .approval(sourceID: "a-hire"), me, "Approve the proposed design hire.", path: "/approvals/a-hire"),
+            item("hire-designer", .boardApproval, "Hire a Designer agent", "approval", "h1", .approval(sourceID: "h1"), me, "Approve the proposed design hire.", path: "/approvals/h1"),
             item("q4-plan", .reviewPlan, "Review the Q4 plan", "issue_thread_interaction", "ATL-148", .confirmation, me, "Review the proposed Q4 plan.", taskID: "task-ATL-148", identifier: "ATL-148", requester: thread, path: "/tasks/ATL-148", close: ["withdraw", "archive", "snooze"], transfer: true),
             item("push-provider", .answerQuestions, "Which push provider?", "issue_thread_interaction", "ATL-160", .questions, me, "Demo question: choose the push notification provider.", taskID: "task-ATL-160", identifier: "ATL-160", requester: thread, path: "/tasks/ATL-160", close: ["withdraw", "archive", "snooze"], transfer: true),
             item("release-notes", .reviewItems, "Review release notes", "issue_thread_interaction", "ATL-120", .verdicts, me, "Review the release notes before publication.", taskID: "task-ATL-120", identifier: "ATL-120", requester: thread, path: "/tasks/ATL-120", close: ["withdraw", "archive", "snooze"], transfer: true),

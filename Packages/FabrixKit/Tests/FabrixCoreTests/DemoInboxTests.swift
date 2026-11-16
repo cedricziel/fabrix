@@ -29,4 +29,18 @@ struct DemoInboxTests {
         let people = try await service.people(companyID: "atlas")
         #expect(people.map(\.id) == ["me", "priya", "sam"])
     }
+    @Test func advertisedApprovalTargetsExistingApproval() async throws {
+        let service = DemoFactoryService()
+        let feed = try await service.attention(companyID: "atlas", view: .mine, cursor: nil)
+        let card = try #require(feed.items.first { $0.cardType == .boardApproval })
+        guard case .approval(let sourceID) = card.answer else {
+            Issue.record("Expected approval action")
+            return
+        }
+        #expect(card.source.id == sourceID)
+        try await service.decide(approvalID: sourceID, approve: true)
+        let snapshot = try await service.snapshot(companyID: "atlas")
+        #expect(snapshot.approvals.first { $0.id == sourceID }?.state == .approved)
+    }
+
 }

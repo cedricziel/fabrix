@@ -31,7 +31,7 @@ struct InboxServiceTests {
     }
 
     @Test func attentionPreservesOpaqueCursorAndMapsLegacyFeed() async throws {
-        let cursor = "a+b/&?= ü"
+        let cursor = "a+b/&?= ü%2B"
         let recorder = RequestRecorder()
         let feed = try await service(["GET \(attentionPath)": .json(AttentionFixtures.legacyMine)], recorder: recorder)
             .attention(companyID: companyID, view: .mine, cursor: cursor)
@@ -41,6 +41,8 @@ struct InboxServiceTests {
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let items = try #require(components.queryItems)
         #expect(items.first { $0.name == "cursor" }?.value == cursor)
+        #expect(components.percentEncodedQuery?.contains("%2B") == true)
+        #expect(components.percentEncodedQuery?.contains("+") == false)
         #expect(items.count == 3)
         #expect(feed.supportsRouting == false)
         #expect(feed.items.allSatisfy { $0.closeModes.isEmpty && !$0.canClaim && !$0.canTransfer })
