@@ -64,6 +64,18 @@ The proxy must accept bearer tokens, for example oauth2-proxy with `--skip-jwt-b
 
 ## Reads
 
+### Inbox
+
+`GET /api/companies/{companyId}/attention?view=mine|unassigned|company&limit=100[&cursor=…]` returns `items`, `deskBadgeCount`, optional `viewCounts`, `nextCursor`, and optional top-level `receipts`. The cursor is opaque. Items carry `sourceKind`, `subject` (identity, title, status, href and metadata), `detail`, dates, severity, optional requester/task/project context, audience, stale reason, close modes, fingerprint and obligation identifiers. Fabrix derives card type from the source and subject metadata; there is no item-level card-type field.
+
+`GET /api/companies/{companyId}/user-directory` returns `{users:[{principalId,status,membershipRole,user:{id,name,email,image}|null}]}`. Active members use `principalId` as identity; a null user is retained without a name or email. Role names do not determine eligibility.
+
+Valid `viewCounts` presence indicates routing support. Without it, close modes are cleared and claim/transfer are disabled. A recognized pending thread interaction in the pool is claimable; transfer eligibility is a UI hint and the server authorizes the action. Same-page evidence folds only into an unambiguous surviving lead. Server counts are preserved after folding or skipping malformed rows. Invalid required envelope fields fail decoding. Hrefs remain untrusted text and require same-origin validation when opened.
+
+Receipts carry identity/dismissal key, outcome, source kind and ID, title, actor, optional transfer recipient/reason/issue/href, and creation/expiry timestamps. They never contribute to badge or view counts. Feed-only question cards open in Paperclip because the response omits `answerMode` and `questionSet`; native eligibility requires full interaction-payload validation in a later slice.
+
+For both endpoints, `404` without a JSON error body or with the exact message `API route not found` means unsupported; other `404` errors remain missing-resource errors. For the feed, only `403` with `Board user context required` means unsupported. For the directory, every `403` means unsupported. Authentication, transport, decoding and server errors otherwise pass through. See [capture provenance](attention-fixtures.md) for the observed image revisions and coverage.
+
 | Method | Path                                                                                   | Maps to                                                                                                                                                                                                    |
 | ------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET`  | `/api/companies?scope=accessible`                                                      | `[Company]`: companies the user can open.                                                                                                                                                                  |

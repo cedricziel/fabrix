@@ -66,6 +66,39 @@ public struct PaperclipFactoryService: FactoryService {
         }
     }
 
+    public func attention(companyID: Company.ID, view: AttentionView, cursor: String?) async throws -> AttentionFeed {
+        do {
+            let dto: AttentionFeedDTO
+            if let cursor {
+                dto = try await client.get("companies/\(companyID)/attention", query: ["view": view.rawValue, "limit": "100", "cursor": cursor])
+            } else {
+                dto = try await client.get("companies/\(companyID)/attention", query: ["view": view.rawValue, "limit": "100"])
+            }
+            return dto.domainFeed()
+        } catch let error as PaperclipError {
+            switch error {
+            case .notFound(nil), .notFound("API route not found"), .forbidden("Board user context required"):
+                throw FactoryServiceError.unsupported
+            default:
+                throw error
+            }
+        }
+    }
+
+    public func people(companyID: Company.ID) async throws -> [Person] {
+        do {
+            let dto: UserDirectoryDTO = try await client.get("companies/\(companyID)/user-directory")
+            return dto.people()
+        } catch let error as PaperclipError {
+            switch error {
+            case .notFound(nil), .notFound("API route not found"), .forbidden:
+                throw FactoryServiceError.unsupported
+            default:
+                throw error
+            }
+        }
+    }
+
     public func decide(approvalID: Approval.ID, approve: Bool) async throws {
         try await client.send("POST", "approvals/\(approvalID)/\(approve ? "approve" : "reject")")
     }
