@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.5.0](https://github.com/cedricziel/fabrix/compare/v0.4.0...v0.5.0) (2026-11-24)
+
+
+### Features
+
+* add Core inbox feeds and directory support ([41fa687](https://github.com/cedricziel/fabrix/commit/41fa6874f2d6d607491b9693ffda3df1e47ac8a3))
+* add Core inbox feeds and directory support ([6159b73](https://github.com/cedricziel/fabrix/commit/6159b73b54d2bf71368a13f262c7828ea1da3218))
+* **design:** add reusable inbox components ([1675f73](https://github.com/cedricziel/fabrix/commit/1675f73a754c9f556938fd93ff5380dbe1b05cfb))
+* **design:** add reusable inbox components ([235df3f](https://github.com/cedricziel/fabrix/commit/235df3f252ee5bf3a74da51cbc24fba5e5043fd9))
+
+
+### Bug Fixes
+
+* **design:** preserve inbox accessibility context ([522f72f](https://github.com/cedricziel/fabrix/commit/522f72f8d1af11a36415df6ddf30af08c294849c))
+* **features:** leave the signed-out screen when another window signs in again ([1f8c274](https://github.com/cedricziel/fabrix/commit/1f8c274db4e38e7a1ced520c7a0904f594eafb97))
+* **features:** leave the signed-out screen when another window signs in again ([12330ec](https://github.com/cedricziel/fabrix/commit/12330ecf614d83e8ec0baedd93ea5460ae055844))
+* **features:** localize sign-in failure messages ([f6ee175](https://github.com/cedricziel/fabrix/commit/f6ee175e95058696d2eab0c535a1ad5260e28c93))
+* **features:** localize the two sign-in failure messages ([092b6fe](https://github.com/cedricziel/fabrix/commit/092b6fee7567ba25b4d49aa83378f1ad1a6854ab))
+* **features:** send held decisions and keep other state when following store changes ([6b03c34](https://github.com/cedricziel/fabrix/commit/6b03c343916d36e9b790058e248e3b8041c19cf2))
+* preserve opaque cursors and demo approval identity ([eda39b6](https://github.com/cedricziel/fabrix/commit/eda39b6d5418fa2f46b5f356efb8c472ec8c59e3))
+* **telemetry:** hide sensitive values in the route derived from url.full ([a3cea66](https://github.com/cedricziel/fabrix/commit/a3cea66bdc23f67a0d36dbb719503faf557d6d7d))
+* **telemetry:** template the API route from url.full ([f8c20bc](https://github.com/cedricziel/fabrix/commit/f8c20bc9aa410bfcbb4e2d1180b280e71ca457a4))
+* **telemetry:** template the API route from url.full ([976dd68](https://github.com/cedricziel/fabrix/commit/976dd687d57379cb039d0407ddd89420ee955faf))
+
 ## [0.4.0](https://github.com/cedricziel/fabrix/compare/v0.3.0...v0.4.0) (2026-11-07)
 
 
