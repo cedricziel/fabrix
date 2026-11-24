@@ -10,6 +10,7 @@ public actor DemoFactoryService: FactoryService {
     private var runs: [Run]
     private var activity: [ActivityEvent]
     private var projects: [Project]
+    var inbox: DemoInbox
 
     public init(now: Date = .now) {
         let minute: TimeInterval = 60
@@ -79,6 +80,7 @@ public actor DemoFactoryService: FactoryService {
                 colorHex: "#4D7C0F", goals: ["First-run experience"]
             ),
         ]
+        inbox = DemoInbox(now: now)
     }
 
     public func companies() async throws -> [Company] {

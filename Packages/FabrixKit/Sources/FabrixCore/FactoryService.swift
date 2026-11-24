@@ -13,6 +13,8 @@ public protocol FactoryService: Sendable {
     /// The company's projects that aren't archived. Throws `FactoryServiceError.unsupported`
     /// when the factory has no projects.
     func projects(companyID: Company.ID) async throws -> [Project]
+    func attention(companyID: Company.ID, view: AttentionView, cursor: String?) async throws -> AttentionFeed
+    func people(companyID: Company.ID) async throws -> [Person]
 }
 
 public enum FactoryServiceError: Error, Equatable, Sendable {
@@ -26,6 +28,14 @@ public extension FactoryService {
     }
 
     func projects(companyID _: Company.ID) async throws -> [Project] {
+        throw FactoryServiceError.unsupported
+    }
+
+    func attention(companyID _: Company.ID, view _: AttentionView, cursor _: String?) async throws -> AttentionFeed {
+        throw FactoryServiceError.unsupported
+    }
+
+    func people(companyID _: Company.ID) async throws -> [Person] {
         throw FactoryServiceError.unsupported
     }
 }

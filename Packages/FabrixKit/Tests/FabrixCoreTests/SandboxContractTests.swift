@@ -24,6 +24,29 @@ struct SandboxContractTests {
     private let sandbox = SandboxEnvironment.current!
     private let store = FactoryStore(defaults: UserDefaults(suiteName: "SandboxContractTests-\(UUID().uuidString)")!, credentials: InMemoryCredentialStore())
 
+    @Test func attentionFeed() async throws {
+        let service = PaperclipFactoryService(client: PaperclipClient(baseURL: sandbox.url, credential: sandbox.key))
+        var feeds: [AttentionView: AttentionFeed] = [:]
+        for view in AttentionView.allCases {
+            feeds[view] = try await service.attention(companyID: sandbox.companyID, view: view, cursor: nil)
+        }
+        let mine = try #require(feeds[.mine])
+        #expect(!mine.items.isEmpty)
+        #expect(mine.supportsRouting)
+        let viewCounts = try #require(mine.viewCounts)
+        #expect(Set(viewCounts.keys).isSuperset(of: AttentionView.allCases))
+        #expect(mine.deskBadgeCount >= 0)
+        #expect(Set(mine.items.map(\.cardType)).isSuperset(of: [.confirm, .answerQuestions, .reviewItems, .suggestedTasks]))
+        #expect(mine.items.allSatisfy { !$0.id.isEmpty && !$0.source.id.isEmpty && !$0.title.isEmpty && $0.createdAt > Date(timeIntervalSince1970: 0) && $0.activityAt > Date(timeIntervalSince1970: 0) })
+        #expect(mine.items.contains { $0.task?.id != nil && $0.webPath != nil })
+        #expect(mine.items.filter { $0.cardType == .answerQuestions }.allSatisfy { $0.answer == .openInPaperclip })
+
+        let people = try await service.people(companyID: sandbox.companyID)
+        #expect(people.count >= 2)
+        #expect(people.contains { $0.name == "Sandbox Board" })
+        #expect(people.contains { $0.name == "Sandbox Reviewer" })
+    }
+
     @Test func rejectsUnknownBoardKey() async throws {
         await #expect {
             try await store.connect(url: sandbox.url, credential: "pcp_board_not_a_real_key")
