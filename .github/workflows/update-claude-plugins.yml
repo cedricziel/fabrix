@@ -14,6 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: cedricziel/claude-plugins/actions/update-plugin@1a48515e819772e33a4ac8caa1719ced66eb5b93 # main
+      - uses: cedricziel/claude-plugins/actions/update-plugin@bc53748a00f21f5aa3dd221e12c90ec69a7cce2c # main
         with:
           plugins: oss
